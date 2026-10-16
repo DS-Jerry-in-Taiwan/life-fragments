@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>人生片段交換所 — 前端說明</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #f6f1e7;
+        --surface: #fffdf6;
+        --surface-2: #efe7d6;
+        --ink: #221c14;
+        --ink-soft: #4d4636;
+        --ink-faint: #7a705c;
+        --line: #ddd0b8;
+        --line-strong: #b8a888;
+        --accent: #a63c22;
+        --accent-deep: #84301b;
+        --accent-soft: #f3ddd2;
+        --seal: #a63c22;
+        --ok: #3f6b4f;
+        --warn: #96660f;
+        --stop: #9c3324;
+        --shadow: 0 18px 40px rgba(58, 44, 20, 0.14);
+        --phone-shadow: 0 30px 60px rgba(58, 44, 20, 0.22);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #171310;
+          --surface: #211c16;
+          --surface-2: #2a241c;
+          --ink: #f0e7d6;
+          --ink-soft: #cfc2ab;
+          --ink-faint: #9a8c72;
+          --line: #3b332a;
+          --line-strong: #5d5142;
+          --accent: #e07c5a;
+          --accent-deep: #eda184;
+          --accent-soft: #3d2721;
+          --seal: #e07c5a;
+          --ok: #8fc7a5;
+          --warn: #ddb264;
+          --stop: #e08a7d;
+          --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+          --phone-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Noto Sans TC", system-ui, -apple-system, sans-serif;
+        font-size: 16px;
+        line-height: 1.75;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::selection { background: var(--accent); color: #fff8ee; }
+
+      .serif { font-family: "Noto Serif TC", serif; }
+      .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 22px; }
+
+      /* ---------- top bar ---------- */
+      .topbar {
+        position: sticky; top: 0; z-index: 50;
+        background: color-mix(in srgb, var(--paper) 88%, transparent);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar-in {
+        display: flex; align-items: center; gap: 18px;
+        min-height: 58px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px;
+      }
+      .brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; color: var(--ink); }
+      .brand .seal-dot {
+        width: 26px; height: 26px; border-radius: 5px; flex: none;
+        background: var(--seal); color: #fff6ea;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: "Noto Serif TC", serif; font-weight: 900; font-size: 14px;
+        transform: translateY(4px);
+      }
+      .brand b { font-family: "Noto Serif TC", serif; font-size: 17px; letter-spacing: 0.04em; }
+      .brand small { color: var(--ink-faint); font-size: 12px; }
+      .topnav { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+      .topnav a {
+        color: var(--ink-soft); text-decoration: none; font-size: 13.5px;
+        padding: 6px 10px; border-radius: 6px;
+      }
+      .topnav a:hover { background: var(--surface-2); color: var(--ink); }
+      .topnav a.repo {
+        border: 1px solid var(--line-strong); color: var(--ink);
+        font-family: ui-monospace, Menlo, monospace; font-size: 12.5px;
+      }
+
+      /* ---------- hero ---------- */
+      .hero { padding: 56px 0 30px; }
+      .stage-line {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        font-size: 13px; color: var(--ink-soft); margin-bottom: 26px;
+      }
+      .stage-line .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+      .stage-line .sep { color: var(--line-strong); }
+      .hero-grid { display: grid; grid-template-columns: 1.02fr 0.98fr; gap: 56px; align-items: start; }
+      h1 {
+        font-family: "Noto Serif TC", serif; font-weight: 900;
+        font-size: clamp(30px, 4.6vw, 46px); line-height: 1.35; letter-spacing: 0.02em;
+        margin: 0 0 20px;
+      }
+      h1 .hl { color: var(--accent); }
+      .lede { font-size: 17px; color: var(--ink-soft); margin: 0 0 28px; max-width: 34em; }
+      .lede b { color: var(--ink); }
+
+      .two-ends { display: grid; gap: 12px; margin-bottom: 30px; }
+      .end-card {
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: 10px; padding: 18px 20px;
+      }
+      .end-card .tag {
+        display: inline-block; font-size: 12px; letter-spacing: 0.14em;
+        color: var(--accent); font-weight: 700; margin-bottom: 6px;
+      }
+      .end-card p { margin: 0; font-family: "Noto Serif TC", serif; font-size: 17.5px; line-height: 1.6; }
+      .end-card p + p { font-family: "Noto Sans TC", sans-serif; font-size: 13.5px; color: var(--ink-faint); margin-top: 6px; }
+
+      .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+      .btn {
+        appearance: none; border: 1px solid var(--ink); cursor: pointer;
+        background: var(--ink); color: var(--paper);
+        font-family: inherit; font-size: 14.5px; font-weight: 700;
+        padding: 11px 22px; border-radius: 8px; text-decoration: none;
+        display: inline-flex; align-items: center; gap: 8px;
+      }
+      .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line-strong); }
+      .btn:hover { opacity: 0.88; }
+      .btn:active { transform: translateY(1px); }
+
+      /* ---------- phone prototype ---------- */
+      .proto-col { position: relative; }
+      .phone {
+        width: min(380px, 100%); margin: 0 auto;
+        background: var(--surface);
+        border: 1.5px solid var(--ink);
+        border-radius: 34px;
+        box-shadow: var(--phone-shadow);
+        padding: 14px 14px 18px;
+      }
+      .phone-notch {
+        width: 110px; height: 22px; margin: 0 auto 12px;
+        background: var(--ink); border-radius: 12px;
+      }
+      .phone-screen {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        padding: 20px 18px 18px;
+        min-height: 430px;
+        display: flex; flex-direction: column;
+        position: relative; overflow: hidden;
+      }
+      .screen-head {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 11.5px; color: var(--ink-faint); letter-spacing: 0.08em;
+        border-bottom: 1px dashed var(--line-strong); padding-bottom: 10px; margin-bottom: 14px;
+      }
+      .frag-theme {
+        display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.12em;
+        color: var(--accent); border: 1px solid var(--accent);
+        padding: 2px 10px; border-radius: 20px; margin-bottom: 12px;
+      }
+      .frag-year-before {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 13px; color: var(--ink-soft); margin-bottom: 10px;
+        display: none;
+      }
+      .frag-year-before.show { display: block; }
+      .frag-text {
+        font-family: "Noto Serif TC", serif;
+        font-size: 17px; line-height: 2.05; letter-spacing: 0.02em;
+        margin: 0; flex: 1;
+      }
+      .frag-source {
+        margin-top: 18px; font-size: 12px; color: var(--ink-faint);
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      }
+      .sample-chip {
+        font-size: 10.5px; letter-spacing: 0.1em; color: var(--ink-faint);
+        border: 1px solid var(--line-strong); border-radius: 4px; padding: 1px 6px;
+      }
+      .year-slot { margin-top: 16px; min-height: 46px; display: flex; align-items: center; }
+      .reveal-btn {
+        appearance: none; cursor: pointer; font-family: inherit;
+        background: transparent; border: 1.5px dashed var(--accent); color: var(--accent);
+        font-size: 13px; font-weight: 700; letter-spacing: 0.14em;
+        padding: 9px 16px; border-radius: 8px;
+      }
+      .reveal-btn:hover { background: var(--accent-soft); }
+      .year-stamp {
+        display: none; align-items: center; gap: 10px;
+        border: 2px solid var(--seal); color: var(--seal);
+        border-radius: 8px; padding: 6px 14px;
+        transform: rotate(-2.5deg);
+        font-family: ui-monospace, Menlo, monospace; font-weight: 700;
+      }
+      .year-stamp.show { display: inline-flex; animation: stamp-in 0.28s ease-out; }
+      .year-stamp .y { font-size: 22px; letter-spacing: 0.06em; }
+      .year-stamp .a { font-family: "Noto Sans TC", sans-serif; font-size: 12px; font-weight: 500; }
+      @keyframes stamp-in {
+        0% { transform: rotate(-2.5deg) scale(1.5); opacity: 0; }
+        60% { transform: rotate(-2.5deg) scale(0.94); opacity: 1; }
+        100% { transform: rotate(-2.5deg) scale(1); opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .year-stamp.show { animation: none; }
+        html { scroll-behavior: auto; }
+      }
+      .frag-actions { display: flex; gap: 10px; margin-top: 14px; }
+      .frag-actions button {
+        appearance: none; cursor: pointer; font-family: inherit; font-size: 13.5px;
+        border-radius: 8px; padding: 10px 14px; font-weight: 700;
+      }
+      .btn-next { background: var(--accent); border: 1px solid var(--accent); color: #fff8ee; flex: 1; }
+      .btn-next:hover { background: var(--accent-deep); }
+      .btn-reso { background: transparent; border: 1px solid var(--line-strong); color: var(--ink-soft); }
+      .btn-reso.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+      .proto-controls {
+        width: min(380px, 100%); margin: 18px auto 0;
+        background: var(--surface); border: 1px solid var(--line);
+        border-radius: 12px; padding: 16px 18px;
+      }
+      .proto-controls h3 { margin: 0 0 4px; font-size: 13px; letter-spacing: 0.12em; color: var(--ink-faint); font-weight: 700; }
+      .ctl-label { font-size: 12.5px; color: var(--ink-faint); margin: 14px 0 7px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+      .chip {
+        appearance: none; cursor: pointer; font-family: inherit;
+        font-size: 13px; padding: 6px 13px; border-radius: 20px;
+        border: 1px solid var(--line-strong); background: transparent; color: var(--ink-soft);
+      }
+      .chip:hover { border-color: var(--ink); color: var(--ink); }
+      .chip.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+      .seg { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+      .seg button {
+        appearance: none; cursor: pointer; font-family: inherit; flex: 1;
+        font-size: 13px; padding: 8px 4px; background: transparent; color: var(--ink-soft);
+        border: none; border-right: 1px solid var(--line);
+      }
+      .seg button:last-child { border-right: none; }
+      .seg button.on { background: var(--accent); color: #fff8ee; font-weight: 700; }
+
+      .metrics {
+        width: min(380px, 100%); margin: 14px auto 0;
+        border: 1px dashed var(--line-strong); border-radius: 12px; padding: 14px 18px;
+      }
+      .metrics h3 { margin: 0 0 10px; font-size: 13px; letter-spacing: 0.12em; color: var(--ink-faint); font-weight: 700; }
+      .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 13px; }
+      .metric-grid .k { color: var(--ink-faint); }
+      .metric-grid .v { font-family: ui-monospace, Menlo, monospace; font-weight: 700; text-align: right; }
+      .metrics p { font-size: 12.5px; color: var(--ink-faint); margin: 12px 0 0; line-height: 1.7; }
+
+      /* ---------- sections ---------- */
+      section.block { padding: 64px 0 8px; }
+      .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
+      .sec-no {
+        font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+        color: var(--accent); font-weight: 700;
+      }
+      h2 {
+        font-family: "Noto Serif TC", serif; font-weight: 900;
+        font-size: clamp(23px, 3.4vw, 30px); margin: 0; letter-spacing: 0.02em;
+      }
+      .sec-rule { border: none; border-top: 1.5px solid var(--ink); margin: 14px 0 26px; }
+      .sec-intro { color: var(--ink-soft); max-width: 46em; margin: 0 0 30px; }
+      .sec-intro b { color: var(--ink); }
+
+      /* flows */
+      .flows { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+      .flow {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+        padding: 24px 24px 10px;
+      }
+      .flow h3 { font-family: "Noto Serif TC", serif; font-size: 18px; margin: 0 0 4px; }
+      .flow .sub { font-size: 13px; color: var(--ink-faint); margin: 0 0 18px; }
+      .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+      .steps li {
+        position: relative; padding: 0 0 20px 44px; font-size: 14.5px; color: var(--ink-soft);
+      }
+      .steps li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: 1px;
+        width: 26px; height: 26px; border-radius: 50%;
+        border: 1.5px solid var(--accent); color: var(--accent);
+        font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--surface);
+      }
+      .steps li::after {
+        content: ""; position: absolute; left: 13px; top: 32px; bottom: 2px;
+        border-left: 1px dashed var(--line-strong);
+      }
+      .steps li:last-child::after { display: none; }
+      .steps li b { color: var(--ink); display: block; font-size: 15px; margin-bottom: 2px; }
+
+      /* A/B */
+      .ab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+      .ab-card {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 22px;
+      }
+      .ab-card .ab-tag {
+        font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 700;
+        letter-spacing: 0.1em; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;
+      }
+      .ab-card .ab-tag .var { color: var(--accent); }
+      .mini-frag {
+        background: var(--paper); border: 1px solid var(--line); border-radius: 10px;
+        padding: 16px 18px; min-height: 168px; display: flex; flex-direction: column;
+      }
+      .mini-frag .t { font-family: "Noto Serif TC", serif; font-size: 14.5px; line-height: 1.95; margin: 0; flex: 1; }
+      .mini-hidden {
+        margin-top: 12px; font-size: 12px; color: var(--ink-faint);
+        border: 1.5px dashed var(--line-strong); border-radius: 8px; padding: 6px 12px;
+        display: inline-block; letter-spacing: 0.2em;
+      }
+      .mini-stamp {
+        margin-top: 12px; display: inline-flex; align-items: center; gap: 8px;
+        border: 2px solid var(--seal); color: var(--seal); border-radius: 8px;
+        padding: 4px 12px; transform: rotate(-2.5deg); align-self: flex-start;
+        font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: 17px;
+      }
+      .ab-note { font-size: 13.5px; color: var(--ink-faint); margin: 14px 0 0; }
+      .ab-note b { color: var(--ink-soft); }
+
+      /* mechanisms */
+      .mech { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+      .mech-row {
+        display: grid; grid-template-columns: 130px 1fr 1fr 118px; gap: 18px;
+        padding: 18px 22px; border-bottom: 1px solid var(--line); align-items: start;
+      }
+      .mech-row:last-child { border-bottom: none; }
+      .mech-row.head {
+        background: var(--surface-2); font-size: 12px; letter-spacing: 0.12em;
+        color: var(--ink-faint); font-weight: 700; padding: 10px 22px;
+      }
+      .mech-name { font-family: "Noto Serif TC", serif; font-weight: 700; font-size: 16.5px; }
+      .mech-cell { font-size: 13.5px; color: var(--ink-soft); line-height: 1.7; }
+      .mech-cell.warn { color: var(--ink-soft); }
+      .status {
+        font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em;
+        border-radius: 20px; padding: 3px 10px; text-align: center; white-space: nowrap;
+        border: 1px solid var(--line-strong); color: var(--ink-soft);
+      }
+      .status.core { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+      .status.later { border-style: dashed; }
+
+      /* validation */
+      .val-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 22px; align-items: start; }
+      .panel {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px;
+      }
+      .panel h3 { font-family: "Noto Serif TC", serif; font-size: 17px; margin: 0 0 6px; }
+      .panel .sub { font-size: 13px; color: var(--ink-faint); margin: 0 0 16px; }
+      .thresholds { display: grid; gap: 10px; }
+      .th {
+        display: grid; grid-template-columns: 92px 1fr; gap: 14px; align-items: start;
+        border: 1px solid var(--line); border-radius: 10px; padding: 13px 16px;
+        font-size: 14px; color: var(--ink-soft);
+      }
+      .th .n { font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: 19px; }
+      .th b { display: block; font-size: 14.5px; margin-bottom: 2px; }
+      .th.go { border-left: 5px solid var(--ok); } .th.go .n, .th.go b { color: var(--ok); }
+      .th.shrink { border-left: 5px solid var(--warn); } .th.shrink .n, .th.shrink b { color: var(--warn); }
+      .th.stop { border-left: 5px solid var(--stop); } .th.stop .n, .th.stop b { color: var(--stop); }
+      .draft-note { font-size: 12.5px; color: var(--ink-faint); margin: 14px 0 0; }
+      .observe { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; font-size: 14px; color: var(--ink-soft); }
+      .observe li { padding-left: 20px; position: relative; }
+      .observe li::before {
+        content: ""; position: absolute; left: 0; top: 10px;
+        width: 8px; height: 8px; border: 1.5px solid var(--accent); border-radius: 2px;
+        transform: rotate(45deg);
+      }
+      .observe li b { color: var(--ink); }
+
+      /* principles */
+      .prin { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+      .prin-item {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px;
+        font-size: 13.5px; color: var(--ink-soft);
+      }
+      .prin-item b { display: block; color: var(--ink); font-size: 14.5px; margin-bottom: 5px; font-family: "Noto Serif TC", serif; }
+
+      /* open questions */
+      .oq { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 34px; counter-reset: oq; }
+      .oq div {
+        padding: 12px 0 12px 40px; position: relative; font-size: 14.5px; color: var(--ink-soft);
+        border-bottom: 1px dashed var(--line);
+      }
+      .oq div::before {
+        counter-increment: oq; content: "Q" counter(oq);
+        position: absolute; left: 0; top: 13px;
+        font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 700; color: var(--accent);
+      }
+
+      footer {
+        margin-top: 70px; border-top: 1.5px solid var(--ink);
+        padding: 26px 0 46px; font-size: 13px; color: var(--ink-faint);
+      }
+      .foot-in { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+      footer a { color: var(--ink-soft); font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+
+      @media (max-width: 900px) {
+        .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+        .flows, .ab-grid, .val-grid { grid-template-columns: 1fr; }
+        .prin { grid-template-columns: 1fr 1fr; }
+        .oq { grid-template-columns: 1fr; }
+        .mech-row { grid-template-columns: 1fr; gap: 6px; }
+        .mech-row.head { display: none; }
+        .mech-cell::before {
+          content: attr(data-k); display: block; font-size: 11px; letter-spacing: 0.12em;
+          color: var(--ink-faint); font-weight: 700; margin-bottom: 2px;
+        }
+        .status { justify-self: start; }
+      }
+      @media (max-width: 560px) {
+        .prin { grid-template-columns: 1fr; }
+        .hero { padding-top: 38px; }
+        .topnav a:not(.repo) { display: none; }
+        .th { grid-template-columns: 64px 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="wrap topbar-in">
+        <a class="brand" href="#top">
+          <span class="seal-dot">片</span>
+          <b>人生片段交換所</b>
+          <small>前端說明 · 定位候選名</small>
+        </a>
+        <nav class="topnav">
+          <a href="#proto">體驗原型</a>
+          <a href="#flows">兩端流程</a>
+          <a href="#ab">年份實驗</a>
+          <a href="#mech">機制取捨</a>
+          <a href="#validate">驗證計畫</a>
+          <a href="#principles">信任原則</a>
+          <a class="repo" href="https://github.com/DS-Jerry-in-Taiwan/cross-time-life-fragments" target="_blank" rel="noopener">GitHub repo ↗</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top">
+      <!-- ============ HERO + PROTOTYPE ============ -->
+      <div class="wrap hero" id="proto">
+        <div class="stage-line">
+          <span class="dot"></span>
+          <span>目前階段：概念驗證 · 人工 MVP 規劃中</span>
+          <span class="sep">／</span>
+          <span>尚未開發 App</span>
+          <span class="sep">／</span>
+          <span class="mono">2026-10-11</span>
+        </div>
+
+        <div class="hero-grid">
+          <div>
+            <h1>讓一個人留下真實活過的片段，<br />在另一個人的人生某一刻<span class="hl">被遇見</span>。</h1>
+            <p class="lede">
+              這不是日記工具，也不是社群。核心命題只有一句：<b>讀一段來自過去、真實陌生人的人生片段，重新理解自己的現在</b>。核心體驗做成了可操作的手機原型——先玩玩看，再往下讀設計理由。
+            </p>
+
+            <div class="two-ends">
+              <div class="end-card">
+                <span class="tag">閱讀端</span>
+                <p>「我想知道，曾經有人也走過我現在正在走的地方。」</p>
+                <p>不需要搜尋、不需要認識對方；遇見本身就是完整的體驗。</p>
+              </div>
+              <div class="end-card">
+                <span class="tag">貢獻端</span>
+                <p>「我走過的地方，也許有一天能對另一個人有意義。」</p>
+                <p>留下的是當時原文，不是為了誰而寫的勵志文。</p>
+              </div>
+            </div>
+
+            <div class="hero-actions">
+              <a class="btn" href="#validate">看驗證計畫</a>
+              <a class="btn ghost" href="#mech">機制與取捨</a>
+            </div>
+          </div>
+
+          <div class="proto-col">
+            <div class="phone" aria-label="核心體驗原型">
+              <div class="phone-notch"></div>
+              <div class="phone-screen">
+                <div class="screen-head">
+                  <span>給你一段別人的過去</span>
+                  <span class="mono" id="clock">--:--</span>
+                </div>
+                <div>
+                  <span class="frag-theme" id="fragTheme">主題 · 工作</span>
+                  <div class="frag-year-before mono" id="yearBefore">寫於 2019 年 · 當時 26 歲</div>
+                  <p class="frag-text" id="fragText"></p>
+                  <div class="year-slot">
+                    <button class="reveal-btn" id="revealBtn" type="button">揭曉年份</button>
+                    <span class="year-stamp" id="yearStamp">
+                      <span class="y" id="stampYear">2019</span>
+                      <span class="a" id="stampAge">當時 26 歲</span>
+                    </span>
+                  </div>
+                  <div class="frag-source">
+                    <span>真人原文 · 已去識別 · 逐篇授權</span>
+                    <span class="sample-chip">示範片段</span>
+                  </div>
+                </div>
+                <div class="frag-actions">
+                  <button class="btn-reso" id="resoBtn" type="button">有共鳴</button>
+                  <button class="btn-next" id="nextBtn" type="button">再給我一篇 →</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="proto-controls">
+              <h3>原型控制台</h3>
+              <p class="ctl-label">粗粒度主題（可控的偶然：先有基本關聯，再保留差異）</p>
+              <div class="chips" id="themeChips">
+                <button class="chip on" type="button" data-theme="全部">全部</button>
+                <button class="chip" type="button" data-theme="工作">工作</button>
+                <button class="chip" type="button" data-theme="家庭">家庭</button>
+                <button class="chip" type="button" data-theme="搬家">搬家</button>
+                <button class="chip" type="button" data-theme="喜歡一個人">喜歡一個人</button>
+                <button class="chip" type="button" data-theme="選擇">選擇</button>
+              </div>
+              <p class="ctl-label">年份揭露方式（實驗變數，切換後重新讀一篇比較感覺）</p>
+              <div class="seg" id="modeSeg">
+                <button type="button" data-mode="before">先揭露</button>
+                <button type="button" data-mode="after" class="on">後揭露</button>
+                <button type="button" data-mode="hidden">不揭露</button>
+              </div>
+            </div>
+
+            <div class="metrics" aria-label="行為記錄面板">
+              <h3>實驗行為記錄（即時）</h3>
+              <div class="metric-grid">
+                <span class="k">已閱讀</span><span class="v" id="mRead">0 篇</span>
+                <span class="k">主動索取下一篇</span><span class="v" id="mReq">0 次</span>
+                <span class="k">標記有共鳴</span><span class="v" id="mReso">0 篇</span>
+                <span class="k">年份揭露模式</span><span class="v" id="mMode">後揭露</span>
+              </div>
+              <p>真實驗只計行為，不採口頭評價：有沒有主動索取下一篇、會不會回來，比「你喜歡嗎」更能判斷需求是否存在。這個面板就是第一輪實驗要量的東西。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ FLOWS ============ -->
+      <section class="block" id="flows">
+        <div class="wrap">
+          <div class="sec-head"><span class="sec-no">01</span><h2>兩端流程</h2></div>
+          <hr class="sec-rule" />
+          <p class="sec-intro">閱讀端成立，不代表投稿端成立——兩條流程<b>分開驗證、分開計數</b>。第一輪先測左邊的閱讀價值與右邊的供給意願，不做 App、不用演算法配對，全部人工交付。</p>
+          <div class="flows">
+            <div class="flow">
+              <h3>閱讀端</h3>
+              <p class="sub">讀一段來自過去、真實陌生人的人生片段</p>
+              <ol class="steps">
+                <li><b>說出此刻的處境</b>簡短描述現在的狀態，或選一個粗粒度主題。</li>
+                <li><b>收到一段片段</b>已獲授權、已去識別的真人原文，人工交付。</li>
+                <li><b>閱讀與年份</b>讀內容與真實年代；揭露時機是實驗變數，可先可後。</li>
+                <li><b>留下反應</b>記錄哪一句有用、有沒有新視角、是否重新看待自己的問題。</li>
+                <li><b>決定是否繼續</b>提供索取下一篇的機會——主動索取才算數，這是核心行為指標。</li>
+              </ol>
+            </div>
+            <div class="flow">
+              <h3>貢獻端</h3>
+              <p class="sub">讓自己的過去，對後來者有意義</p>
+              <ol class="steps">
+                <li><b>選一段過去原文</b>當時寫下的文字優先；今日回憶必須明確標示，不混充。</li>
+                <li><b>記錄出處</b>來源、原始日期、日期可信度與授權範圍，逐篇登記。</li>
+                <li><b>去識別並確認</b>移除姓名、聯絡方式、精確地址；分享版本由貢獻者本人確認後才算完成。</li>
+                <li><b>完成一次貢獻</b>走到這一步才計入供給——口頭說願意不算。</li>
+                <li><b>觀察再次貢獻</b>分享後是否願意再給第二篇，以及卡住的環節與耗時。</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ A/B ============ -->
+      <section class="block" id="ab">
+        <div class="wrap">
+          <div class="sec-head"><span class="sec-no">02</span><h2>年份揭露：第一個要隔離的變數</h2></div>
+          <hr class="sec-rule" />
+          <p class="sec-intro">「跨時間」是這個產品最大的主張，也是最容易自我感動的部分。所以第一輪實驗要把<b>內容年代</b>和<b>年代資訊的呈現</b>分開測：同一篇片段，只改年份何時出現。若隱藏年份完全不影響體驗，年份就只是裝飾，設計要跟著改——而不是硬留。</p>
+          <div class="ab-grid">
+            <div class="ab-card">
+              <div class="ab-tag"><span>對照 A</span><span class="var">年份隱藏</span></div>
+              <div class="mini-frag">
+                <p class="t">媽打電話來，沒什麼事，就說想聽聽我的聲音。我一邊回訊息一邊嗯嗯啊啊，講不到三分鐘就說要忙了。掛掉之後突然覺得，那通電話可能比我今天做的所有事都重要。但我還是沒有打回去。</p>
+                <span class="mini-hidden">年份 · · · ·</span>
+              </div>
+              <p class="ab-note">讀的時候，你只知道這是一個真人寫的。<b>共鳴來自內容本身。</b></p>
+            </div>
+            <div class="ab-card">
+              <div class="ab-tag"><span>對照 B</span><span class="var">年份揭露</span></div>
+              <div class="mini-frag">
+                <p class="t">媽打電話來，沒什麼事，就說想聽聽我的聲音。我一邊回訊息一邊嗯嗯啊啊，講不到三分鐘就說要忙了。掛掉之後突然覺得，那通電話可能比我今天做的所有事都重要。但我還是沒有打回去。</p>
+                <span class="mini-stamp">2016 · 當時 22 歲</span>
+              </div>
+              <p class="ab-note">同一段文字。知道它寫於十年前、作者當時 22 歲，<b>是否多了一層「原來那個年紀的我也一樣」的重量？</b>這就是要量的差異。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ MECHANISMS ============ -->
+      <section class="block" id="mech">
+        <div class="wrap">
+          <div class="sec-head"><span class="sec-no">03</span><h2>機制與取捨</h2></div>
+          <hr class="sec-rule" />
+          <p class="sec-intro">每個機制都要能回答「它服務哪個需求、代價是什麼」。答不出來的，就不該因為符合理念而硬加。右欄是第一輪實驗的處置。</p>
+          <div class="mech">
+            <div class="mech-row head">
+              <span>機制</span><span>想服務的需求</span><span>需要警惕的代價</span><span>第一輪處置</span>
+            </div>
+            <div class="mech-row">
+              <span class="mech-name">跨時間</span>
+              <span class="mech-cell" data-k="想服務">超越當下的視角、真實的人生痕跡、重新理解現在</span>
+              <span class="mech-cell warn" data-k="要警惕">年份可能只是裝飾；絕不能為了效果製造假年代</span>
+              <span class="status core">核心待測</span>
+            </div>
+            <div class="mech-row">
+              <span class="mech-name">匿名</span>
+              <span class="mech-cell" data-k="想服務">降低評價壓力，讓人敢寫真話</span>
+              <span class="mech-cell warn" data-k="要警惕">去識別可能抽掉故事脈絡，也可能降低可信度</span>
+              <span class="status">採用</span>
+            </div>
+            <div class="mech-row">
+              <span class="mech-name">陌生人</span>
+              <span class="mech-cell" data-k="想服務">沒有現實關係包袱，遇見與自己不同的人生</span>
+              <span class="mech-cell warn" data-k="要警惕">真正重要的可能是「無社交關係」，未必需要完全陌生</span>
+              <span class="status">採用</span>
+            </div>
+            <div class="mech-row">
+              <span class="mech-name">可控的偶然</span>
+              <span class="mech-cell" data-k="想服務">發現自己不會主動搜尋的視角</span>
+              <span class="mech-cell warn" data-k="要警惕">完全隨機容易不相關；過度精準又會縮窄視角</span>
+              <span class="status">粗主題配對</span>
+            </div>
+            <div class="mech-row">
+              <span class="mech-name">延遲／等待</span>
+              <span class="mech-cell" data-k="想服務">期待感、注意力與儀式感</span>
+              <span class="mech-cell warn" data-k="要警惕">可能只是增加成本；不因「慢」符合理念就強制加入</span>
+              <span class="status later">不強制</span>
+            </div>
+            <div class="mech-row">
+              <span class="mech-name">有限回音</span>
+              <span class="mech-cell" data-k="想服務">讓經驗被看見，同時不產生回覆義務</span>
+              <span class="mech-cell warn" data-k="要警惕">仍可能製造等待與壓力；先觀察無回音的體驗是否已完整</span>
+              <span class="status later">第二階段再測</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ VALIDATION ============ -->
+      <section class="block" id="validate">
+        <div class="wrap">
+          <div class="sec-head"><span class="sec-no">04</span><h2>驗證計畫：供給先行，門檻先簽</h2></div>
+          <hr class="sec-rule" />
+          <p class="sec-intro">整條路最便宜、也最容易死亡的一步，是<b>從真人手裡拿到已授權的片段</b>。所以順序是：先測供給，過關才做閱讀實驗。續做／縮小／停止的門檻在實驗開始前寫死，事後不改、不挑好看的解讀。</p>
+          <div class="val-grid">
+            <div class="panel">
+              <h3>供給側測試（7 天 · 10 位朋友）</h3>
+              <p class="sub">每人交一段過去的原文，走完「選文 → 去識別確認 → 授權」全流程才算一篇。</p>
+              <div class="thresholds">
+                <div class="th go">
+                  <span class="n">≥ 5 篇</span>
+                  <span><b>進入閱讀實驗</b>供給成立，湊齊第一批內容池，往下測閱讀價值。</span>
+                </div>
+                <div class="th shrink">
+                  <span class="n">3–4 篇</span>
+                  <span><b>縮小範圍再測</b>先聚焦單一情境族群（如職業轉折），降低徵集難度後重跑。</span>
+                </div>
+                <div class="th stop">
+                  <span class="n">≤ 2 篇</span>
+                  <span><b>停止供給假設</b>熟人圈都推不動，交換模式止損；改評估策展式內容服務。</span>
+                </div>
+              </div>
+              <p class="draft-note">＊門檻為實驗前草案，需兩位共同開發者確認簽字後生效；中途不調整。</p>
+            </div>
+            <div class="panel">
+              <h3>閱讀側觀察（15–30 人 · 人工交付）</h3>
+              <p class="sub">規模適合找動機與摩擦，不宣稱統計顯著。只記行為，逐次記錄配對與呈現條件。</p>
+              <ul class="observe">
+                <li><b>主動索取下一篇</b>——體驗結束後，會不會自己再開口要。</li>
+                <li><b>下一輪返回</b>——隔幾天，還願不願意再讀一段。</li>
+                <li><b>讀完率</b>——50–300 字的片段，是否真的讀到底。</li>
+                <li><b>哪一句有用</b>——共鳴發生在哪一句、年份在當下加了什麼。</li>
+                <li><b>無後續關係的感受</b>——不能追蹤、不能聊天，是安心還是遺憾。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PRINCIPLES ============ -->
+      <section class="block" id="principles">
+        <div class="wrap">
+          <div class="sec-head"><span class="sec-no">05</span><h2>信任原則</h2></div>
+          <hr class="sec-rule" />
+          <p class="sec-intro">這個產品處理的是別人的真實人生，信任設計先於功能設計。以下原則從第一天人工實驗就適用，不是上線前再補的合規作業。</p>
+          <div class="prin">
+            <div class="prin-item"><b>真人原文優先</b>AI 可以協助整理與安全檢查，不能冒充真人過去；來源誠實比文筆重要。</div>
+            <div class="prin-item"><b>不虛構年份</b>區分「當時原文」與「今日回憶」，日期可信度逐篇登記，不確定就標明。</div>
+            <div class="prin-item"><b>逐篇同意</b>每一篇單獨授權、分享前預覽；撤回的界線（已被截圖者無法收回）事先說清。</div>
+            <div class="prin-item"><b>去識別</b>移除姓名、聯絡方式與精確地址；分享版本由貢獻者本人確認。</div>
+            <div class="prin-item"><b>無社交壓力設計</b>不做個人頁、追蹤、熱門榜、按讚與連續使用獎勵；第一期無私訊、無導流。</div>
+            <div class="prin-item"><b>危機內容獨立流程</b>涉及自傷或危險的片段不隨機推送，另有人工處理路徑。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ OPEN QUESTIONS ============ -->
+      <section class="block" id="open">
+        <div class="wrap">
+          <div class="sec-head"><span class="sec-no">06</span><h2>尚未定案</h2></div>
+          <hr class="sec-rule" />
+          <p class="sec-intro">這些問題不靠討論回答，靠上面的實驗逐個銷案。目前最先要定的是第一題——它決定供給測試要去敲誰的門。</p>
+          <div class="oq">
+            <div>第一批服務哪一群人、哪一種人生情境？（候選：職業轉折／獨居搬家／人生節點）</div>
+            <div>核心價值是年代、真人來源、內容相關性、偶然視角，還是它們的組合？</div>
+            <div>「相似人生」與「不同人生」，各自適合什麼情境？</div>
+            <div>貢獻者為什麼願意分享？如何讓選文與授權的成本低到可接受？</div>
+            <div>年份、作者當時年齡與背景，需要揭露到什麼程度？</div>
+            <div>若只證明閱讀有價值，是否接受走向策展服務，而非交換社群？</div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div class="wrap foot-in">
+          <span>跨時間人生片段 · 概念驗證階段 — 理念不是需求證據，下一步是 7 天供給側測試。</span>
+          <span>聯絡：<a href="mailto:ringletter@wetrytrysee.cc">ringletter@wetrytrysee.cc</a></span>
+          <a href="https://github.com/DS-Jerry-in-Taiwan/cross-time-life-fragments" target="_blank" rel="noopener">github.com/DS-Jerry-in-Taiwan/cross-time-life-fragments ↗</a>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      var FRAGMENTS = [
+        { theme: "工作", year: 2019, age: 26, text: "辭呈印好，放在辦公桌最下層的抽屜，已經兩個禮拜了。不是不想走，是還不知道要往哪裡走。主管今天問我連假後的計畫，我說「還在想」——其實我每天都在想，只是還想不出一個敢說出口的答案。" },
+        { theme: "工作", year: 2023, age: 31, text: "今天第一次帶新人去見客戶。回程路上他問我：「姐，你當年也是這樣什麼都不懂嗎？」我笑著說對啊，心裡想的是，原來我已經變成那個「看起來什麼都懂」的人了。什麼時候開始假裝的，我自己都沒發現。" },
+        { theme: "家庭", year: 2016, age: 22, text: "媽打電話來，沒什麼事，就說想聽聽我的聲音。我一邊回訊息一邊嗯嗯啊啊，講不到三分鐘就說要忙了。掛掉之後突然覺得，那通電話可能比我今天做的所有事都重要。但我還是沒有打回去。" },
+        { theme: "家庭", year: 2021, age: 34, text: "爸住院的第三天，我在醫院樓下買了兩杯咖啡，一杯給他，一杯給自己。他不能喝，我就放在床頭，說等你好了再喝。他笑說那會酸掉。我說，那就再買。那幾天我們聊的話，比過去十年加起來還多。" },
+        { theme: "搬家", year: 2018, age: 25, text: "紙箱堆到跟我一樣高。打包到半夜，翻到大學的筆記本，裡面夾著一張沒寄出的明信片。原來每個階段的我，都留了一點東西給下一個我。只是不知道下一個我，會不會像我現在一樣，坐在紙箱中間發呆。" },
+        { theme: "搬家", year: 2024, age: 29, text: "在新城市住滿一個月了。樓下的麵店老闆開始記得我不要香菜。就是這種小事，讓一個地方慢慢變成「住的地方」，而不是「暫時待著的地方」。我還是不太敢說自己屬於這裡，但至少，胃先投降了。" },
+        { theme: "喜歡一個人", year: 2015, age: 20, text: "他今天又坐在圖書館靠窗第三個位置。我的書一頁都沒有翻，一直在想要不要假裝經過他旁邊。後來他走了，我才發現我把他的水壺留在桌上的樣子記得一清二楚。喜歡一個人最累的地方，是腦子裡全是這種沒用的畫面。" },
+        { theme: "選擇", year: 2020, age: 28, text: "兩份錄取通知放在桌上，一份是大家都會說好的，一份是我會半夜偷偷想的。理性列了一整張優缺點表，最後圈起來的還是那句「比較想試試看」。原來做了這麼多分析，只是為了替心裡的答案找一個能說服自己的理由。" }
+      ];
+
+      var MODE_LABEL = { before: "先揭露", after: "後揭露", hidden: "不揭露" };
+      var state = {
+        theme: "全部",
+        mode: "after",
+        pool: [],
+        idx: -1,
+        read: 0,
+        req: 0,
+        reso: 0,
+        resoSet: {},
+        revealed: false
+      };
+
+      var els = {
+        theme: document.getElementById("fragTheme"),
+        text: document.getElementById("fragText"),
+        yearBefore: document.getElementById("yearBefore"),
+        revealBtn: document.getElementById("revealBtn"),
+        stamp: document.getElementById("yearStamp"),
+        stampYear: document.getElementById("stampYear"),
+        stampAge: document.getElementById("stampAge"),
+        resoBtn: document.getElementById("resoBtn"),
+        mRead: document.getElementById("mRead"),
+        mReq: document.getElementById("mReq"),
+        mReso: document.getElementById("mReso"),
+        mMode: document.getElementById("mMode")
+      };
+
+      function buildPool() {
+        var list = FRAGMENTS.filter(function (f) {
+          return state.theme === "全部" || f.theme === state.theme;
+        });
+        // light shuffle so "全部" feels serendipitous, order stable per session otherwise
+        state.pool = list.slice();
+        state.idx = -1;
+      }
+
+      function current() {
+        return state.pool[state.idx];
+      }
+
+      function render() {
+        var f = current();
+        if (!f) return;
+        els.theme.textContent = "主題 · " + f.theme;
+        els.text.textContent = f.text;
+        els.stampYear.textContent = f.year;
+        els.stampAge.textContent = "當時 " + f.age + " 歲";
+        els.yearBefore.textContent = "寫於 " + f.year + " 年 · 當時 " + f.age + " 歲";
+
+        // year presentation by mode
+        els.yearBefore.classList.toggle("show", state.mode === "before");
+        els.stamp.classList.toggle("show", state.mode === "before" || (state.mode === "after" && state.revealed));
+        els.revealBtn.style.display = state.mode === "after" && !state.revealed ? "" : "none";
+
+        var key = f.theme + "-" + f.year + "-" + f.age;
+        els.resoBtn.classList.toggle("on", !!state.resoSet[key]);
+        els.resoBtn.textContent = state.resoSet[key] ? "已標記共鳴" : "有共鳴";
+      }
+
+      function updateMetrics() {
+        els.mRead.textContent = state.read + " 篇";
+        els.mReq.textContent = state.req + " 次";
+        els.mReso.textContent = state.reso + " 篇";
+        els.mMode.textContent = MODE_LABEL[state.mode];
+      }
+
+      function next(countAsRequest) {
+        if (!state.pool.length) buildPool();
+        state.idx = (state.idx + 1) % state.pool.length;
+        state.revealed = false;
+        state.read += 1;
+        if (countAsRequest) state.req += 1;
+        render();
+        updateMetrics();
+      }
+
+      document.getElementById("nextBtn").addEventListener("click", function () {
+        next(true);
+      });
+
+      els.revealBtn.addEventListener("click", function () {
+        state.revealed = true;
+        render();
+      });
+
+      els.resoBtn.addEventListener("click", function () {
+        var f = current();
+        if (!f) return;
+        var key = f.theme + "-" + f.year + "-" + f.age;
+        if (state.resoSet[key]) {
+          delete state.resoSet[key];
+          state.reso -= 1;
+        } else {
+          state.resoSet[key] = true;
+          state.reso += 1;
+        }
+        render();
+        updateMetrics();
+      });
+
+      document.getElementById("themeChips").addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-theme]");
+        if (!btn) return;
+        var chips = this.querySelectorAll(".chip");
+        for (var i = 0; i < chips.length; i++) chips[i].classList.remove("on");
+        btn.classList.add("on");
+        state.theme = btn.getAttribute("data-theme");
+        buildPool();
+        state.idx = -1;
+        next(false);
+      });
+
+      document.getElementById("modeSeg").addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-mode]");
+        if (!btn) return;
+        var btns = this.querySelectorAll("button");
+        for (var i = 0; i < btns.length; i++) btns[i].classList.remove("on");
+        btn.classList.add("on");
+        state.mode = btn.getAttribute("data-mode");
+        state.revealed = false;
+        render();
+        updateMetrics();
+      });
+
+      function tickClock() {
+        var d = new Date();
+        var hh = String(d.getHours()).padStart(2, "0");
+        var mm = String(d.getMinutes()).padStart(2, "0");
+        document.getElementById("clock").textContent = hh + ":" + mm;
+      }
+      tickClock();
+      setInterval(tickClock, 30000);
+
+      buildPool();
+      next(false);
+    </script>
+  </body>
+</html>
