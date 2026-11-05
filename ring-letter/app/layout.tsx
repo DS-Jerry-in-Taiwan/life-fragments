@@ -1,0 +1,4 @@
+import type { Metadata } from 'next';
+import './globals.css';
+export const metadata:Metadata={title:'Ring letter｜遇見另一段時光',description:'留下一段此刻，遇見某個人的從前。跨時間匿名故事的早期體驗。',robots:{index:false,follow:false},icons:{icon:'/favicon.svg'}};
+export default function Layout({children}:{children:React.ReactNode}){return <html lang="zh-Hant"><body>{children}</body></html>}
