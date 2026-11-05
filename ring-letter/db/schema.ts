@@ -1,0 +1,6 @@
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+export const sessions = sqliteTable('sessions', { hash:text('hash').primaryKey(), created:integer('created').notNull() });
+export const stories = sqliteTable('stories', {id:text('id').primaryKey(), owner:text('owner').notNull(), title:text('title').notNull(), body:text('body').notNull(), era:text('era').notNull(), source:text('source').notNull(), status:text('status').notNull(), consent:text('consent').notNull(), letterType:text('letter_type').notNull().default('legacy'), mood:text('mood').notNull().default(''), reflection:text('reflection').notNull().default(''), attempt:text('attempt').unique(), created:integer('created').notNull()});
+export const feedback = sqliteTable('feedback',{id:text('id').primaryKey(), owner:text('owner').notNull(), story:text('story').notNull(), kind:text('kind').notNull(), note:text('note').notNull(), created:integer('created').notNull()});
+
+export const writingAttempts=sqliteTable('writing_attempts',{id:text('id').primaryKey(),owner:text('owner').notNull(),letterType:text('letter_type').notNull(),created:integer('created').notNull(),completed:integer('completed'),shared:integer('shared').notNull().default(0)});

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `stories_attempt_unique` ON `stories` (`attempt`);
