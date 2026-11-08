@@ -16,9 +16,15 @@ type Header = { alg?: string; kid?: string };
 type Claims = { aud?: string | string[]; iss?: string; exp?: number; nbf?: number; email?: string };
 
 const CACHE_MS = 60 * 60 * 1000;
-/** An unknown kid forces a refetch at most this often, so junk tokens can't hammer the certs endpoint. */
-const REFRESH_MIN_MS = 5 * 60 * 1000;
-const cache = new Map<string, { keys: Jwk[]; fetched: number }>();
+/** Unknown kids force a refetch at most this often, so junk tokens can't hammer the certs endpoint. */
+const FORCED_REFRESH_MIN_MS = 5 * 60 * 1000;
+
+type Entry = { keys: Promise<Jwk[]>; fetched: number };
+/** Per team domain. `keys` is the in-flight or settled fetch, so concurrent cold requests share one. */
+const cache = new Map<string, Entry>();
+const lastForcedRefresh = new Map<string, number>();
+/** Imported public keys, by `${teamDomain} ${kid}`. */
+const cryptoKeys = new Map<string, Promise<CryptoKey>>();
 
 export const fetchAccessKeys: KeyFetcher = async (teamDomain) => {
   const res = await fetch(`https://${teamDomain}/cdn-cgi/access/certs`);
@@ -27,12 +33,46 @@ export const fetchAccessKeys: KeyFetcher = async (teamDomain) => {
   return body.keys ?? [];
 };
 
-async function keysFor(teamDomain: string, fetcher: KeyFetcher, now: number, refresh: boolean) {
-  const hit = cache.get(teamDomain);
-  if (hit && now - hit.fetched < (refresh ? REFRESH_MIN_MS : CACHE_MS)) return hit.keys;
-  const keys = await fetcher(teamDomain);
-  cache.set(teamDomain, { keys, fetched: now });
+function fetchInto(teamDomain: string, fetcher: KeyFetcher, now: number): Promise<Jwk[]> {
+  const keys = fetcher(teamDomain);
+  const entry: Entry = { keys, fetched: now };
+  cache.set(teamDomain, entry);
+  // Don't cache failures: the next request retries.
+  keys.catch(() => {
+    if (cache.get(teamDomain) === entry) cache.delete(teamDomain);
+  });
   return keys;
+}
+
+function cachedKeys(teamDomain: string, fetcher: KeyFetcher, now: number): Promise<Jwk[]> {
+  const hit = cache.get(teamDomain);
+  if (hit && now - hit.fetched < CACHE_MS) return hit.keys;
+  return fetchInto(teamDomain, fetcher, now);
+}
+
+/** Refetch for an unknown kid, unless another unknown kid already forced one recently. */
+function forcedKeys(teamDomain: string, fetcher: KeyFetcher, now: number): Promise<Jwk[]> | null {
+  const last = lastForcedRefresh.get(teamDomain);
+  if (last !== undefined && now - last < FORCED_REFRESH_MIN_MS) return null;
+  lastForcedRefresh.set(teamDomain, now);
+  return fetchInto(teamDomain, fetcher, now);
+}
+
+function importKey(teamDomain: string, jwk: Jwk): Promise<CryptoKey> {
+  const id = `${teamDomain} ${jwk.kid}`;
+  let key = cryptoKeys.get(id);
+  if (!key) {
+    key = crypto.subtle.importKey(
+      "jwk",
+      { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["verify"],
+    );
+    cryptoKeys.set(id, key);
+    key.catch(() => cryptoKeys.delete(id));
+  }
+  return key;
 }
 
 function decodePart<T>(part: string): T {
@@ -49,7 +89,8 @@ function base64url(s: string): Uint8Array<ArrayBuffer> {
 
 /**
  * Returns the token's email when the token is a valid, unexpired RS256 Access
- * token for `config`; otherwise null. Never throws for a bad token.
+ * token for `config`; otherwise null. Never throws: a failed certs fetch is
+ * treated as "can't verify" (null), not as an error.
  */
 export async function verifyAccessJwt(
   token: string,
@@ -75,22 +116,18 @@ export async function verifyAccessJwt(
   if (typeof claims.nbf === "number" && claims.nbf > seconds + 60) return null;
   if (typeof claims.email !== "string" || !claims.email) return null;
 
-  // Unknown kid → refetch once (at most every REFRESH_MIN_MS), in case Access rotated its keys.
-  let jwk = (await keysFor(config.teamDomain, fetcher, now, false)).find((k) => k.kid === header.kid);
-  if (!jwk) jwk = (await keysFor(config.teamDomain, fetcher, now, true)).find((k) => k.kid === header.kid);
-  if (!jwk) return null;
-
   try {
-    const key = await crypto.subtle.importKey(
-      "jwk",
-      { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RS256", ext: true },
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      false,
-      ["verify"],
-    );
+    // Unknown kid → refetch (rate-limited), in case Access rotated its keys.
+    let jwk = (await cachedKeys(config.teamDomain, fetcher, now)).find((k) => k.kid === header.kid);
+    if (!jwk) {
+      const fresh = forcedKeys(config.teamDomain, fetcher, now);
+      if (fresh) jwk = (await fresh).find((k) => k.kid === header.kid);
+    }
+    if (!jwk) return null;
+
     const ok = await crypto.subtle.verify(
       "RSASSA-PKCS1-v1_5",
-      key,
+      await importKey(config.teamDomain, jwk),
       base64url(parts[2]),
       new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
     );
@@ -111,4 +148,6 @@ export function parseEmails(list: string | undefined): string[] {
 /** Test hook: forget cached keys. */
 export function clearAccessKeyCache() {
   cache.clear();
+  lastForcedRefresh.clear();
+  cryptoKeys.clear();
 }

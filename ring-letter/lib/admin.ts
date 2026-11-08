@@ -9,8 +9,8 @@ import { parseEmails, verifyAccessJwt } from "./access-jwt";
  *
  * Development (`import.meta.env.DEV`, compiled out of production builds):
  * there is no Access, so the identity is the `Cf-Access-Authenticated-User-Email`
- * header. vite.config.ts only lets it through from loopback, and injects
- * DEV_ADMIN_EMAIL (.env.local) for the browser.
+ * header. vite.config.ts drops any client-sent copy and only sets it for
+ * requests carrying the per-run dev admin secret (see devAdminIdentity()).
  */
 export async function verifyAdmin(req: Request, env: Cloudflare.Env): Promise<string | null> {
   if (import.meta.env.DEV) {

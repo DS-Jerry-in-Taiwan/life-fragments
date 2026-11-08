@@ -4,6 +4,7 @@ async function session(req:Request){const t=req.headers.get('cookie')?.match(/(?
 async function cleanup(){const cutoff=Date.now()-AGE;await db().batch(['stories','feedback','sessions','writing_attempts'].map(t=>db().prepare(`DELETE FROM ${t} WHERE created<?`).bind(cutoff)));}
 export async function GET(req:Request){try{
  const url=new URL(req.url);const a=url.searchParams.get('action');const who=await session(req);const cutoff=Date.now()-AGE;
+ if(a==='admin')return reply({error:'管理功能已移到 /admin。'},410);
  if(a==='mine'){if(!who)return reply({stories:[]});return reply({stories:(await db().prepare('SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE owner=? AND created>? ORDER BY created DESC').bind(who,cutoff).all()).results});}
  return reply({stories:(await db().prepare("SELECT id,title,body,era,source,created,letter_type AS letterType,mood,reflection FROM stories WHERE status='approved' AND created>? ORDER BY created DESC LIMIT 100").bind(cutoff).all()).results});
  }catch{return reply({error:'暫時無法讀取資料，請稍後再試。'},503);}}
@@ -14,6 +15,7 @@ export async function POST(req:Request){try{
  let b:any;try{b=JSON.parse(raw);}catch{return reply({error:'格式不正確'},400);}
  if(!b||typeof b!=='object')return reply({error:'格式不正確'},400);
  if(b.action==='session'){const old=await session(req);if(old)return reply({ok:true});await cleanup();const bytes=crypto.getRandomValues(new Uint8Array(32));const t=Array.from(bytes).map(x=>x.toString(16).padStart(2,'0')).join('');await db().prepare('INSERT INTO sessions(hash,created) VALUES(?,?)').bind(await hash(t),Date.now()).run();return reply({ok:true},200,{'Set-Cookie':`rl_session=${t}; HttpOnly; ${new URL(req.url).protocol==='https:'?'Secure; ':''}SameSite=Lax; Path=/; Max-Age=2592000`});}
+ if(b.action==='moderate')return reply({error:'管理功能已移到 /admin。'},410);
  const who=await session(req);if(!who)return reply({error:'體驗工作階段已過期，請重新整理頁面。'},401);
  if(b.action==='start'){
  if(!['past','present'].includes(b.letterType)||typeof b.id!=='string'||!/^[a-f0-9-]{36}$/.test(b.id))return reply({error:'無效的試寫選擇'},400);

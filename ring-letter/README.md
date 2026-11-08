@@ -44,7 +44,7 @@ npx wrangler secret put ACCESS_TEAM_DOMAIN   # 例如 myteam.cloudflareaccess.co
 npx wrangler secret put ACCESS_AUD           # Access 應用程式的 Audience (AUD) tag
 ```
 
-**開發環境**：沒有 Access，身分取自 `Cf-Access-Authenticated-User-Email` header（`tests/api.mjs` 用它扮演管理者），而且只接受來自本機 loopback 的請求。要在瀏覽器用 `/admin`，在 `.env.local` 設 `DEV_ADMIN_EMAIL=you@example.com`，然後重開 `npm run dev`。跑 `npm run test:api` 時不要設這個值。
+**開發環境**：沒有 Access。dev server 每次啟動會產生一個祕密（寫在 `.wrangler/dev-admin-token`），只有帶著它的請求才算管理者，所以就算透過 tunnel 或轉發把 dev server 開出去，別人也冒充不了。`tests/api.mjs` 會自動讀這個檔案。要在瀏覽器用 `/admin`：在 `.env.local` 設 `DEV_ADMIN_EMAIL=you@example.com`，重開 `npm run dev`，再打開終端機印出的「Dev admin sign-in」連結。
 
 ## 設定
 

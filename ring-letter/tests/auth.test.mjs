@@ -79,18 +79,15 @@ test('rejects a token without email', async () => {
   assert.equal(await verify(await sign(k1.privateKey, noEmail)), null);
 });
 
-test('refetches keys once for an unknown kid (rotation)', async () => {
+test('refetches keys for an unknown kid right after a cold fetch (rotation)', async () => {
   const k2 = await keyPair('k2');
   let calls = 0;
   const fetcher = async () => (++calls === 1 ? [k1.jwk] : [k1.jwk, k2.jwk]);
   clearAccessKeyCache();
-  // Keys were cached 10 minutes ago (still within the 1h TTL)...
-  const earlier = await sign(k1.privateKey, { ...good, nbf: sec - 3600 });
-  assert.equal(await verifyAccessJwt(earlier, { teamDomain, aud }, { now: now - 10 * 60 * 1000, fetcher }), 'admin@example.com');
-  assert.equal(calls, 1);
-  // ...then Access rotates to k2: the unknown kid triggers one refetch.
+  assert.equal(await verifyAccessJwt(await sign(k1.privateKey, good), { teamDomain, aud }, { now, fetcher }), 'admin@example.com');
+  // Access starts signing with k2 moments later: the unknown kid refetches at once.
   const token = await sign(k2.privateKey, good, { kid: 'k2' });
-  assert.equal(await verifyAccessJwt(token, { teamDomain, aud }, { now, fetcher }), 'admin@example.com');
+  assert.equal(await verifyAccessJwt(token, { teamDomain, aud }, { now: now + 1000, fetcher }), 'admin@example.com');
   assert.equal(calls, 2);
 });
 
@@ -99,9 +96,28 @@ test('unknown kids cannot force refetches more than every 5 minutes', async () =
   clearAccessKeyCache();
   const junk = await sign(k1.privateKey, good, { kid: 'nope' });
   for (let i = 0; i < 5; i++) assert.equal(await verifyAccessJwt(junk, { teamDomain, aud }, { now, fetcher }), null);
-  assert.equal(fetcher.calls, 1);
+  assert.equal(fetcher.calls, 2); // initial fill + one forced refresh
   await verifyAccessJwt(junk, { teamDomain, aud }, { now: now + 5 * 60 * 1000, fetcher });
-  assert.equal(fetcher.calls, 2);
+  assert.equal(fetcher.calls, 3);
+});
+
+test('a failing certs fetch returns null (never throws) and is retried next time', async () => {
+  let calls = 0;
+  const fetcher = async () => { if (++calls === 1) throw new Error('network down'); return [k1.jwk]; };
+  clearAccessKeyCache();
+  const token = await sign(k1.privateKey, good);
+  assert.equal(await verifyAccessJwt(token, { teamDomain, aud }, { now, fetcher }), null);
+  assert.equal(await verifyAccessJwt(token, { teamDomain, aud }, { now, fetcher }), 'admin@example.com');
+  assert.equal(calls, 2);
+});
+
+test('concurrent cold requests share one certs fetch', async () => {
+  const fetcher = fetcherFor([k1.jwk]);
+  clearAccessKeyCache();
+  const token = await sign(k1.privateKey, good);
+  const results = await Promise.all(Array.from({ length: 5 }, () => verifyAccessJwt(token, { teamDomain, aud }, { now, fetcher })));
+  assert.deepEqual(results, Array(5).fill('admin@example.com'));
+  assert.equal(fetcher.calls, 1);
 });
 
 test('caches keys between calls', async () => {

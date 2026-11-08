@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-// Runs against `npm run dev`: admin identity there comes from the dev-only
-// Cf-Access-Authenticated-User-Email header (see lib/admin.ts).
+import { readFileSync } from 'node:fs';
+// Runs against `npm run dev`. The dev server only grants an admin identity to
+// requests carrying its per-run secret (vite.config.ts devAdminIdentity()).
+const token=process.env.DEV_ADMIN_TOKEN||readFileSync(new URL('../.wrangler/dev-admin-token',import.meta.url),'utf8').trim();
 const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:5173';
 const url=origin+'/api/letter';const adminUrl=origin+'/api/admin';
-const ADMIN={'cf-access-authenticated-user-email':'dev-admin@localhost'};
+const ADMIN={'x-dev-admin-token':token,'x-dev-admin-email':'dev-admin@localhost'};
 async function body(r){const t=await r.text();try{return JSON.parse(t);}catch{return {raw:t};}}
 async function req(action,data={},cookie='',admin=false,source=origin){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Origin:source,...(cookie?{Cookie:cookie}:{}),...(admin?ADMIN:{})},body:JSON.stringify({action,...data})});return {status:r.status,data:await body(r),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
 async function get(action='',cookie='',admin=false){const r=await fetch(url+'?action='+action,{headers:{...(cookie?{Cookie:cookie}:{}),...(admin?ADMIN:{})}});return {status:r.status,data:await body(r)};}
@@ -13,6 +15,9 @@ assert.equal((await req('session',{},'',false,'https://attacker.example')).statu
 assert.equal((await req('submit')).status,401);
 assert.equal((await adminGet(false)).status,403);
 assert.equal((await adminGet(false,{'oai-authenticated-user-email':'tom82523@gmail.com'})).status,403);
+assert.equal((await adminGet(false,{'cf-access-authenticated-user-email':'dev-admin@localhost'})).status,403);
+assert.equal((await adminGet(false,{'x-dev-admin-token':'0'.repeat(64),'x-dev-admin-email':'dev-admin@localhost'})).status,403);
+assert.equal((await get('admin')).status,410);
 const a=await req('session'), b=await req('session');assert.equal(a.status,200);assert.ok(a.cookie);assert.ok(b.cookie);
 const story={title:'自動測試文章，結束即刪除',body:'這是一篇測試資料，用來驗證投稿與權限流程。這段內容不是真實使用者的經歷，測試完成後將刪除。',era:'測試日期',source:'recollection',adult:true,privacy:true,share:true};
 assert.equal((await req('submit',{...story,body:'太短'},a.cookie)).status,400);
@@ -23,7 +28,7 @@ assert.ok((await get('mine',a.cookie)).data.stories.some(x=>x.id===id));
 assert.ok(!(await get('mine',b.cookie)).data.stories.some(x=>x.id===id));
 assert.equal((await req('withdraw',{id},b.cookie)).status,404);
 assert.equal((await moderate({id,status:'approved'},a.cookie)).status,403);
-assert.equal((await req('moderate',{id,status:'approved'},'',true)).status,401);
+assert.equal((await req('moderate',{id,status:'approved'},'',true)).status,410);
 assert.equal((await moderate({id,status:'approved'},'',true,'https://attacker.example')).status,403);
 assert.equal((await moderate({id,status:'approved'},'',true)).status,200);
 assert.ok((await get()).data.stories.some(x=>x.id===id));
