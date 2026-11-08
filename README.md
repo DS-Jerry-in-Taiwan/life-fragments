@@ -17,7 +17,7 @@ npm run dev
 
 正式檢查：`npm run typecheck` 與 `npm run build`。完整指令見 `ring-letter/README.md`。
 
-這是 Vinext / Cloudflare Workers 應用，既有投稿使用 D1。GitHub Pages 只能提供靜態內容，因此合併本 PR 不會自動更新 Ring letter 的伺服器功能或替換根目錄首頁。
+這是 Vinext / Cloudflare Workers 應用，投稿使用 D1。GitHub Pages 只提供根目錄的靜態概念頁；`ring-letter/` 的變更不會因為合併到 `main` 就上線，要另外部署到 Cloudflare。
 
 ## 修改內容的位置
 

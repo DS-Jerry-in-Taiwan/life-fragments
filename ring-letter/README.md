@@ -29,6 +29,10 @@ npm run dev                # http://127.0.0.1:5173
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state` 裡的本機 D1。這個目錄可以直接刪掉重建，刪掉後再跑一次 `npm run db:migrate:local` 即可。
 
+如果你的本機 D1 是 M1 之前用 `wrangler d1 execute --file` 建的，裡面沒有 `d1_migrations` 紀錄，`db:migrate:local` 會因為資料表已存在而失敗。這時刪掉 `.wrangler/state` 重建即可。
+
+開發伺服器會刪掉客戶端送來的 `oai-authenticated-user-*` header，所以在 dev 裡無法當管理者；API 測試要對 `npm start` 跑。
+
 ## 設定
 
 `wrangler.jsonc` 定義 Worker 名稱與 D1 綁定 `DB`。`database_id` 目前是本機用的佔位值，部署前要換成 `wrangler d1 create ring-letter-db` 產生的真實 ID。
