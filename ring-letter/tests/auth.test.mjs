@@ -84,9 +84,24 @@ test('refetches keys once for an unknown kid (rotation)', async () => {
   let calls = 0;
   const fetcher = async () => (++calls === 1 ? [k1.jwk] : [k1.jwk, k2.jwk]);
   clearAccessKeyCache();
+  // Keys were cached 10 minutes ago (still within the 1h TTL)...
+  const earlier = await sign(k1.privateKey, { ...good, nbf: sec - 3600 });
+  assert.equal(await verifyAccessJwt(earlier, { teamDomain, aud }, { now: now - 10 * 60 * 1000, fetcher }), 'admin@example.com');
+  assert.equal(calls, 1);
+  // ...then Access rotates to k2: the unknown kid triggers one refetch.
   const token = await sign(k2.privateKey, good, { kid: 'k2' });
   assert.equal(await verifyAccessJwt(token, { teamDomain, aud }, { now, fetcher }), 'admin@example.com');
   assert.equal(calls, 2);
+});
+
+test('unknown kids cannot force refetches more than every 5 minutes', async () => {
+  const fetcher = fetcherFor([k1.jwk]);
+  clearAccessKeyCache();
+  const junk = await sign(k1.privateKey, good, { kid: 'nope' });
+  for (let i = 0; i < 5; i++) assert.equal(await verifyAccessJwt(junk, { teamDomain, aud }, { now, fetcher }), null);
+  assert.equal(fetcher.calls, 1);
+  await verifyAccessJwt(junk, { teamDomain, aud }, { now: now + 5 * 60 * 1000, fetcher });
+  assert.equal(fetcher.calls, 2);
 });
 
 test('caches keys between calls', async () => {

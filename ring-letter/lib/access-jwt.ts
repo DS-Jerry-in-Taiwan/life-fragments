@@ -16,6 +16,8 @@ type Header = { alg?: string; kid?: string };
 type Claims = { aud?: string | string[]; iss?: string; exp?: number; nbf?: number; email?: string };
 
 const CACHE_MS = 60 * 60 * 1000;
+/** An unknown kid forces a refetch at most this often, so junk tokens can't hammer the certs endpoint. */
+const REFRESH_MIN_MS = 5 * 60 * 1000;
 const cache = new Map<string, { keys: Jwk[]; fetched: number }>();
 
 export const fetchAccessKeys: KeyFetcher = async (teamDomain) => {
@@ -27,7 +29,7 @@ export const fetchAccessKeys: KeyFetcher = async (teamDomain) => {
 
 async function keysFor(teamDomain: string, fetcher: KeyFetcher, now: number, refresh: boolean) {
   const hit = cache.get(teamDomain);
-  if (hit && !refresh && now - hit.fetched < CACHE_MS) return hit.keys;
+  if (hit && now - hit.fetched < (refresh ? REFRESH_MIN_MS : CACHE_MS)) return hit.keys;
   const keys = await fetcher(teamDomain);
   cache.set(teamDomain, { keys, fetched: now });
   return keys;
@@ -73,7 +75,7 @@ export async function verifyAccessJwt(
   if (typeof claims.nbf === "number" && claims.nbf > seconds + 60) return null;
   if (typeof claims.email !== "string" || !claims.email) return null;
 
-  // Unknown kid → refetch once, in case Access rotated its keys.
+  // Unknown kid → refetch once (at most every REFRESH_MIN_MS), in case Access rotated its keys.
   let jwk = (await keysFor(config.teamDomain, fetcher, now, false)).find((k) => k.kid === header.kid);
   if (!jwk) jwk = (await keysFor(config.teamDomain, fetcher, now, true)).find((k) => k.kid === header.kid);
   if (!jwk) return null;
