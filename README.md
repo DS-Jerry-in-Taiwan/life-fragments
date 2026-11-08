@@ -31,7 +31,7 @@ npm run dev
 
 ## 部署與資料庫
 
-Sites 專用的腳手架已移除，改用 `ring-letter/wrangler.jsonc` 設定 Worker 與 D1 綁定 `DB`，準備部署到我們自己的 Cloudflare 帳號（規劃見 `docs/ARCHITECTURE-MVP.md` 與 issue #2）。目前線上站仍是 tom82523 在 Sites 上的舊版本。
+Sites 專用的腳手架已移除，改用 `ring-letter/wrangler.jsonc` 設定 Worker 與 D1 綁定 `DB`，準備部署到我們自己的 Cloudflare 帳號（規劃見 issue #2；第二版見 issue #4）。目前線上站仍是 tom82523 在 Sites 上的舊版本。
 
 **管理者驗證尚未替換**：API 仍然只比對 `oai-authenticated-user-email` header，這個 header 在 Sites 之外可以被偽造。換成 Cloudflare Access 之前（M2），不可部署到正式環境。
 
