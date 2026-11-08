@@ -6,7 +6,7 @@
 
 ## 開發
 
-需要 Node.js 22.13 以上。
+需要 Node.js 22.18 以上。
 
 ```sh
 npm ci
@@ -25,13 +25,26 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run lint` | ESLint |
 | `npm run db:generate` | 修改 `db/schema.ts` 後產生新的 `drizzle/` 遷移 |
 | `npm run db:migrate:local` | 把 `drizzle/` 的遷移套用到本機 D1 |
-| `npm run test:api` | API 整合測試（需先 `npm run build && npm start`） |
+| `npm run test:api` | API 整合測試（需先另開 `npm run dev`） |
+| `npm run test:auth` | Access JWT 驗證的單元測試 |
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state` 裡的本機 D1。這個目錄可以直接刪掉重建，刪掉後再跑一次 `npm run db:migrate:local` 即可。
 
 如果你的本機 D1 是 M1 之前用 `wrangler d1 execute --file` 建的，裡面沒有 `d1_migrations` 紀錄，`db:migrate:local` 會因為資料表已存在而失敗。這時刪掉 `.wrangler/state` 重建即可。
 
-開發伺服器會刪掉客戶端送來的 `oai-authenticated-user-*` header，所以在 dev 裡無法當管理者；API 測試要對 `npm start` 跑。
+## 管理者
+
+管理介面在 `/admin`，API 在 `/api/admin`。
+
+**正式環境**：用 Cloudflare Access 建立一個 self-hosted 應用程式，涵蓋 `/admin*` 與 `/api/admin*`，只允許管理者的 email。Worker 會再驗證 Access 帶來的 `Cf-Access-Jwt-Assertion` JWT，需要這三個設定（任一缺少就拒絕所有管理請求）：
+
+```sh
+npx wrangler secret put ADMIN_EMAILS         # 逗號分隔，例如 me@example.com
+npx wrangler secret put ACCESS_TEAM_DOMAIN   # 例如 myteam.cloudflareaccess.com
+npx wrangler secret put ACCESS_AUD           # Access 應用程式的 Audience (AUD) tag
+```
+
+**開發環境**：沒有 Access，身分取自 `Cf-Access-Authenticated-User-Email` header（`tests/api.mjs` 用它扮演管理者），而且只接受來自本機 loopback 的請求。要在瀏覽器用 `/admin`，在 `.env.local` 設 `DEV_ADMIN_EMAIL=you@example.com`，然後重開 `npm run dev`。跑 `npm run test:api` 時不要設這個值。
 
 ## 設定
 

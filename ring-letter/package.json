@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "vinext dev --port 5173",
@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "test:api": "node tests/api.mjs"
+    "test:api": "node tests/api.mjs",
+    "test:auth": "node --test tests/auth.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
