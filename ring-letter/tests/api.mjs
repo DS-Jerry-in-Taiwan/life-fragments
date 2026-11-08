@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:4173';
+const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:8788';
 const url=origin+'/api/letter';
 async function req(action,data={},cookie='',admin=false,source=origin){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',Origin:source,...(cookie?{Cookie:cookie}:{}),...(admin?{'oai-authenticated-user-email':'tom82523@gmail.com'}:{})},body:JSON.stringify({action,...data})});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
 async function get(action='',cookie='',admin=false){const r=await fetch(url+'?action='+action,{headers:{...(cookie?{Cookie:cookie}:{}),...(admin?{'oai-authenticated-user-email':'tom82523@gmail.com'}:{})}});return {status:r.status,data:await r.json()};}
