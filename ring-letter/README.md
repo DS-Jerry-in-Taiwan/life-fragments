@@ -2,7 +2,7 @@
 
 匿名的跨時間故事閱讀與投稿網站。使用 [Vinext](https://github.com/cloudflare/vinext)（Vite 版 Next.js App Router，beta）+ React 19，部署在 Cloudflare Workers，資料庫為 Cloudflare D1 + Drizzle。
 
-產品決策、隱私與同意規則記錄在 `PROJECT_NOTES.md`；搬遷規劃見 `../docs/ARCHITECTURE-MVP.md`。
+產品決策、隱私與同意規則記錄在 `PROJECT_NOTES.md`；搬遷規劃見 GitHub issue #2，第二版規劃見 issue #4。
 
 ## 開發
 

@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **根目錄 `index.html` + `CNAME`**：GitHub Pages 靜態概念頁（`life.wetrytrysee.cc`），沒有建置流程，直接改 HTML。
 - **`ring-letter/`**：Ring letter 應用。Vinext（Vite 版 Next.js App Router，**beta**）+ React 19，跑在 Cloudflare Workers，資料庫是 D1（SQLite）+ Drizzle。原本是用 OpenAI ChatGPT Sites 做的，目前線上版仍在 tom82523 的 Sites 帳號；我們正把它搬到自己的 Cloudflare 帳號。
 
-搬遷規劃在 `docs/ARCHITECTURE-MVP.md`（M0–M5 里程碑），進度追蹤在 GitHub issue DS-Jerry-in-Taiwan/life-fragments#2（勾選清單）。已定案：用使用者自己的 Cloudflare 帳號、`wetrytrysee.cc` 已由 Cloudflare 管理、管理者只有使用者本人。M1 已移除所有 Sites 腳手架（`.openai/`、`scripts/`、connector、`chatgpt-auth`、sites vite plugin）。
+規劃文件一律記在 GitHub issue，不放進 repo：v1 搬遷規劃（M0–M5，已定版）在 DS-Jerry-in-Taiwan/life-fragments#2，v2 規劃（V1–V6：前端拆分、REST、保留政策、設計打磨）在 #4；兩者的 issue 內文即文件與勾選進度。已定案：用使用者自己的 Cloudflare 帳號、`wetrytrysee.cc` 已由 Cloudflare 管理、管理者只有使用者本人。M1 已移除所有 Sites 腳手架（`.openai/`、`scripts/`、connector、`chatgpt-auth`、sites vite plugin）。
 
 UI 文案與錯誤訊息都是繁體中文。
 
