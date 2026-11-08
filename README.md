@@ -11,12 +11,13 @@
 ```sh
 cd ring-letter
 npm ci
+npm run db:migrate:local
 npm run dev
 ```
 
-正式檢查：`npx tsc --noEmit` 與 `npm run build`。
+正式檢查：`npm run typecheck` 與 `npm run build`。完整指令見 `ring-letter/README.md`。
 
-這是 Vinext / Cloudflare Workers 應用，既有投稿使用 D1。GitHub Pages 只能提供靜態內容，因此合併本 PR 不會自動更新 Ring letter 的伺服器功能或替換根目錄首頁。
+這是 Vinext / Cloudflare Workers 應用，投稿使用 D1。GitHub Pages 只提供根目錄的靜態概念頁；`ring-letter/` 的變更不會因為合併到 `main` 就上線，要另外部署到 Cloudflare。
 
 ## 修改內容的位置
 
@@ -30,6 +31,8 @@ npm run dev
 
 ## 部署與資料庫
 
-`ring-letter/.openai/hosting.json` 指向既有 Sites 專案；部署需該專案編輯權限。移至其他平台時需自行配置 Workers / D1，執行 `drizzle/` 中遷移，並調整部署身分設定。不可把可偽造的客戶端 header 用作管理者驗證；現有驗證依賴 Sites 平台提供的已驗證身分。
+Sites 專用的腳手架已移除，改用 `ring-letter/wrangler.jsonc` 設定 Worker 與 D1 綁定 `DB`，準備部署到我們自己的 Cloudflare 帳號（規劃見 `docs/ARCHITECTURE-MVP.md` 與 issue #2）。目前線上站仍是 tom82523 在 Sites 上的舊版本。
+
+**管理者驗證尚未替換**：API 仍然只比對 `oai-authenticated-user-email` header，這個 header 在 Sites 之外可以被偽造。換成 Cloudflare Access 之前（M2），不可部署到正式環境。
 
 沒有包含 node_modules、建置結果、Cookie、資料庫內容或憑證。既有管理者設定在 API 中，接手前請檢查與調整。
