@@ -1,26 +1,21 @@
-import { env } from 'cloudflare:workers';
-const ADMIN='tom82523@gmail.com';
-const AGE=30*24*60*60*1000;
-function db(){if(!env.DB)throw new Error('儲存服務尚未就緒');return env.DB;}
-function reply(data:unknown,status=200,headers:Record<string,string>={}){return Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});}
+import { AGE, db, reply, sameOrigin } from '../../../lib/server';
 async function hash(s:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function session(req:Request){const t=req.headers.get('cookie')?.match(/(?:^|;\s*)rl_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!t)return null;const h=await hash(t);return await db().prepare('SELECT hash FROM sessions WHERE hash=? AND created>?').bind(h,Date.now()-AGE).first()?h:null;}
-function admin(req:Request){return req.headers.get('oai-authenticated-user-email')?.toLowerCase()===ADMIN;}
 async function cleanup(){const cutoff=Date.now()-AGE;await db().batch(['stories','feedback','sessions','writing_attempts'].map(t=>db().prepare(`DELETE FROM ${t} WHERE created<?`).bind(cutoff)));}
 export async function GET(req:Request){try{
- const url=new URL(req.url);const a=url.searchParams.get('action');const who=await session(req);const isAdmin=admin(req);const cutoff=Date.now()-AGE;
- if(a==='admin'){if(!isAdmin)return reply({error:'只有管理者可以查看。'},403);const s=await db().prepare('SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE created>? ORDER BY created DESC LIMIT 200').bind(cutoff).all();const f=await db().prepare('SELECT id,story,kind,note,created FROM feedback WHERE created>? ORDER BY created DESC LIMIT 300').bind(cutoff).all();const metrics=await db().prepare('SELECT letter_type AS letterType, COUNT(*) AS starts, SUM(CASE WHEN completed IS NOT NULL THEN 1 ELSE 0 END) AS completions, SUM(shared) AS shares FROM writing_attempts WHERE created>? GROUP BY letter_type').bind(cutoff).all();return reply({stories:s.results,feedback:f.results,metrics:metrics.results});}
+ const url=new URL(req.url);const a=url.searchParams.get('action');const who=await session(req);const cutoff=Date.now()-AGE;
+ if(a==='admin')return reply({error:'管理功能已移到 /admin。'},410);
  if(a==='mine'){if(!who)return reply({stories:[]});return reply({stories:(await db().prepare('SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE owner=? AND created>? ORDER BY created DESC').bind(who,cutoff).all()).results});}
- return reply({admin:isAdmin,stories:(await db().prepare("SELECT id,title,body,era,source,created,letter_type AS letterType,mood,reflection FROM stories WHERE status='approved' AND created>? ORDER BY created DESC LIMIT 100").bind(cutoff).all()).results});
+ return reply({stories:(await db().prepare("SELECT id,title,body,era,source,created,letter_type AS letterType,mood,reflection FROM stories WHERE status='approved' AND created>? ORDER BY created DESC LIMIT 100").bind(cutoff).all()).results});
  }catch{return reply({error:'暫時無法讀取資料，請稍後再試。'},503);}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)return reply({error:'來源驗證失敗'},403);
+ if(!sameOrigin(req))return reply({error:'來源驗證失敗'},403);
  if(!req.headers.get('content-type')?.includes('application/json'))return reply({error:'格式不支援'},415);
  const raw=await req.text();if(raw.length>12000)return reply({error:'內容太長'},413);
  let b:any;try{b=JSON.parse(raw);}catch{return reply({error:'格式不正確'},400);}
  if(!b||typeof b!=='object')return reply({error:'格式不正確'},400);
  if(b.action==='session'){const old=await session(req);if(old)return reply({ok:true});await cleanup();const bytes=crypto.getRandomValues(new Uint8Array(32));const t=Array.from(bytes).map(x=>x.toString(16).padStart(2,'0')).join('');await db().prepare('INSERT INTO sessions(hash,created) VALUES(?,?)').bind(await hash(t),Date.now()).run();return reply({ok:true},200,{'Set-Cookie':`rl_session=${t}; HttpOnly; ${new URL(req.url).protocol==='https:'?'Secure; ':''}SameSite=Lax; Path=/; Max-Age=2592000`});}
- if(b.action==='moderate'){if(!admin(req))return reply({error:'僅限管理者'},403);if(typeof b.id!=='string'||!['approved','rejected','delete'].includes(b.status))return reply({error:'無效操作'},400);if(b.status==='delete'){await db().batch([db().prepare('DELETE FROM stories WHERE id=?').bind(b.id),db().prepare('DELETE FROM feedback WHERE story=?').bind(b.id)]);}else{const r=await db().prepare("UPDATE stories SET status=? WHERE id=? AND status IN ('pending','approved','rejected')").bind(b.status,b.id).run();if(!r.meta.changes)return reply({error:'文章不存在，或作者未同意分享'},400);}return reply({ok:true});}
+ if(b.action==='moderate')return reply({error:'管理功能已移到 /admin。'},410);
  const who=await session(req);if(!who)return reply({error:'體驗工作階段已過期，請重新整理頁面。'},401);
  if(b.action==='start'){
  if(!['past','present'].includes(b.letterType)||typeof b.id!=='string'||!/^[a-f0-9-]{36}$/.test(b.id))return reply({error:'無效的試寫選擇'},400);
