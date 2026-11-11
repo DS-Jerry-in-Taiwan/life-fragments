@@ -48,4 +48,14 @@ npx wrangler secret put ACCESS_AUD           # Access 應用程式的 Audience (
 
 ## 設定
 
-`wrangler.jsonc` 定義 Worker 名稱與 D1 綁定 `DB`。`database_id` 目前是本機用的佔位值，部署前要換成 `wrangler d1 create ring-letter-db` 產生的真實 ID。
+`wrangler.jsonc` 定義 Worker 名稱、D1 綁定 `DB`（正式資料庫 `ring-letter-db`，APAC）與自訂網域 `ringletter.wetrytrysee.cc`。`workers_dev` 和 `preview_urls` 都關閉，因為 Access 只保護自訂網域，不能留其他入口。本機的 `--local` 一律使用 `.wrangler/state`，不會碰到正式資料庫。
+
+## 部署（手動）
+
+```sh
+npx wrangler d1 migrations apply ring-letter-db --remote   # drizzle/ 有新遷移時
+npm run build
+npx wrangler deploy --config dist/server/wrangler.json
+```
+
+第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆，政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。

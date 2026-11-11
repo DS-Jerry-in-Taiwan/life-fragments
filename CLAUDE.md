@@ -40,7 +40,7 @@ npm run test:api                # 預設 TEST_ORIGIN=http://127.0.0.1:5173
 
 ## 架構重點
 
-- **設定**：`wrangler.jsonc` 是 Worker 與 D1 綁定（`DB`、`migrations_dir: drizzle`）的唯一來源；`vite.config.ts` 是 `vinext()` + `@cloudflare/vite-plugin`，加上 dev 專用的管理者身分 middleware（`devAdminIdentity()`）。`database_id` 目前是佔位值，M3 部署前要換掉。`worker/index.ts` 只是把請求交給 `vinext/server/fetch-handler`。
+- **設定**：`wrangler.jsonc` 是 Worker 與 D1 綁定（`DB`、`migrations_dir: drizzle`）的唯一來源；`vite.config.ts` 是 `vinext()` + `@cloudflare/vite-plugin`，加上 dev 專用的管理者身分 middleware（`devAdminIdentity()`）。正式環境：D1 `ring-letter-db`、自訂網域 `ringletter.wetrytrysee.cc`、`workers_dev`／`preview_urls` 關閉（Access 只守自訂網域），部署步驟見 `ring-letter/README.md`。`worker/index.ts` 只是把請求交給 `vinext/server/fetch-handler`。
 - **前端是一個大型單頁**：`components/ring-letter-app.tsx`（首頁 / past・present 兩種投稿 / 我的片段 / 管理審閱，以 tab 切換）由 `app/page.tsx` 和 `app/admin/page.tsx`（`initialTab="admin"`）共用；`components/match-experience.tsx` 是隨機試讀、選填情境篩選、回音入口。程式碼高度壓縮在少數長行裡，編輯時用精確字串比對。
 - **試讀與媒合是純靜態**：`data/matching.ts` 的 `MATCH_LETTERS`（八封虛構範例，每個 `SCENARIOS` 類別兩封，下一封互動需要每類至少兩封）與 `FORM_URL_DISTRESS` / `FORM_URL_ECHO`（目前是 `'#'`，點擊會顯示「尚未開放」而非假送出）。這部分不打 API、不寫 DB、不設 cookie。內容會公開，不可放未去識別化的真實原稿。
 - **後端兩個端點**：`app/api/letter/route.ts`（公開＋匿名 session，以 `action` 分派；GET：無 action＝已核准故事、`mine`；POST：`session` / `start` / `submit` / `withdraw` / `erase` / `feedback`）與 `app/api/admin/route.ts`（GET 審閱清單＋回饋＋寫作指標；POST `{id,status}` 審核）。共用的 `db()` / `reply()` / `AGE` / `sameOrigin()` 在 `lib/server.ts`。透過 `cloudflare:workers` 的 `env.DB` 直接寫 SQL；`db/schema.ts` 只用於 drizzle-kit 產生遷移，程式沒有用 Drizzle 查詢。
