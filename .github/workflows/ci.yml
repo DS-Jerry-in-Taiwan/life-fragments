@@ -1,0 +1,52 @@
+# PR checks for ring-letter: typecheck, unit tests, build, and the API
+# integration test against `npm run dev` with a fresh local D1.
+# No Cloudflare credentials are used here.
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - "ring-letter/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: ring-letter
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ring-letter/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:auth
+      - run: npm run build
+
+      - name: API integration test
+        run: |
+          npm run db:migrate:local
+          npm run dev > dev.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:5173/ && break
+            sleep 2
+          done
+          npm run test:api || { echo "--- dev server log"; cat dev.log; exit 1; }
