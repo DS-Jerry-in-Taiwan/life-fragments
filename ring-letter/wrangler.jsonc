@@ -9,13 +9,15 @@
   // only entry point: no *.workers.dev URL and no per-version preview URLs.
   "workers_dev": false,
   "preview_urls": false,
+  // Custom domain: wrangler deploy creates the DNS record and certificate.
+  // A Cloudflare Access application covers /admin* and /api/admin* here.
+  "routes": [{ "pattern": "ringletter.wetrytrysee.cc", "custom_domain": true }],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "ring-letter-db",
-      // Placeholder for local development. Replace with the real ID from
-      // `wrangler d1 create ring-letter-db` before deploying (M3).
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      // Production database (APAC). Local dev (`--local`) uses .wrangler/state.
+      "database_id": "ca17f7d6-bd4e-41bd-86e9-6116edd1d8d1",
       "migrations_dir": "drizzle"
     }
   ]
