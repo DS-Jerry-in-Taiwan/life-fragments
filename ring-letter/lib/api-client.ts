@@ -54,6 +54,15 @@ function post<T = { ok: true }>(url: string, data?: object) {
   });
 }
 
+/**
+ * One URL path segment. fetch() collapses "." and ".." segments, so
+ * withdrawStory("..") would otherwise become DELETE /api/me.
+ */
+function segment(id: string) {
+  if (id === "" || id === "." || id === "..") throw new Error("無效代碼");
+  return encodeURIComponent(id);
+}
+
 function del<T = { ok: true }>(url: string) {
   return request<T>(url, { method: "DELETE" });
 }
@@ -91,7 +100,7 @@ export async function submitLetter(input: SubmitInput) {
 }
 
 export async function withdrawStory(id: string) {
-  await del(`/api/me/stories/${encodeURIComponent(id)}`);
+  await del(`/api/me/stories/${segment(id)}`);
 }
 
 export async function eraseMyData() {
@@ -110,5 +119,5 @@ export async function getAdminQueue() {
 }
 
 export async function moderateStory(id: string, status: ModerationAction) {
-  await post(`/api/admin/stories/${encodeURIComponent(id)}/moderation`, { status });
+  await post(`/api/admin/stories/${segment(id)}/moderation`, { status });
 }
