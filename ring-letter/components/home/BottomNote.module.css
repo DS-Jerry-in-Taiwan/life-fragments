@@ -32,7 +32,7 @@
 .badge span {
   margin: 0 var(--space-2);
 }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .bottomNote {
     flex-wrap: wrap;
   }

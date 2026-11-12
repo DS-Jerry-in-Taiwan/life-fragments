@@ -12,15 +12,10 @@
   text-align: left;
   border-bottom: 1px solid #536077;
 }
-@media (max-width: 600px) {
-  .metrics th,
-  .metrics td {
-    padding: 10px;
-  }
-}
 @media (max-width: 640px) {
   .metrics th,
   .metrics td {
+    padding: 10px;
     overflow-wrap: normal;
   }
 }

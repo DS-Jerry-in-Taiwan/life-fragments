@@ -4,14 +4,12 @@
  * rendering is unchanged. Values used once (or not repeated exactly) stay
  * literal in their module.
  *
- * Breakpoints — CSS variables can't be used in media queries, so they are
- * listed here. V1-e keeps them as they were; unifying them to 640px / 1000px
- * is a separate step (§4.6.4).
- *   min-width: 1200px   wide desktop (Hero)
- *   max-width: 1000px   tablet (Hero, HeroIllustration)
- *   max-width:  900px   small tablet (SiteHeader, SiteShell, Hero, HeroIllustration, BottomNote, HowItWorks)
- *   max-width:  640px   phone (most components)
- *   max-width:  600px   phone (ModeChooser, WritingMetrics)
+ * Breakpoints (#4 §4.6.4) — CSS variables can't be used in media queries,
+ * so every module writes them out. Use only these:
+ *   max-width:  640px   phone
+ *   max-width: 1000px   tablet (also applies on phones; put phone rules
+ *                       after it, in a later 640px block)
+ *   min-width: 1001px   desktop only (the complement of 1000px)
  */
 :root {
   --bg: #10232f;

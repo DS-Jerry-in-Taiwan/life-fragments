@@ -26,7 +26,7 @@
   padding: 0 var(--space-8);
   min-height: 70vh;
 }
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .main {
     padding: 0 var(--space-6);
   }

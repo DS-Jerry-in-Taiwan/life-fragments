@@ -28,15 +28,13 @@
 .options strong {
   color: #e1ca9d;
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .options {
     grid-template-columns: 1fr;
   }
   .options button {
     padding: var(--space-6);
   }
-}
-@media (max-width: 640px) {
   .options h2 {
     font-size: var(--heading-sm);
   }
