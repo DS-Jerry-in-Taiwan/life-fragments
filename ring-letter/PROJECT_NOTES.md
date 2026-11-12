@@ -12,7 +12,7 @@ Before wider release: add stronger abuse prevention, recoverable author identity
 
 ## Human cross-time matching pilot (2026-11-05)
 
-The home page and default reading experience use components/match-experience.tsx and data/matching.ts, with no API requests, cookies, database writes, matching algorithm, or third-party analytics. Existing legacy submissions/database are retained; footer links explicitly expose prior submissions/withdrawal and the prior public inbox. Never reuse old consent for the new manual matching process.
+The home page and default reading experience use components/reading/MatchExperience.tsx and data/matching.ts, with no API requests, cookies, database writes, matching algorithm, or third-party analytics. Existing legacy submissions/database are retained; footer links explicitly expose prior submissions/withdrawal and the prior public inbox. Never reuse old consent for the new manual matching process.
 
 Update FORM_URL_DISTRESS and FORM_URL_ECHO at the top of data/matching.ts to activate external forms. Both currently equal '#'; clicking them shows an unavailable message, not a fake submission. Forms should supply the contact/removal path mentioned in the UI, separately collect receiving-match consent and future de-identified reuse consent, and identify the letter being echoed. Echo does not automatically send to an author.
 

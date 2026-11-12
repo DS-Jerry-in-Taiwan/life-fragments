@@ -133,7 +133,7 @@ async function stableFonts(context: BrowserContext) {
 }
 
 export const test = base.extend<{ seededRandom: void }>({
-  // components/match-experience.tsx picks letters with Math.random(); make
+  // components/reading/MatchExperience.tsx picks letters with Math.random(); make
   // the sequence fixed (mulberry32, seed 1) so the same letter shows each run.
   seededRandom: [
     async ({ context }, use) => {

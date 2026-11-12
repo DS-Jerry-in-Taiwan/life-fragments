@@ -1,57 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import {
-  FORM_URL_DISTRESS,
-  FORM_URL_ECHO,
-  MATCH_LETTERS,
-  SCENARIOS,
-  type Scenario,
-} from "../data/matching";
+import { MATCH_LETTERS, SCENARIOS, type Scenario } from "../../data/matching";
+import FormLink from "./FormLink";
+import MatchingCare from "./MatchingCare";
 
-export function FormLink({
-  kind,
-  children,
-  className = "primary",
-}: {
-  kind: "distress" | "echo";
-  children: React.ReactNode;
-  className?: string;
-}) {
-  const [notice, setNotice] = useState(false);
-  const href = kind === "distress" ? FORM_URL_DISTRESS : FORM_URL_ECHO;
-  return (
-    <span className="form-link">
-      <a
-        className={className}
-        href={href}
-        data-event={kind === "echo" ? "echo_click" : "distress_click"}
-        onClick={(e) => {
-          if (href === "#") {
-            e.preventDefault();
-            setNotice(true);
-          }
-        }}
-      >
-        {children}
-      </a>
-      {notice && (
-        <span className="form-placeholder" role="status">
-          {kind === "echo" ? "回音" : "投稿"}表單尚未開放。你可以先讀信，這次沒有送出任何文字。
-        </span>
-      )}
-    </span>
-  );
-}
-export function MatchingCare() {
-  return (
-    <div className="matching-care">
-      <p>願意分享的文字，會先去除姓名、地名等可識別資訊，並經人工審閱。</p>
-      <p>站內投稿可在「我的片段」撤回；人工媒合內容則可透過媒合表單中的聯絡方式要求撤下。</p>
-      <p>回音會經審閱後處理，不承諾一定能送達原作者。</p>
-      <p>這裡不是諮商或緊急求助的地方。</p>
-    </div>
-  );
-}
 export default function MatchExperience({ onWrite }: { onWrite: () => void }) {
   const [scenario, setScenario] = useState<Scenario | null>(null),
     [index, setIndex] = useState(0),

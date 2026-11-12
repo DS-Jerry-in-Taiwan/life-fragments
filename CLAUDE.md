@@ -22,7 +22,7 @@ npm run dev                # vinext dev，port 5173（對外開放用 -- --hostn
 npm run build              # 產生 dist/，含 dist/server/wrangler.json
 npm start                  # 用 wrangler 在本機跑建置後的 Worker，port 8788
 npm run typecheck
-npm run lint               # main 上已有 17 個既存錯誤（ring-letter-app.tsx 的 any、match-experience 的 setState-in-effect）
+npm run lint               # 已知 2 個既存錯誤（app/api/letter 的 any、MatchExperience 的 setState-in-effect）
 npm run db:generate        # 改 db/schema.ts 後產生 drizzle/ 遷移
 npm run test:auth          # lib/access-jwt.ts 單元測試（node --test，Node 原生剝除 TS 型別）
 ```
@@ -41,7 +41,7 @@ npm run test:api                # 預設 TEST_ORIGIN=http://127.0.0.1:5173
 ## 架構重點
 
 - **設定**：`wrangler.jsonc` 是 Worker 與 D1 綁定（`DB`、`migrations_dir: drizzle`）的唯一來源；`vite.config.ts` 是 `vinext()` + `@cloudflare/vite-plugin`，加上 dev 專用的管理者身分 middleware（`devAdminIdentity()`）。正式環境：D1 `ring-letter-db`、自訂網域 `ringletter.wetrytrysee.cc`、`workers_dev`／`preview_urls` 關閉（Access 只守自訂網域），部署步驟見 `ring-letter/README.md`。`worker/index.ts` 只是把請求交給 `vinext/server/fetch-handler`。
-- **前端是一個大型單頁**：`components/ring-letter-app.tsx`（首頁 / past・present 兩種投稿 / 我的片段 / 管理審閱，以 tab 切換）由 `app/page.tsx` 和 `app/admin/page.tsx`（`initialTab="admin"`）共用；`components/match-experience.tsx` 是隨機試讀、選填情境篩選、回音入口。程式碼高度壓縮在少數長行裡，編輯時用精確字串比對。
+- **前端（v2 V1 拆分中，見 #4 第 4 節）**：`components/ring-letter-app.tsx` 仍以 tab 切換畫面（首頁、試讀、寫信、我的片段、公開信箱、管理），由 `app/page.tsx` 和 `app/admin/page.tsx`（`initialTab="admin"`）共用；各畫面元件依功能放在 `components/{shell,home,reading,archive,write,mine,admin,story,privacy,common}/`。前端只透過 `lib/api-client.ts` 呼叫 API；每個畫面用 `lib/use-action.ts` 管自己的 busy／error／notice。`components/reading/MatchExperience.tsx` 是隨機試讀、選填情境篩選、回音入口。
 - **試讀與媒合是純靜態**：`data/matching.ts` 的 `MATCH_LETTERS`（八封虛構範例，每個 `SCENARIOS` 類別兩封，下一封互動需要每類至少兩封）與 `FORM_URL_DISTRESS` / `FORM_URL_ECHO`（目前是 `'#'`，點擊會顯示「尚未開放」而非假送出）。這部分不打 API、不寫 DB、不設 cookie。內容會公開，不可放未去識別化的真實原稿。
 - **後端兩個端點**：`app/api/letter/route.ts`（公開＋匿名 session，以 `action` 分派；GET：無 action＝已核准故事、`mine`；POST：`session` / `start` / `submit` / `withdraw` / `erase` / `feedback`）與 `app/api/admin/route.ts`（GET 審閱清單＋回饋＋寫作指標；POST `{id,status}` 審核）。共用的 `db()` / `reply()` / `AGE` / `sameOrigin()` 在 `lib/server.ts`。透過 `cloudflare:workers` 的 `env.DB` 直接寫 SQL；`db/schema.ts` 只用於 drizzle-kit 產生遷移，程式沒有用 Drizzle 查詢。
 - **匿名身分**：`rl_session` HttpOnly cookie（30 天隨機 token），DB 只存 SHA-256。每 session 每日上限：投稿 5、回饋／開始試寫 30。POST 有同源檢查。
