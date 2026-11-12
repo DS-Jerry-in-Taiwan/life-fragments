@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "test:api": "node tests/api.mjs",
-    "test:auth": "node --test tests/auth.test.mjs"
+    "test:auth": "node --test tests/auth.test.mjs",
+    "test:e2e": "docker run --rm --network host --ipc host --user \"$(id -u):$(id -g)\" -e HOME=/tmp -e CI -e TEST_ORIGIN -e E2E_VISUAL=1 -v \"$(pwd)\":/work -w /work mcr.microsoft.com/playwright:v$(node -p \"require('@playwright/test/package.json').version\")-noble npx playwright test",
+    "test:e2e:update": "npm run test:e2e -- --update-snapshots=changed"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
+    "@playwright/test": "1.65.0",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",

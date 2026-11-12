@@ -1,5 +1,6 @@
-# PR checks for ring-letter: typecheck, unit tests, build, and the API
-# integration test against `npm run dev` with a fresh local D1.
+# PR checks for ring-letter: typecheck, unit tests, build, the API
+# integration test and the Playwright e2e run, each against `npm run dev`
+# with a fresh local D1.
 # No Cloudflare credentials are used here.
 name: CI
 
@@ -52,3 +53,44 @@ jobs:
             sleep 2
           done
           npm run test:api || { echo "--- dev server log"; cat dev.log; exit 1; }
+
+  # Browser smoke + screenshot comparison (issue #4, V1-a). Playwright runs in
+  # the official container so the pixels match the committed baselines,
+  # which are generated in the same image (`npm run test:e2e:update`).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ring-letter/package-lock.json
+
+      - run: npm ci
+
+      - name: Start dev server
+        run: |
+          npm run db:migrate:local
+          npm run dev -- --hostname 127.0.0.1 > dev.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:5173/ && break
+            sleep 2
+          done
+
+      - name: Playwright smoke + visual
+        run: npm run test:e2e || { echo "--- dev server log"; cat dev.log; exit 1; }
+
+      - name: Upload Playwright report and diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            ring-letter/playwright-report/
+            ring-letter/test-results/
+          retention-days: 14
