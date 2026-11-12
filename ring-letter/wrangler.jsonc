@@ -12,6 +12,8 @@
   // Custom domain: wrangler deploy creates the DNS record and certificate.
   // A Cloudflare Access application covers /admin* and /api/admin* here.
   "routes": [{ "pattern": "ringletter.wetrytrysee.cc", "custom_domain": true }],
+  // Daily data retention (lib/server/retention.ts), 19:17 UTC = 03:17 Asia/Taipei.
+  "triggers": { "crons": ["17 19 * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
