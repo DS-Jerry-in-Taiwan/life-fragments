@@ -34,7 +34,13 @@ export type AdminQueue = {
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
-  const d = (await r.json().catch(() => ({}))) as T & { error?: string };
+  let d: T & { error?: string };
+  try {
+    d = await r.json();
+  } catch {
+    // Not JSON (e.g. an edge error page): never hand undefined fields to the UI.
+    throw new Error(FALLBACK);
+  }
   if (!r.ok) throw new Error(d.error || FALLBACK);
   return d;
 }
