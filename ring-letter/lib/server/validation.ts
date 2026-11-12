@@ -19,12 +19,12 @@ const LETTER_TYPES = ["past", "present"] as const;
 const SOURCES = ["original", "recollection", "present"] as const;
 const FEEDBACK_KINDS = ["more", "resonate", "neutral", "report", "comment"] as const;
 
-/** Any JSON object (arrays included); the action is dispatched from it. */
+/** Any JSON object (arrays included), checked before the session is. */
 export const jsonObject = z.custom<Record<string, unknown>>(
   (v) => typeof v === "object" && v !== null,
 );
 
-// --- /api/letter -----------------------------------------------------------
+// --- public + session routes ------------------------------------------------
 
 const startSchema = z.object({
   letterType: z.enum(LETTER_TYPES),
@@ -33,9 +33,11 @@ const startSchema = z.object({
 
 export const parseStart = (b: unknown) => check(startSchema, b, "無效的試寫選擇");
 
-const idSchema = z.object({ id: z.string() });
+// Story ids now come from the URL path (always a string); the rule and the
+// message are the ones the v1 body field had.
+const storyIdSchema = z.string();
 
-export const parseWithdraw = (b: unknown) => check(idSchema, b, "無效代碼");
+export const parseStoryId = (id: unknown) => check(storyIdSchema, id, "無效代碼");
 
 const feedbackSchema = z.object({
   story: z.string(),
@@ -129,4 +131,9 @@ const moderationSchema = z.object({
   status: z.enum(["approved", "rejected", "delete"]),
 });
 
-export const parseModeration = (b: unknown) => check(moderationSchema, b, "無效操作");
+/** `id` from the URL path, `status` from the JSON body (any other body field is ignored). */
+export function parseModeration(id: unknown, b: unknown) {
+  const status =
+    typeof b === "object" && b !== null ? (b as Record<string, unknown>).status : undefined;
+  return check(moderationSchema, { id, status }, "無效操作");
+}
