@@ -1,77 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import MatchExperience from "./match-experience";
-type Story = {
-  id: string;
-  title: string;
-  body: string;
-  era: string;
-  source: string;
-  status?: string;
-  created?: number;
-  letterType?: string;
-  mood?: string;
-  reflection?: string;
-};
-const demos: Story[] = [
-  {
-    id: "demo-1",
-    title: "那天，我提早一站下車",
-    era: "示範場景：初到一座城市",
-    source: "demo",
-    body: "剛搬來的第一週，我總是把導航開著。從車站到住處只有七分鐘，我卻怕走錯任何一個轉角。\n\n那天下班，公車上的人很多。我提早一站下車，想讓自己喘口氣。街角有一家快打烊的麵店，老闆問我要不要加湯。我點頭，突然發現這是今天第一個不需要仔細斟酌的回答。\n\n回家的路上，我第一次沒有打開地圖。還是走錯了一條巷子，但那晚，我不太介意。",
-  },
-  {
-    id: "demo-2",
-    title: "一張沒有丟掉的車票",
-    era: "示範場景：離開熟悉的地方",
-    source: "demo",
-    body: "整理抽屜的時候，一張舊車票掉了出來。字已經很淡，日期卻還看得清楚。\n\n我記得那天帶了兩個太重的袋子，一直擔心車上沒有地方放。至於為什麼離開，當時以為自己想得很明白，現在反而說不完整。\n\n車票背面寫著一個電話號碼。我已經不記得那是誰了。最後，我把它放回抽屜，沒有拍照，也沒有查。某些事情，暫時留在那裡就好。",
-  },
-  {
-    id: "demo-3",
-    title: "窗邊的那把椅子",
-    era: "示範場景：慢慢適應新的日常",
-    source: "demo",
-    body: "新辦公室沒有固定座位。我每天都挑最靠近門口的位置，因為不知道午休時該和誰一起走。\n\n有一天，窗邊空著一把椅子。我坐下來，發現下午三點的陽光會剛好照到筆記本。有人經過，說那個位置冬天最好。\n\n我們沒有再聊什麼。第二天，我卻又坐了過去。生活好像沒有突然變好，只是多了一個我知道可以去哪裡的地方。",
-  },
-];
-const statusName: Record<string, string> = {
-  pending: "等待審閱",
-  approved: "已匿名分享",
-  private: "未公開保存",
-  rejected: "暫不分享",
-};
-async function api(action: string, data: object = {}) {
-  const r = await fetch("/api/letter", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...data }),
-  });
-  const d: any = await r.json();
-  if (!r.ok) throw new Error(d.error || "服務暫時無法使用");
-  return d;
-}
-async function adminApi(data: { id: string; status: string }) {
-  const r = await fetch("/api/admin", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  const d = (await r.json()) as { error?: string };
-  if (!r.ok) throw new Error(d.error || "服務暫時無法使用");
-  return d;
-}
-function metadata(s: Story) {
-  const date = s.created
-    ? new Date(s.created).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
-    : "";
-  return s.source === "demo"
-    ? s.era
-    : s.letterType === "present"
-      ? `當下信 · ${date} 記錄`
-      : `${s.letterType === "past" ? "回憶信" : "早期投稿"} · 事件：${s.era} · ${s.source === "original" ? "當時原文／" + date + " 收錄" : date + " 回憶書寫"}`;
-}
+import { DEMO_STORIES } from "../data/demo-stories";
+import * as api from "../lib/api-client";
+import {
+  STATUS_NAME,
+  formatStoryMeta,
+  type Feedback,
+  type FeedbackKind,
+  type LetterType,
+  type ModerationAction,
+  type Story,
+  type WritingMetric,
+} from "../lib/stories";
 function Extra({ story: s }: { story: Story }) {
   return (
     <>
@@ -91,11 +32,10 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
     [index, setIndex] = useState(0),
     [mine, setMine] = useState<Story[]>([]),
     [review, setReview] = useState<Story[]>([]),
-    [feedback, setFeedback] = useState<any[]>([]),
+    [feedback, setFeedback] = useState<Feedback[]>([]),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [error, setError] = useState(""),
-    [ready, setReady] = useState(false),
     [loading, setLoading] = useState(true),
     [feedbackConsent, setFeedbackConsent] = useState(false),
     [note, setNote] = useState(""),
@@ -106,7 +46,7 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
   const [mode, setMode] = useState(""),
     [attempt, setAttempt] = useState(""),
     [source, setSource] = useState("recollection"),
-    [metrics, setMetrics] = useState<any[]>([]);
+    [metrics, setMetrics] = useState<WritingMetric[]>([]);
   // Admin UI only appears once /api/admin confirms the viewer (Cloudflare Access + ADMIN_EMAILS).
   const [admin, setAdmin] = useState(false);
   // The /admin route is behind Cloudflare Access; load the review queue on arrival.
@@ -114,13 +54,10 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
   useEffect(() => {
     if (initialTab === "admin") loadAdmin();
   }, []);
-  const list = stories.length ? stories : demos;
+  const list = stories.length ? stories : DEMO_STORIES;
   const current = list[index % list.length];
   async function refresh() {
-    const r = await fetch("/api/letter");
-    const d: any = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    setStories(d.stories);
+    setStories(await api.listApprovedStories());
   }
   function go(t: string) {
     if (t === "write") {
@@ -143,19 +80,10 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
     }
     if (t === "admin") loadAdmin();
   }
-  async function session() {
-    if (!ready) {
-      await api("session");
-      setReady(true);
-    }
-  }
   async function loadMine() {
     setBusy(true);
     try {
-      const r = await fetch("/api/letter?action=mine");
-      const d: any = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      setMine(d.stories);
+      setMine(await api.listMyStories());
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -165,12 +93,10 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
   async function loadAdmin() {
     setBusy(true);
     try {
-      const r = await fetch("/api/admin");
-      const d: any = await r.json();
-      if (!r.ok) throw new Error(d.error);
+      const d = await api.getAdminQueue();
       setReview(d.stories);
       setFeedback(d.feedback);
-      setMetrics(d.metrics || []);
+      setMetrics(d.metrics);
       setAdmin(true);
     } catch (e: any) {
       setAdmin(false);
@@ -179,7 +105,7 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
       setBusy(false);
     }
   }
-  async function react(kind: string) {
+  async function react(kind: FeedbackKind) {
     if (!feedbackConsent) {
       setError("請先勾選同意保存本次體驗回饋。你也可以不留回饋，直接閱讀下一篇。");
       return;
@@ -187,8 +113,7 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
     setBusy(true);
     setError("");
     try {
-      await session();
-      await api("feedback", { story: current.id, kind, note });
+      await api.sendFeedback(current.id, kind, note);
       setNotice(kind === "report" ? "已收到問題回報，管理者會查看。" : "謝謝，你的回饋已保存。");
       setSent([...sent, current.id + kind]);
       setNote("");
@@ -202,14 +127,11 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
       setBusy(false);
     }
   }
-  async function chooseMode(next: string) {
+  async function chooseMode(next: LetterType) {
     setBusy(true);
     setError("");
     try {
-      await session();
-      const id = crypto.randomUUID();
-      await api("start", { id, letterType: next });
-      setAttempt(id);
+      setAttempt(await api.startWriting(next));
       setMode(next);
       setBody("");
       setSource("recollection");
@@ -246,13 +168,12 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
     setBusy(true);
     setError("");
     try {
-      await session();
-      await api("submit", {
+      await api.submitLetter({
         title: val("title"),
         body: text,
         era: mode === "present" ? "今天" : val("era"),
         source: mode === "present" ? "present" : source,
-        letterType: mode,
+        letterType: mode as LetterType,
         attempt,
         mood: val("mood"),
         reflection: val("reflection"),
@@ -274,7 +195,7 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
     setBusy(true);
     setError("");
     try {
-      await api("withdraw", { id });
+      await api.withdrawStory(id);
       await loadMine();
       await refresh();
       setNotice("已刪除這段文字。");
@@ -284,12 +205,12 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
       setBusy(false);
     }
   }
-  async function moderate(id: string, status: string) {
+  async function moderate(id: string, status: ModerationAction) {
     if (status === "delete" && !confirm("永久刪除這篇及其回饋？")) return;
     setBusy(true);
     setError("");
     try {
-      await adminApi({ id, status });
+      await api.moderateStory(id, status);
       await loadAdmin();
       await refresh();
       setNotice("已更新文章狀態。");
@@ -304,8 +225,7 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
     setBusy(true);
     setError("");
     try {
-      await api("erase");
-      setReady(false);
+      await api.eraseMyData();
       setMine([]);
       await refresh();
       setNotice("已刪除本瀏覽器對應的投稿與回饋。");
@@ -479,7 +399,7 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
                 </span>
                 <span>✦</span>
               </div>
-              <p className="era">{metadata(current)}</p>
+              <p className="era">{formatStoryMeta(current)}</p>
               <h2>{current.title}</h2>
               <div className="story-body">{current.body}</div>
               <Extra story={current} />
@@ -523,11 +443,13 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
                 天存取，過期不再顯示並於後續清理。可在「我的片段」刪除。
               </label>
               <div className="chips">
-                {[
-                  ["resonate", "有一點共鳴"],
-                  ["neutral", "沒有特別感覺"],
-                  ["more", "想繼續讀"],
-                ].map(([k, t]) => (
+                {(
+                  [
+                    ["resonate", "有一點共鳴"],
+                    ["neutral", "沒有特別感覺"],
+                    ["more", "想繼續讀"],
+                  ] as const
+                ).map(([k, t]) => (
                   <button
                     disabled={busy || sent.includes(current.id + k)}
                     key={k}
@@ -798,8 +720,8 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
             )}
             {mine.map((s) => (
               <article className="own-story" key={s.id}>
-                <span className="pill">{statusName[s.status || "pending"]}</span>
-                <p className="era">{metadata(s)}</p>
+                <span className="pill">{STATUS_NAME[s.status || "pending"]}</span>
+                <p className="era">{formatStoryMeta(s)}</p>
                 <h2>{s.title}</h2>
                 <p className="prewrap">{s.body}</p>
                 <Extra story={s} />
@@ -882,8 +804,8 @@ export default function RingLetterApp({ initialTab = "home" }: { initialTab?: st
             {review.length === 0 && <p className="empty-small">尚無投稿，收到後會出現在這裡。</p>}
             {review.map((s) => (
               <article className="own-story" key={s.id}>
-                <span className="pill">{statusName[s.status || "pending"]}</span>
-                <p className="era">{metadata(s)}</p>
+                <span className="pill">{STATUS_NAME[s.status || "pending"]}</span>
+                <p className="era">{formatStoryMeta(s)}</p>
                 <h3>{s.title}</h3>
                 <p className="prewrap">{s.body}</p>
                 <Extra story={s} />
