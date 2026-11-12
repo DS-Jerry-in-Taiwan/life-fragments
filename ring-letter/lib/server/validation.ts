@@ -124,7 +124,7 @@ export function parseSubmit(b: unknown, now: number): Validated<Submission> {
   return { ok: true, data: { ...content.data, attempt } };
 }
 
-// --- /api/admin ------------------------------------------------------------
+// --- /api/admin/stories/:id/moderation ------------------------------------
 
 const moderationSchema = z.object({
   id: z.string(),
