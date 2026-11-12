@@ -17,11 +17,17 @@ import { EXPIRED_STORY } from "./db/stories";
 //   only ever cover the last 30 days, so nothing visible is lost;
 // - sessions: 30 days after `created`, v1's rule, matching the 30-day cookie
 //   and currentSession(). TODO(V3-c, #4 §6.2): one year after last_seen.
+//
+// It also gives every remaining story without a 'submit' consent event one,
+// as the 0003 migration did for existing stories: during a deploy the
+// migration is applied before the new Worker is live, and the old Worker
+// inserts stories without events.
 
 export type RetentionResult = {
   stories: number;
   feedback: number;
   consentEvents: number;
+  backfilledEvents: number;
   writingAttempts: number;
   sessions: number;
 };
@@ -30,7 +36,7 @@ export type RetentionResult = {
 export async function runRetention(now: number): Promise<RetentionResult> {
   const cutoff = now - AGE;
   const d = db();
-  const [storyFeedback, stories, consentEvents, feedback, writingAttempts, sessions] =
+  const [storyFeedback, stories, consentEvents, backfilled, feedback, writingAttempts, sessions] =
     await d.batch([
       // Feedback first: the subquery needs the stories that are about to go.
       d
@@ -42,6 +48,16 @@ export async function runRetention(now: number): Promise<RetentionResult> {
       // Every event whose story is gone: this run's deletions plus anything
       // a past delete path missed.
       d.prepare("DELETE FROM consent_events WHERE story NOT IN (SELECT id FROM stories)"),
+      // Same version rule as the 0003 backfill.
+      d.prepare(
+        `INSERT INTO consent_events (story, action, consent_version, created)
+         SELECT id, 'submit',
+           CASE WHEN instr(consent, ':') > 0 THEN substr(consent, 1, instr(consent, ':') - 1) ELSE consent END,
+           created
+         FROM stories s
+         WHERE NOT EXISTS (SELECT 1 FROM consent_events e WHERE e.story = s.id AND e.action = 'submit')
+         ORDER BY created, id`,
+      ),
       d.prepare("DELETE FROM feedback WHERE created<?").bind(cutoff),
       d.prepare("DELETE FROM writing_attempts WHERE created<?").bind(cutoff),
       d.prepare("DELETE FROM sessions WHERE created<?").bind(cutoff),
@@ -50,6 +66,7 @@ export async function runRetention(now: number): Promise<RetentionResult> {
     stories: stories.meta.changes,
     feedback: storyFeedback.meta.changes + feedback.meta.changes,
     consentEvents: consentEvents.meta.changes,
+    backfilledEvents: backfilled.meta.changes,
     writingAttempts: writingAttempts.meta.changes,
     sessions: sessions.meta.changes,
   };

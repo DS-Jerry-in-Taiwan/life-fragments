@@ -217,6 +217,22 @@ assert.ok((await publicIds()).includes(OLD.permApproved),'permanent approved sto
 assert.equal(eventsFor([OLD.permApproved]).length,1);
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
 
+// --- A story inserted without a submit event (the old Worker during a deploy) gets one from the next cron.
+{
+  const g=await session();
+  const lost=await submit(g);
+  sql(`DELETE FROM consent_events WHERE story=${q(lost)}`);
+  assert.equal(eventsFor([lost]).length,0);
+  await cron(Date.now());
+  const ev=eventsFor([lost]);
+  assert.equal(ev.length,1,'cron backfills a missing submit event');
+  assert.equal(ev[0].action,'submit');
+  assert.equal(ev[0].version,'v2-2026-11-05');
+  await cron(Date.now());
+  assert.equal(eventsFor([lost]).length,1,'backfill is idempotent');
+  assert.equal((await call('DELETE','/api/me',{cookie:g})).status,200);
+}
+
 // --- Every other delete path removes consent events with the story.
 const c=await session();
 const w=await submit(c), e1=await submit(c,{share:false});
