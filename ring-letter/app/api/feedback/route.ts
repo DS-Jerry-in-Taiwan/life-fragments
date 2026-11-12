@@ -1,3 +1,4 @@
+import { AGE } from "../../../lib/server/db/index";
 import { insertFeedback } from "../../../lib/server/db/feedback";
 import { isApprovedStory } from "../../../lib/server/db/stories";
 import { guardWrite, withBodyAndSession } from "../../../lib/server/handler";
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
       const v = parseFeedback(b);
       if (!v.ok) return reply({ error: v.error }, 400);
       const { story, kind, note } = v.data;
-      if (!DEMO_STORIES.includes(story) && !(await isApprovedStory(story)))
+      if (!DEMO_STORIES.includes(story) && !(await isApprovedStory(story, Date.now() - AGE)))
         return reply({ error: "這篇故事已不再提供。" }, 404);
       if (await overDailyLimit("feedback", who))
         return reply({ error: "今日回饋已足夠，謝謝你。" }, 429);

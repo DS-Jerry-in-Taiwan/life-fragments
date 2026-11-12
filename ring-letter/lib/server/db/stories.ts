@@ -5,14 +5,37 @@ import { db } from "./index";
  * rows). Bump it whenever the consent text in components/write/ConsentFields.tsx
  * changes.
  */
-export const CONSENT_VERSION = "v3-2026-11-12";
+export const CONSENT_VERSION = "v2-2026-11-05";
 
 /**
- * Visibility rule shared by every story read (#4 §6): approved stories never
- * expire; any other status is shown for AGE after its last status change.
- * Takes one parameter, the cutoff (now - AGE).
+ * Consent versions whose wording allows keeping an approved story until it is
+ * withdrawn or deleted by an admin (#4 §6). Nothing produces one yet: V3-c
+ * switches CONSENT_VERSION to it together with the new consent and privacy
+ * wording, the contact address and sliding one-year sessions, so authors can
+ * actually withdraw. Stories under any other version (v2-2026-11-05, legacy or
+ * empty) keep the terms they were submitted under: 30 days from `created`,
+ * whatever their status.
  */
-const LIVE = "(status='approved' OR COALESCE(status_at,created)>?)";
+export const PERMANENT_CONSENT_VERSIONS = ["v3-2026-11-12"] as const;
+
+/** SQL: the story's consent version, the prefix of `consent` before ':' ('' without one). */
+const VERSION = "substr(consent,1,instr(consent,':')-1)";
+const PERMANENT = `${VERSION} IN (${PERMANENT_CONSENT_VERSIONS.map((v) => `'${v}'`).join(",")})`;
+
+/**
+ * SQL: when the story's retention window starts, or NULL if it never expires.
+ * - permanent consent version, approved: NULL (never expires);
+ * - permanent consent version, any other status: its last status change;
+ * - any other consent version, any status: `created` (a later status change
+ *   never extends it).
+ */
+const EXPIRES_FROM = `(CASE WHEN ${PERMANENT} THEN (CASE WHEN status='approved' THEN NULL ELSE COALESCE(status_at,created) END) ELSE created END)`;
+
+/** SQL condition for every story read; takes one parameter, the cutoff (now - AGE). */
+const LIVE = `COALESCE(${EXPIRES_FROM}>?,1)`;
+
+/** SQL condition for the retention job; takes one parameter, the cutoff (now - AGE). */
+export const EXPIRED_STORY = `${EXPIRES_FROM}<?`;
 
 export type StoryInsert = {
   id: string;
@@ -30,12 +53,13 @@ export type StoryInsert = {
   attempt: string | null;
 };
 
-/** Approved stories, any age. */
-export async function listApprovedStories() {
+/** Approved stories still visible under the LIVE rule (`cutoff` = now - AGE). */
+export async function listApprovedStories(cutoff: number) {
   const { results } = await db()
     .prepare(
-      "SELECT id,title,body,era,source,created,letter_type AS letterType,mood,reflection FROM stories WHERE status='approved' ORDER BY created DESC LIMIT 100",
+      `SELECT id,title,body,era,source,created,letter_type AS letterType,mood,reflection FROM stories WHERE status='approved' AND ${LIVE} ORDER BY created DESC LIMIT 100`,
     )
+    .bind(cutoff)
     .all();
   return results;
 }
@@ -76,11 +100,11 @@ export async function ownsStory(id: string, owner: string) {
   return Boolean(row);
 }
 
-/** Approved stories accept reader feedback, whatever their age. */
-export async function isApprovedStory(id: string) {
+/** Approved stories accept reader feedback while visible under the LIVE rule. */
+export async function isApprovedStory(id: string, cutoff: number) {
   const row = await db()
-    .prepare("SELECT id FROM stories WHERE id=? AND status='approved'")
-    .bind(id)
+    .prepare(`SELECT id FROM stories WHERE id=? AND status='approved' AND ${LIVE}`)
+    .bind(id, cutoff)
     .first();
   return Boolean(row);
 }

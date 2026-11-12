@@ -9,8 +9,8 @@ import { reply } from "../../../../lib/server/http";
 // production; withAdmin() re-checks the Access token and ADMIN_EMAILS.
 
 /**
- * Review queue: approved stories of any age, other stories within 30 days of
- * their last status change, and the last 30 days of feedback and writing
+ * Review queue: stories still visible under the retention rules
+ * (lib/server/db/stories.ts), and the last 30 days of feedback and writing
  * metrics (older feedback and attempts are deleted by the retention job).
  */
 export async function GET(req: Request) {

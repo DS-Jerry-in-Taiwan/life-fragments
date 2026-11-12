@@ -1,21 +1,22 @@
 import { AGE, db } from "./db/index";
+import { EXPIRED_STORY } from "./db/stories";
 
 // Data retention (#4 §6), run once a day by the Cron Trigger in
 // wrangler.jsonc (worker/index.ts `scheduled`). Nothing else deletes expired
 // rows: reads only hide them (lib/server/db/stories.ts LIVE).
 //
-// - stories that are not approved (private, pending, rejected, any other
-//   status): 30 days after their last status change (status_at), together
-//   with their feedback and consent_events;
-// - approved stories: never; only withdrawal, erase-all or admin delete
-//   remove them;
+// - stories, keyed on their consent version (lib/server/db/stories.ts
+//   EXPIRED_STORY, the same rule the reads use), together with their feedback
+//   and consent_events:
+//   - consent version in PERMANENT_CONSENT_VERSIONS (none yet; V3-c activates
+//     it): approved stories are never deleted automatically, any other status
+//     30 days after its last status change (status_at);
+//   - any other version (the old "30 days" terms): every status, approved
+//     included, 30 days after `created`;
 // - feedback, writing_attempts: 30 days after `created`. The admin metrics
 //   only ever cover the last 30 days, so nothing visible is lost;
 // - sessions: 30 days after `created`, v1's rule, matching the 30-day cookie
 //   and currentSession(). TODO(V3-c, #4 §6.2): one year after last_seen.
-
-/** Non-approved story past its 30-day window; takes the cutoff as its parameter. */
-const EXPIRED_STORY = "status<>'approved' AND COALESCE(status_at,created)<?";
 
 export type RetentionResult = {
   stories: number;
