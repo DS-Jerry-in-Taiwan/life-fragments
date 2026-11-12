@@ -32,28 +32,32 @@ API 整合測試（`tests/api.mjs`，單一腳本，沒有個別測試可選）�
 ```sh
 npm run dev                     # 另開一個終端機
 npm run test:api                # 預設 TEST_ORIGIN=http://127.0.0.1:5173
+npm run test:retention          # 保留政策（tests/retention.mjs），會清掉本機 D1 的非核准資料，放最後跑
 ```
 
 測試讀 `.wrangler/dev-admin-token`（dev server 每次啟動產生的祕密）來扮演管理者（見下方「管理者驗證」），所以要先啟動 dev server，也不能對 `npm start` 或正式環境跑：建置後的 Worker 沒有這條路，管理者測試會拿到 403。測試資料最後會自行刪除，但測試中途失敗時，資料會留在本機 D1，下次跑到最後一個檢查會失敗。這時刪掉 `.wrangler/state`，再跑一次 `npm run db:migrate:local`。
+
+`tests/retention.mjs` 用 Cloudflare Vite plugin 的 dev 專用 `/cdn-cgi/handler/scheduled?time=<ms>` 以未來時間觸發 Cron（「31 天後」），並用 `wrangler d1 execute --local` 檢查／插入少量回溯時間的資料。未來時間的 Cron 會刪掉本機 D1 裡**所有**非核准故事、回饋、試寫與 session（不只測試的），所以只對可丟棄的 `.wrangler/state` 跑。`npm start`（wrangler dev 跑建置後的 Worker）的 `/cdn-cgi/handler/scheduled` 在 wrangler 4.92 因 assets router 無法轉送 `ScheduledController` 而回 500，本機測 Cron 一律用 `npm run dev`。
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state`。`.wrangler/`、`.vinext/`、`dist/` 都是可丟棄的本機狀態。
 
 ## 架構重點
 
-- **設定**：`wrangler.jsonc` 是 Worker 與 D1 綁定（`DB`、`migrations_dir: drizzle`）的唯一來源；`vite.config.ts` 是 `vinext()` + `@cloudflare/vite-plugin`，加上 dev 專用的管理者身分 middleware（`devAdminIdentity()`）。正式環境：D1 `ring-letter-db`、自訂網域 `ringletter.wetrytrysee.cc`、`workers_dev`／`preview_urls` 關閉（Access 只守自訂網域），部署步驟見 `ring-letter/README.md`。`worker/index.ts` 只是把請求交給 `vinext/server/fetch-handler`。
+- **設定**：`wrangler.jsonc` 是 Worker 與 D1 綁定（`DB`、`migrations_dir: drizzle`）的唯一來源；`vite.config.ts` 是 `vinext()` + `@cloudflare/vite-plugin`，加上 dev 專用的管理者身分 middleware（`devAdminIdentity()`）。正式環境：D1 `ring-letter-db`、自訂網域 `ringletter.wetrytrysee.cc`、`workers_dev`／`preview_urls` 關閉（Access 只守自訂網域），部署步驟見 `ring-letter/README.md`。`worker/index.ts` 的 `fetch` 只是把請求交給 `vinext/server/fetch-handler`；`scheduled` 接 `wrangler.jsonc` 的 Cron Trigger（每日 19:17 UTC＝台北 03:17），執行 `lib/server/retention.ts` 的 `runRetention()`。
 - **前端（v2 V1 拆分中，見 #4 第 4 節）**：7 條路由 `/`、`/read`、`/write`（`?mode=past|present`）、`/mine`、`/archive`、`/admin`、`/privacy`，各在 `app/<路由>/page.tsx`。`app/layout.tsx` 用 `components/shell/SiteShell.tsx`（夜空、header、footer、隱私說明 dialog，並透過 `ShellContext` 提供 `openPrivacy`／`setAdmin`）包住每一頁；站內導覽用 `NavButton`（`router.push`，暫時保留 v1 的 `<button>` 外觀，V5 再改成連結）。各畫面元件依功能放在 `components/{shell,home,reading,archive,write,mine,admin,story,privacy,common}/`。前端只透過 `lib/api-client.ts` 呼叫 API；每個畫面用 `lib/use-action.ts` 管自己的 busy／error／notice。
 - **試讀與媒合是純靜態**：`data/matching.ts` 的 `MATCH_LETTERS`（八封虛構範例，每個 `SCENARIOS` 類別兩封，下一封互動需要每類至少兩封）與 `FORM_URL_DISTRESS` / `FORM_URL_ECHO`（目前是 `'#'`，點擊會顯示「尚未開放」而非假送出）。這部分不打 API、不寫 DB、不設 cookie。內容會公開，不可放未去識別化的真實原稿。
 - **後端 REST 路由**（v2 V2-b，見 #4 第 5 節；v1 的 `/api/letter` 與 `action` 分派已整個移除，沒有相容層）：每條路由一個 `app/api/<路徑>/route.ts`，動態段落用 `[id]`（`params` 是 Promise）。
   - 公開：`GET /api/stories`（已核准故事）、`POST /api/session`（建立／沿用匿名 session）。
   - 匿名 session：`POST /api/writing-attempts`（開始試寫，body `{id,letterType}`）、`POST /api/me/stories`（投稿）、`GET /api/me/stories`（自己的片段，沒有 session 時回空清單）、`DELETE /api/me/stories/:id`（撤回）、`DELETE /api/me`（清除全部資料並清掉 cookie）、`POST /api/feedback`。
   - 管理者（Access）：`GET /api/admin/queue`（審閱清單＋回饋＋寫作指標）、`POST /api/admin/stories/:id/moderation`（body `{status}`）。
-  - 路由只做組裝，檢查順序與錯誤訊息照 v1：`lib/server/handler.ts` 的 `guardRead()`／`guardWrite()`（POST／DELETE 同源檢查、例外轉 503）、`withBodyAndSession()`（先 JSON body 再 session）、`withSession()`、`withAdmin()`。路由沒有匯出的方法由框架回 405。其他共用模組在 `lib/server/`：`session.ts`（`rl_session` cookie、SHA-256）、`rate-limit.ts`（每日上限）、`same-origin.ts`、`http.ts`（`reply()`、JSON body 解析 415／413／400）、`validation.ts`（zod schema，錯誤訊息照舊）、`auth.ts`、`db/`（`index.ts` 的 `db()`／`AGE`／`purgeExpired()`，以及 `stories`／`feedback`／`sessions`／`attempts` 各一個檔，一個查詢一個函式）。透過 `cloudflare:workers` 的 `env.DB` 直接寫 SQL；`db/schema.ts` 只用於 drizzle-kit 產生遷移，程式沒有用 Drizzle 查詢。
+  - 路由只做組裝，檢查順序與錯誤訊息照 v1：`lib/server/handler.ts` 的 `guardRead()`／`guardWrite()`（POST／DELETE 同源檢查、例外轉 503）、`withBodyAndSession()`（先 JSON body 再 session）、`withSession()`、`withAdmin()`。路由沒有匯出的方法由框架回 405。其他共用模組在 `lib/server/`：`session.ts`（`rl_session` cookie、SHA-256）、`rate-limit.ts`（每日上限）、`same-origin.ts`、`http.ts`（`reply()`、JSON body 解析 415／413／400）、`validation.ts`（zod schema，錯誤訊息照舊）、`auth.ts`、`db/`（`index.ts` 的 `db()`／`AGE`，以及 `stories`／`feedback`／`sessions`／`attempts`／`consent-events` 各一個檔，一個查詢一個函式）、`retention.ts`（每日保留政策）。透過 `cloudflare:workers` 的 `env.DB` 直接寫 SQL；`db/schema.ts` 只用於 drizzle-kit 產生遷移，程式沒有用 Drizzle 查詢。
 - **匿名身分**：`rl_session` HttpOnly cookie（30 天隨機 token），DB 只存 SHA-256。每 session 每日上限：投稿 5、回饋／開始試寫 30。POST／DELETE 都有同源檢查。
 - **管理者驗證**（`lib/server/auth.ts` 的 `verifyAdmin()`）：
   - 正式環境：Cloudflare Access 保護 `/admin*` 與 `/api/admin*`（含 `/api/admin/queue`、`/api/admin/stories/:id/moderation` 等所有子路徑）。Worker 仍自己驗 `Cf-Access-Jwt-Assertion`（`lib/server/access-jwt.ts`：RS256、`aud`、`iss`、`exp`／`nbf`，從 `https://<team>/cdn-cgi/access/certs` 取公鑰並快取 1 小時，未知 `kid` 會重抓一次），再比對 `ADMIN_EMAILS` 白名單。設定值 `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`、`ADMIN_EMAILS`（secret，不進版控）任一缺少就一律拒絕。
   - 管理者必須用整頁導覽進 `/admin` 才會觸發 Access 登入；前端用 `fetch()` 打 `/api/admin/…` 時若未登入，Access 會回跨來源重新導向而失敗。所以頁尾「管理者登入」是連到 `/admin` 的一般連結。
   - 開發環境（`import.meta.env.DEV`，正式建置會整段移除）：身分直接取 `Cf-Access-Authenticated-User-Email` header。這個 header 由 `vite.config.ts` 的 `devAdminIdentity()` 設定：它先刪掉客戶端送來的所有 `cf-access-*`、`oai-authenticated-user-*` header，只有帶著本次啟動的祕密（寫在 `.wrangler/dev-admin-token`）的請求才會拿到身分——`x-dev-admin-token` + `x-dev-admin-email`（測試用），或透過終端機印出的 `/__dev-admin?token=…` 登入連結取得的 `rl_dev_admin` cookie（瀏覽器用，注入 `.env.local` 的 `DEV_ADMIN_EMAIL`）。**不要改成用來源 IP 判斷**：Cloudflare plugin 的 quick tunnel、ssh／Docker／WSL 轉發、反向代理進來的請求都會是 loopback。
-- **資料保留**：`purgeExpired()`（`lib/server/db/index.ts`） 在建立新 session 時刪除 30 天前的所有列，**包含已核准的公開故事**（已知問題，排在 v2）。
+- **資料保留**（#4 第 6 節，V3-a）：只由每日 Cron 的 `runRetention()`（`lib/server/retention.ts`）在一個 D1 batch 裡刪除；建立 session 不再清理。已核准故事**不自動刪除**（只有撤回、全部刪除、管理者刪除）；其他狀態的故事在 `status_at`（最後一次狀態變更）30 天後連同回饋與 `consent_events` 刪除；`feedback`、`writing_attempts` 從 `created` 起 30 天；`sessions` 暫時維持 v1 的建立後 30 天（V3-c 改成 `last_seen` 後 1 年）。讀取端同一規則（`lib/server/db/stories.ts` 的 `LIVE`）：已核准不看時間，其他的只顯示 `status_at` 30 天內的。審核改變狀態時更新 `status_at`；改成 approved 設 `approved_at`，離開 approved 清成 NULL；重複同一決定不動時間。
+- **授權歷史**：`consent_events`（append-only：`submit`／`share`／`unshare`＋`consent_version`），投稿時與故事同一個 batch 寫入 `submit`；任何刪除故事的路徑都在同一個 batch 刪掉它的事件。改了 `components/write/ConsentFields.tsx` 的同意文字就要更新 `CONSENT_VERSION`（`lib/server/db/stories.ts`）。
 - **同意規則**：私人（未同意分享）故事不能被核准；管理者不能修改投稿內文；舊投稿的同意不可沿用到新的人工媒合流程。
 
 `ring-letter/PROJECT_NOTES.md` 記錄了產品決策、隱私限制與歷次瀏覽器 QA 範圍，改動行為前可參考。

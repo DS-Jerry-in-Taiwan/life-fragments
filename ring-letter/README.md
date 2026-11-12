@@ -26,6 +26,7 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run db:generate` | 修改 `db/schema.ts` 後產生新的 `drizzle/` 遷移 |
 | `npm run db:migrate:local` | 把 `drizzle/` 的遷移套用到本機 D1 |
 | `npm run test:api` | API 整合測試（需先另開 `npm run dev`） |
+| `npm run test:retention` | 資料保留政策測試（需先另開 `npm run dev`；會清掉本機 D1 的非核准資料，放在 `test:api` 之後跑） |
 | `npm run test:auth` | Access JWT 驗證的單元測試 |
 | `npm run test:e2e` | Playwright smoke 與截圖比對（需先另開 `npm run dev`，並有 Docker） |
 | `npm run test:e2e:update` | 重新產生截圖基準 |
@@ -69,7 +70,7 @@ npx wrangler secret put ACCESS_AUD           # Access 應用程式的 Audience (
 
 ## 設定
 
-`wrangler.jsonc` 定義 Worker 名稱、D1 綁定 `DB`（正式資料庫 `ring-letter-db`，APAC）與自訂網域 `ringletter.wetrytrysee.cc`。`workers_dev` 和 `preview_urls` 都關閉，因為 Access 只保護自訂網域，不能留其他入口。本機的 `--local` 一律使用 `.wrangler/state`，不會碰到正式資料庫。
+`wrangler.jsonc` 定義 Worker 名稱、D1 綁定 `DB`（正式資料庫 `ring-letter-db`，APAC）、自訂網域 `ringletter.wetrytrysee.cc`，以及每日的 Cron Trigger（`17 19 * * *`，台北 03:17，執行 `lib/server/retention.ts` 的資料保留政策；部署後在 Cloudflare 主控台的 Worker → Settings → Triggers 可以看到）。`workers_dev` 和 `preview_urls` 都關閉，因為 Access 只保護自訂網域，不能留其他入口。本機的 `--local` 一律使用 `.wrangler/state`，不會碰到正式資料庫。
 
 ## 部署（手動）
 
