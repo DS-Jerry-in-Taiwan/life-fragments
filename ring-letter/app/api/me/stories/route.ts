@@ -1,4 +1,5 @@
 import { completeAttempt, findAttempt } from "../../../../lib/server/db/attempts";
+import { insertConsentEvent } from "../../../../lib/server/db/consent-events";
 import { AGE, db } from "../../../../lib/server/db/index";
 import { CONSENT_VERSION, insertStory, listOwnStories } from "../../../../lib/server/db/stories";
 import { guardRead, guardWrite, withBodyAndSession } from "../../../../lib/server/handler";
@@ -49,8 +50,11 @@ export async function POST(req: Request) {
         reflection: s.reflection,
         attempt: s.attempt,
       });
+      const consent = insertConsentEvent(id, "submit", CONSENT_VERSION, now);
       await db().batch(
-        s.attempt !== null ? [insert, completeAttempt(s.attempt, who, now, s.share)] : [insert],
+        s.attempt !== null
+          ? [insert, consent, completeAttempt(s.attempt, who, now, s.share)]
+          : [insert, consent],
       );
       return reply({ ok: true, id, status });
     }),

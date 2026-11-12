@@ -1,3 +1,4 @@
+import { deleteConsentEventsForStory } from "../../../../../../lib/server/db/consent-events";
 import { deleteFeedbackForStory } from "../../../../../../lib/server/db/feedback";
 import { db } from "../../../../../../lib/server/db/index";
 import { deleteStory, moderateStory } from "../../../../../../lib/server/db/stories";
@@ -25,7 +26,11 @@ export async function POST(req: Request, { params }: IdContext) {
         if (!v.ok) return reply({ error: v.error }, 400);
         const { id, status } = v.data;
         if (status === "delete") {
-          await db().batch([deleteStory(id), deleteFeedbackForStory(id)]);
+          await db().batch([
+            deleteFeedbackForStory(id),
+            deleteConsentEventsForStory(id),
+            deleteStory(id),
+          ]);
         } else if (!(await moderateStory(id, status))) {
           return reply({ error: "文章不存在，或作者未同意分享" }, 400);
         }
