@@ -1,0 +1,21 @@
+.success {
+  padding: 50px 25px;
+  text-align: center;
+  border: 1px solid var(--line);
+  background: #ffffff03;
+}
+.success > span {
+  font-size: 50px;
+  color: var(--gold);
+}
+.success h2 {
+  font-size: var(--heading-md);
+  margin: 15px 0;
+}
+.success p {
+  color: var(--muted);
+  font-size: var(--text-base);
+}
+.success :global(.primary) {
+  margin-top: var(--space-5);
+}

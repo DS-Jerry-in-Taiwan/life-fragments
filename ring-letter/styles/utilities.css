@@ -1,0 +1,117 @@
+/*
+ * Classes shared across components (#4 §4.6.2), kept global on purpose:
+ * buttons (.primary .secondary .text-btn .danger), text (.eyebrow .quiet
+ * .sentence .prewrap) and the checkbox row (.check — base.css's
+ * `label:not(.check)` depends on its name). Components combine them with
+ * their own module classes; a module styles them in context with
+ * `.local :global(.primary)`.
+ */
+.eyebrow {
+  font-size: var(--text-sm);
+  letter-spacing: 0.17em;
+  color: var(--gold);
+  margin-bottom: var(--space-6);
+}
+.eyebrow > span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-round);
+  background: var(--gold);
+  margin-right: 9px;
+  vertical-align: middle;
+}
+.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  background: var(--gold);
+  color: #273640;
+  border: 1px solid var(--gold);
+  padding: 14px 24px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  letter-spacing: 0.04em;
+  min-height: 50px;
+  transition:
+    background var(--duration-fast),
+    transform var(--duration-fast);
+}
+.primary:hover {
+  background: #ecddb9;
+  transform: translateY(-1px);
+}
+.secondary {
+  border: 1px solid #b9c3b44d;
+  padding: 10px 22px;
+  border-radius: var(--radius-sm);
+  color: var(--gold);
+  font-size: var(--text-base);
+  min-height: 45px;
+}
+.secondary:hover {
+  background: #ffffff0a;
+}
+.primary,
+.secondary {
+  flex-shrink: 0;
+}
+.text-btn {
+  font-size: var(--text-md);
+  color: var(--gold);
+  padding: var(--space-3) 0;
+}
+.text-btn span {
+  margin-left: 10px;
+}
+.danger {
+  color: #e8ada5;
+  font-size: var(--text-sm);
+  text-decoration: underline;
+}
+.quiet {
+  font-size: var(--text-sm);
+  color: #99aab4;
+  margin-top: var(--space-5);
+  line-height: 1.9;
+}
+.sentence {
+  display: block;
+}
+.sentence + .sentence {
+  margin-top: 0.45em;
+}
+.prewrap {
+  white-space: pre-wrap;
+  font-size: var(--text-base);
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #c2cccf;
+  font-size: var(--text-sm);
+  line-height: 1.9;
+  margin-bottom: 17px;
+  overflow-wrap: anywhere;
+}
+.check input {
+  margin-top: 6px;
+  accent-color: var(--gold);
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+@media (max-width: 640px) {
+  .eyebrow {
+    font-size: var(--text-2xs);
+    margin-bottom: var(--space-5);
+    letter-spacing: 0.1em;
+  }
+  .quiet {
+    font-size: var(--text-xs);
+  }
+}

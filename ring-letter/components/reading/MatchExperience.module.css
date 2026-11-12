@@ -1,0 +1,24 @@
+.matchExperience {
+  max-width: 700px;
+  margin: auto;
+  padding: 48px 0 64px;
+  border-top: 1px solid var(--line);
+}
+.intro h2 {
+  font-size: var(--heading-xl);
+  margin-bottom: var(--space-5);
+}
+.intro > p {
+  color: var(--muted);
+}
+.intro :global(.eyebrow) {
+  color: var(--gold);
+}
+@media (max-width: 640px) {
+  .matchExperience {
+    padding: 36px 0 44px;
+  }
+  .intro h2 {
+    font-size: var(--heading-lg);
+  }
+}

@@ -24,7 +24,7 @@ npm run dev
 - `ring-letter/app/page.tsx`：首頁、投稿、我的片段與審閱。
 - `ring-letter/components/match-experience.tsx`：隨機試讀、選填情境篩選與回音入口。
 - `ring-letter/data/matching.ts`：八封範例信、`FORM_URL_DISTRESS` 與 `FORM_URL_ECHO`（目前為 `#`）。
-- `ring-letter/app/globals.css`：既有深色信紙風格與響應式排版。
+- `ring-letter/styles/`：全域樣式（`tokens.css` 變數與斷點清單、`base.css` 元素預設、`utilities.css` 共用按鈕與文字 class）；其餘樣式是各元件旁的 `*.module.css`。
 - `ring-letter/PROJECT_NOTES.md`：資料保留、權限與測試限制。
 
 新試讀不會自動媒合或儲存互動；一般投稿與人工媒合報名分開。範例信均為虛構並有清楚標示。投稿後只在作者同意且管理者核准時公開。

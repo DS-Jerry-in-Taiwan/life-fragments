@@ -1,0 +1,102 @@
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  min-height: 640px;
+  align-items: center;
+  gap: var(--space-8);
+  padding: 52px 0 64px;
+}
+.copy,
+.hero > * {
+  min-width: 0;
+}
+.hero h1 {
+  font-size: clamp(28px, 3.1vw, 38px);
+  line-height: 1.6;
+  letter-spacing: 0.025em;
+  margin-bottom: 26px;
+}
+.hero h1 em {
+  font-style: normal;
+  color: var(--gold);
+}
+.headlineSentence {
+  display: block;
+  text-wrap: balance;
+}
+.headlineSentence > span {
+  display: inline-block;
+  white-space: nowrap;
+}
+.intro {
+  max-width: 36em;
+  color: #b4c0c6;
+  font-size: var(--text-lg);
+  line-height: 1.95;
+  margin-bottom: var(--space-8);
+}
+.intro p {
+  margin: 0 0 0.65em;
+}
+.intro p:last-child {
+  margin-bottom: 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+@media (min-width: 1001px) {
+  .actions :global(.text-btn) {
+    font-size: var(--text-sm);
+  }
+  .hero :global(.primary) {
+    padding: 14px 20px;
+  }
+}
+@media (max-width: 1000px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+    min-height: 610px;
+    padding-top: var(--space-10);
+  }
+  .copy {
+    max-width: 700px;
+  }
+  .hero h1 {
+    font-size: clamp(28px, 4.5vw, 38px);
+  }
+}
+@media (max-width: 640px) {
+  /* Keeps the 1000px gap (8px) between copy and illustration. */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-8) 0 var(--space-7);
+    min-height: unset;
+    align-items: stretch;
+  }
+  .hero h1 {
+    font-size: clamp(26px, 6.3vw, 36px);
+    letter-spacing: 0;
+    line-height: 1.65;
+    margin-bottom: 22px;
+  }
+  .intro {
+    font-size: var(--text-base);
+    text-align: left;
+  }
+  .actions {
+    gap: var(--space-4);
+  }
+  .hero :global(.primary) {
+    padding: 12px 18px;
+    font-size: var(--text-md);
+    gap: var(--space-4);
+  }
+  .hero :global(.text-btn) {
+    font-size: var(--text-sm);
+  }
+}

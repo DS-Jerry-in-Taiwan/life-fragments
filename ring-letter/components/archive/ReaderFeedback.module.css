@@ -1,0 +1,20 @@
+.feedbackBox {
+  margin-top: var(--space-8);
+  border: 1px solid var(--line);
+  padding: 20px 25px;
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+.feedbackBox summary {
+  cursor: pointer;
+  color: var(--ink);
+  padding: 2px;
+}
+.feedbackBox[open] summary {
+  margin-bottom: var(--space-5);
+}
+@media (max-width: 640px) {
+  .feedbackBox {
+    padding: 18px;
+  }
+}

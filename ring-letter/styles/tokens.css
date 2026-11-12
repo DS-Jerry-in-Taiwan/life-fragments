@@ -1,0 +1,66 @@
+/*
+ * Design tokens (#4 §4.6.1). V1-e only names the values the stylesheet
+ * already used: every token below equals the literal it replaced, so the
+ * rendering is unchanged. Values used once (or not repeated exactly) stay
+ * literal in their module.
+ *
+ * Breakpoints (#4 §4.6.4) — CSS variables can't be used in media queries,
+ * so every module writes them out. Use only these:
+ *   max-width:  640px   phone
+ *   max-width: 1000px   tablet (also applies on phones; put phone rules
+ *                       after it, in a later 640px block)
+ *   min-width: 1001px   desktop only (the complement of 1000px)
+ */
+:root {
+  --bg: #10232f;
+  --ink: #e8e5dc;
+  --muted: #a8b5bc;
+  --gold: #dcc99b;
+  --line: #ffffff1a;
+  --paper: #eee9dd;
+  --paperink: #334249;
+  --serif: "Noto Serif TC", "Songti TC", serif;
+  --font-display: Georgia, serif;
+
+  /* Font sizes: body text and labels */
+  --text-3xs: 9px;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 15px;
+  --text-xl: 16px;
+  --text-2xl: 17px;
+  /* Font sizes: headings */
+  --heading-xs: 23px;
+  --heading-sm: 24px;
+  --heading-md: 25px;
+  --heading-lg: 27px;
+  --heading-xl: 30px;
+
+  /* Spacing (padding, margin, gap) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radii */
+  --radius-sm: 3px;
+  --radius-round: 50%;
+
+  /* Shadows */
+  --shadow-paper: 0 12px 40px #0002;
+  --shadow-letter: 5px 20px 60px #0005;
+  --shadow-moon: 0 0 70px #dcc99b15;
+
+  /* Motion */
+  --duration-fast: 0.2s;
+  --duration-letter: 0.25s;
+}

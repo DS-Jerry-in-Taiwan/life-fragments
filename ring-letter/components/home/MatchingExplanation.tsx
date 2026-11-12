@@ -1,6 +1,8 @@
+import styles from "./MatchingExplanation.module.css";
+
 export default function MatchingExplanation() {
   return (
-    <section className="matching-explanation">
+    <section className={styles.matchingExplanation}>
       <h2>這封信，會怎麼來到你面前？</h2>
       <p>
         <span className="sentence">

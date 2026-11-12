@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import SiteShell from "../components/shell/SiteShell";
+// Global CSS first, so the CSS Modules imported below come after it.
 import "./globals.css";
+import SiteShell from "../components/shell/SiteShell";
 
 export const metadata: Metadata = {
   title: "Ring letter｜遇見另一段時光",

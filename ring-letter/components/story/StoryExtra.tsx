@@ -1,12 +1,13 @@
 import type { Story } from "../../lib/stories";
+import styles from "./StoryExtra.module.css";
 
 /** Mood (present letters) and 現在回頭看 (past letters). */
 export default function StoryExtra({ story: s }: { story: Story }) {
   return (
     <>
-      {s.mood && <p className="mood">此刻心情：{s.mood}</p>}
+      {s.mood && <p className={styles.mood}>此刻心情：{s.mood}</p>}
       {s.reflection && (
-        <aside className="reflection">
+        <aside className={styles.reflection}>
           <h3>現在回頭看</h3>
           <p className="prewrap">{s.reflection}</p>
         </aside>

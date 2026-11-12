@@ -1,0 +1,21 @@
+.metrics {
+  overflow-x: auto;
+  margin: var(--space-6) 0;
+}
+.metrics table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.metrics th,
+.metrics td {
+  padding: var(--space-4);
+  text-align: left;
+  border-bottom: 1px solid #536077;
+}
+@media (max-width: 640px) {
+  .metrics th,
+  .metrics td {
+    padding: 10px;
+    overflow-wrap: normal;
+  }
+}

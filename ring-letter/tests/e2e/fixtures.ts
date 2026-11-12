@@ -54,7 +54,7 @@ export async function hydrated(page: Page) {
 
 /**
  * Everything that can make two screenshots of the same screen differ:
- * pending requests, web fonts (Google Fonts @import in globals.css), scroll
+ * pending requests, web fonts (Google Fonts @import at the top of app/globals.css), scroll
  * position after `window.scrollTo({behavior: "smooth"})`.
  */
 export async function settle(page: Page) {

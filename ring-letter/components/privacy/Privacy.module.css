@@ -1,0 +1,67 @@
+/* The notice box: PrivacyDialog, and app/privacy/page.tsx (.modal.page). */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: #06131be6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  backdrop-filter: blur(7px);
+}
+.modal {
+  position: relative;
+  width: 650px;
+  max-width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: var(--space-10);
+  background: #1b303d;
+  border: 1px solid #63736f;
+}
+.modal h2 {
+  font-size: var(--heading-lg);
+}
+.modal h3 {
+  font-size: var(--text-2xl);
+  color: var(--gold);
+  margin-top: 26px;
+}
+.modal p {
+  font-size: var(--text-md);
+  color: #c1ccd0;
+  line-height: 2;
+}
+.close {
+  position: absolute;
+  top: 7px;
+  right: 16px;
+  font-size: 28px;
+}
+.modal :global(.primary) {
+  margin-top: 15px;
+}
+@media (max-width: 640px) {
+  .backdrop {
+    padding: var(--space-3);
+  }
+  .modal {
+    padding: 35px 22px;
+  }
+  .modal p {
+    font-size: var(--text-base);
+  }
+}
+/* /privacy: the dialog's notice as a page (V1-d). Polished in V5. */
+.modal.page {
+  margin: 62px auto;
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+.page h1 {
+  font-size: var(--heading-lg);
+  letter-spacing: normal;
+  line-height: 1.6;
+}

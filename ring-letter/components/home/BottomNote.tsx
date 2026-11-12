@@ -1,8 +1,10 @@
+import styles from "./BottomNote.module.css";
+
 export default function BottomNote() {
   return (
-    <section className="bottom-note">
+    <section className={styles.bottomNote}>
       <div>
-        <span className="tiny-star">✦</span>
+        <span className={styles.tinyStar}>✦</span>
         <p>讓真實的片段留下來</p>
       </div>
       <p>
@@ -10,7 +12,7 @@ export default function BottomNote() {
         <br />
         只有文字，和願意停留片刻的你。
       </p>
-      <div className="test-badge">
+      <div className={styles.badge}>
         早期體驗版 <span>·</span> 手機也能閱讀
       </div>
     </section>

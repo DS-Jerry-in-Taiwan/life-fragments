@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { Story } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
+import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import StatusPill from "../story/StatusPill";
 import StoryExtra from "../story/StoryExtra";
 import StoryMeta from "../story/StoryMeta";
+import own from "../story/OwnStory.module.css";
 import NavButton from "../shell/NavButton";
 import EraseAll from "./EraseAll";
+import styles from "./MyStories.module.css";
 
 /** 我的片段: this browser's submissions, withdraw one or erase everything. */
 export default function MyStories() {
@@ -39,19 +42,15 @@ export default function MyStories() {
   return (
     <>
       <StatusMessage action={action} />
-      <section className="collection">
-        <div className="section-intro">
-          <p className="eyebrow">只屬於這個瀏覽器的信匣</p>
-          <h1>我的片段</h1>
-          <p>
-            <span className="sentence">投稿存在伺服器；此瀏覽器的 Cookie 是你的存取憑證。</span>
-            <span className="sentence">清除 Cookie 或換裝置後，將無法自行找回。</span>
-            <span className="sentence">本版提供 30 天存取，過期不再顯示。</span>
-          </p>
-        </div>
+      <section className={styles.collection}>
+        <SectionIntro eyebrow="只屬於這個瀏覽器的信匣" title="我的片段">
+          <span className="sentence">投稿存在伺服器；此瀏覽器的 Cookie 是你的存取憑證。</span>
+          <span className="sentence">清除 Cookie 或換裝置後，將無法自行找回。</span>
+          <span className="sentence">本版提供 30 天存取，過期不再顯示。</span>
+        </SectionIntro>
         {busy && <p role="status">正在處理…</p>}
         {!busy && !mine.length && (
-          <div className="empty">
+          <div className={styles.empty}>
             <span>☾</span>
             <h2>還沒有留下的片段</h2>
             <p>有些話，可以從今天開始保存。</p>
@@ -61,7 +60,7 @@ export default function MyStories() {
           </div>
         )}
         {mine.map((s) => (
-          <article className="own-story" key={s.id}>
+          <article className={own.ownStory} key={s.id}>
             <StatusPill status={s.status} />
             <StoryMeta story={s} />
             <h2>{s.title}</h2>

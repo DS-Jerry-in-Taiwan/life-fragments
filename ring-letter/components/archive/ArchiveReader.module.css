@@ -1,0 +1,26 @@
+.reading {
+  max-width: 700px;
+  margin: 0 auto;
+  padding-bottom: 80px;
+}
+.headingPhrase {
+  display: inline-block;
+  text-wrap: balance;
+}
+/* Also used by ReaderFeedback. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-6);
+  align-items: center;
+  margin: 25px 0;
+}
+@media (max-width: 640px) {
+  .reading {
+    padding-bottom: 45px;
+  }
+  .actions {
+    gap: var(--space-3);
+  }
+}

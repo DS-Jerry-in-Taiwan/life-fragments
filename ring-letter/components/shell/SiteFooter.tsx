@@ -1,5 +1,6 @@
 "use client";
 import NavButton from "./NavButton";
+import styles from "./SiteFooter.module.css";
 
 export default function SiteFooter({
   admin,
@@ -9,9 +10,9 @@ export default function SiteFooter({
   onOpenPrivacy: () => void;
 }) {
   return (
-    <footer>
+    <footer className={styles.footer}>
       <span>
-        Ring letter <span className="footer-phrase">把片刻，留給時間。</span>
+        Ring letter <span className={styles.phrase}>把片刻，留給時間。</span>
       </span>
       <div>
         <NavButton to="/mine">先前投稿與撤回</NavButton>

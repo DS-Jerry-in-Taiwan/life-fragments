@@ -1,0 +1,10 @@
+.era {
+  font-size: var(--text-sm);
+  color: #7c897f;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .era {
+    font-size: var(--text-xs);
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import NavButton from "./NavButton";
+import styles from "./SiteHeader.module.css";
 
 const NAV = [
   ["/read", "讀一封信"],
@@ -11,13 +12,14 @@ const NAV = [
 export default function SiteHeader() {
   const pathname = usePathname();
   return (
-    <header>
-      <NavButton to="/" className="brand">
-        <span className="logo">☾</span> Ring letter<span className="brand-small">時光來信</span>
+    <header className={styles.header}>
+      <NavButton to="/" className={styles.brand}>
+        <span className={styles.logo}>☾</span> Ring letter
+        <span className={styles.brandSmall}>時光來信</span>
       </NavButton>
-      <nav aria-label="主要導覽">
+      <nav className={styles.nav} aria-label="主要導覽">
         {NAV.map(([to, label]) => (
-          <NavButton key={to} to={to} className={pathname === to ? "active" : ""}>
+          <NavButton key={to} to={to} className={pathname === to ? styles.active : ""}>
             {label}
           </NavButton>
         ))}

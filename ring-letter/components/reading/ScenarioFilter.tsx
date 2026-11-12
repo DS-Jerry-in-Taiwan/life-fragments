@@ -1,4 +1,5 @@
 import { SCENARIOS, type Scenario } from "../../data/matching";
+import styles from "./ScenarioFilter.module.css";
 
 /** Optional: read letters from one scenario only. */
 export default function ScenarioFilter({
@@ -9,9 +10,9 @@ export default function ScenarioFilter({
   filter: (next: Scenario | null) => void;
 }) {
   return (
-    <details className="scenario-filter">
+    <details className={styles.scenarioFilter}>
       <summary>想讀特定情境？（選填）</summary>
-      <div className="scenario-buttons" aria-label="選擇信件情境">
+      <div className={styles.buttons} aria-label="選擇信件情境">
         <button className="secondary" aria-pressed={scenario === null} onClick={() => filter(null)}>
           隨機遇見
         </button>

@@ -1,0 +1,16 @@
+/* A row of small pill buttons (reader feedback, admin moderation). */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+.chips button {
+  border: 1px solid var(--line);
+  padding: 8px 15px;
+  border-radius: 25px;
+  font-size: var(--text-sm);
+}
+.chips button:hover {
+  background: #ffffff0a;
+}

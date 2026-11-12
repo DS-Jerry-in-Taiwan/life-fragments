@@ -1,0 +1,26 @@
+.sectionIntro {
+  text-align: center;
+  padding: 62px 0 28px;
+}
+.sectionIntro h1 {
+  font-size: 36px;
+  margin-bottom: var(--space-5);
+  text-wrap: balance;
+}
+.sectionIntro > p:last-child {
+  font-size: var(--text-base);
+  line-height: 2;
+  color: var(--muted);
+}
+@media (max-width: 640px) {
+  .sectionIntro {
+    padding: var(--space-10) 0 var(--space-5);
+  }
+  .sectionIntro h1 {
+    font-size: 29px;
+  }
+  .sectionIntro > p:last-child {
+    font-size: var(--text-base);
+    text-align: left;
+  }
+}

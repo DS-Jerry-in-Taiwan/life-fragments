@@ -1,0 +1,123 @@
+/* Element defaults: reset, type, form controls, focus, reduced motion (#4 §4.6.2). */
+* {
+  box-sizing: border-box;
+}
+/* Keep the title scale tied to its column, with explicit phrase boundaries. */
+html {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  font-size: var(--text-xl);
+  line-height: 1.8;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 5px;
+}
+a {
+  color: inherit;
+}
+button {
+  color: inherit;
+  border: 0;
+  background: none;
+  max-width: 100%;
+  white-space: normal;
+}
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--serif);
+  font-weight: 400;
+}
+h1 {
+  line-height: 1.55;
+  letter-spacing: 0.08em;
+}
+h2 {
+  line-height: 1.6;
+}
+h2,
+h3 {
+  text-wrap: balance;
+}
+p {
+  letter-spacing: 0.025em;
+}
+/* Form fields. `.check` (utilities.css) is the checkbox row, styled separately. */
+label:not(.check) {
+  display: block;
+  font-size: var(--text-md);
+  margin-bottom: var(--space-2);
+  color: #d2d7d6;
+}
+input:not([type="checkbox"]),
+textarea,
+select {
+  width: 100%;
+  background: #10222b;
+  color: var(--ink);
+  border: 1px solid #8b9d9f44;
+  border-radius: var(--radius-sm);
+  padding: 13px 15px;
+  min-height: 48px;
+  font-size: var(--text-lg);
+  margin-bottom: 22px;
+}
+textarea {
+  resize: vertical;
+  line-height: 1.9;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #73858f;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

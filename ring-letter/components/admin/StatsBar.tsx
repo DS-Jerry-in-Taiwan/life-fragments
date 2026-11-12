@@ -1,8 +1,9 @@
 import type { Feedback, Story } from "../../lib/stories";
+import styles from "./StatsBar.module.css";
 
 export default function StatsBar({ review, feedback }: { review: Story[]; feedback: Feedback[] }) {
   return (
-    <div className="stats">
+    <div className={styles.stats}>
       <div>
         <strong>{review.filter((s) => s.status === "pending").length}</strong>待審投稿
       </div>

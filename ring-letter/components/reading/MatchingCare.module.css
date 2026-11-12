@@ -1,0 +1,10 @@
+.matchingCare {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-6);
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1.9;
+}
+.matchingCare p {
+  margin-bottom: 10px;
+}
