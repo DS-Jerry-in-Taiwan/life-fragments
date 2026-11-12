@@ -1,4 +1,6 @@
 /* The only global CSS (#4 §4.6.2); everything else is a CSS Module next to its component. */
+/* @import must precede every other rule, so the web font comes first. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600&display=swap");
 @import "../styles/tokens.css";
 @import "../styles/base.css";
 @import "../styles/utilities.css";
