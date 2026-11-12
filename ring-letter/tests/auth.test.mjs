@@ -1,8 +1,8 @@
-// Unit tests for lib/access-jwt.ts. Run with `npm run test:auth`
+// Unit tests for lib/server/access-jwt.ts. Run with `npm run test:auth`
 // (Node >= 22.18 strips the TypeScript types natively).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { clearAccessKeyCache, parseEmails, verifyAccessJwt } from '../lib/access-jwt.ts';
+import { clearAccessKeyCache, parseEmails, verifyAccessJwt } from '../lib/server/access-jwt.ts';
 
 const teamDomain = 'team.cloudflareaccess.com';
 const aud = 'aud-tag-123';

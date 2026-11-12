@@ -14,7 +14,9 @@ import { parseEmails, verifyAccessJwt } from "./access-jwt";
  */
 export async function verifyAdmin(req: Request, env: Cloudflare.Env): Promise<string | null> {
   if (import.meta.env.DEV) {
-    const email = (req.headers.get("cf-access-authenticated-user-email") ?? "").trim().toLowerCase();
+    const email = (req.headers.get("cf-access-authenticated-user-email") ?? "")
+      .trim()
+      .toLowerCase();
     return email || null;
   }
 
@@ -22,6 +24,9 @@ export async function verifyAdmin(req: Request, env: Cloudflare.Env): Promise<st
   const admins = parseEmails(env.ADMIN_EMAILS);
   if (!token || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD || admins.length === 0) return null;
 
-  const email = await verifyAccessJwt(token, { teamDomain: env.ACCESS_TEAM_DOMAIN, aud: env.ACCESS_AUD });
+  const email = await verifyAccessJwt(token, {
+    teamDomain: env.ACCESS_TEAM_DOMAIN,
+    aud: env.ACCESS_AUD,
+  });
   return email && admins.includes(email) ? email : null;
 }
