@@ -1,44 +1,52 @@
-import { env } from 'cloudflare:workers';
-import { verifyAdmin } from '../../../lib/admin';
-import { AGE, db, reply, sameOrigin } from '../../../lib/server';
+import { env } from "cloudflare:workers";
+import { verifyAdmin } from "../../../lib/server/auth";
+import { attemptMetrics } from "../../../lib/server/db/attempts";
+import { deleteFeedbackForStory, listFeedback } from "../../../lib/server/db/feedback";
+import { AGE, db } from "../../../lib/server/db/index";
+import { deleteStory, listAllStories, moderateStory } from "../../../lib/server/db/stories";
+import { readJsonBody, reply } from "../../../lib/server/http";
+import { sameOrigin } from "../../../lib/server/same-origin";
+import { parseModeration } from "../../../lib/server/validation";
 
 // Protected by Cloudflare Access (/api/admin*) in production; verifyAdmin
 // re-checks the Access token and the ADMIN_EMAILS allowlist.
-const FORBIDDEN = '只有管理者可以使用。';
+const FORBIDDEN = "只有管理者可以使用。";
 
 export async function GET(req: Request) {
   try {
     if (!(await verifyAdmin(req, env))) return reply({ error: FORBIDDEN }, 403);
     const cutoff = Date.now() - AGE;
     const [stories, feedback, metrics] = await db().batch([
-      db().prepare('SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE created>? ORDER BY created DESC LIMIT 200').bind(cutoff),
-      db().prepare('SELECT id,story,kind,note,created FROM feedback WHERE created>? ORDER BY created DESC LIMIT 300').bind(cutoff),
-      db().prepare('SELECT letter_type AS letterType, COUNT(*) AS starts, SUM(CASE WHEN completed IS NOT NULL THEN 1 ELSE 0 END) AS completions, SUM(shared) AS shares FROM writing_attempts WHERE created>? GROUP BY letter_type').bind(cutoff),
+      listAllStories(cutoff),
+      listFeedback(cutoff),
+      attemptMetrics(cutoff),
     ]);
-    return reply({ stories: stories.results, feedback: feedback.results, metrics: metrics.results });
+    return reply({
+      stories: stories.results,
+      feedback: feedback.results,
+      metrics: metrics.results,
+    });
   } catch {
-    return reply({ error: '暫時無法讀取資料，請稍後再試。' }, 503);
+    return reply({ error: "暫時無法讀取資料，請稍後再試。" }, 503);
   }
 }
 
 export async function POST(req: Request) {
   try {
-    if (!sameOrigin(req)) return reply({ error: '來源驗證失敗' }, 403);
+    if (!sameOrigin(req)) return reply({ error: "來源驗證失敗" }, 403);
     if (!(await verifyAdmin(req, env))) return reply({ error: FORBIDDEN }, 403);
-    if (!req.headers.get('content-type')?.includes('application/json')) return reply({ error: '格式不支援' }, 415);
-    const raw = await req.text();
-    if (raw.length > 4000) return reply({ error: '內容太長' }, 413);
-    let b: { id?: unknown; status?: unknown };
-    try { b = JSON.parse(raw); } catch { return reply({ error: '格式不正確' }, 400); }
-    if (!b || typeof b !== 'object' || typeof b.id !== 'string' || typeof b.status !== 'string' || !['approved', 'rejected', 'delete'].includes(b.status)) return reply({ error: '無效操作' }, 400);
-    if (b.status === 'delete') {
-      await db().batch([db().prepare('DELETE FROM stories WHERE id=?').bind(b.id), db().prepare('DELETE FROM feedback WHERE story=?').bind(b.id)]);
-    } else {
-      const r = await db().prepare("UPDATE stories SET status=? WHERE id=? AND status IN ('pending','approved','rejected')").bind(b.status, b.id).run();
-      if (!r.meta.changes) return reply({ error: '文章不存在，或作者未同意分享' }, 400);
+    const parsed = await readJsonBody(req, 4000);
+    if (!parsed.ok) return parsed.response;
+    const v = parseModeration(parsed.body);
+    if (!v.ok) return reply({ error: v.error }, 400);
+    const { id, status } = v.data;
+    if (status === "delete") {
+      await db().batch([deleteStory(id), deleteFeedbackForStory(id)]);
+    } else if (!(await moderateStory(id, status))) {
+      return reply({ error: "文章不存在，或作者未同意分享" }, 400);
     }
     return reply({ ok: true });
   } catch {
-    return reply({ error: '這次沒有成功儲存，請稍後重試。' }, 503);
+    return reply({ error: "這次沒有成功儲存，請稍後重試。" }, 503);
   }
 }

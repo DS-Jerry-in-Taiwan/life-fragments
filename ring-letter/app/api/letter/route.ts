@@ -1,42 +1,180 @@
-import { AGE, db, reply, sameOrigin } from '../../../lib/server';
-async function hash(s:string){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(x=>x.toString(16).padStart(2,'0')).join('');}
-async function session(req:Request){const t=req.headers.get('cookie')?.match(/(?:^|;\s*)rl_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!t)return null;const h=await hash(t);return await db().prepare('SELECT hash FROM sessions WHERE hash=? AND created>?').bind(h,Date.now()-AGE).first()?h:null;}
-async function cleanup(){const cutoff=Date.now()-AGE;await db().batch(['stories','feedback','sessions','writing_attempts'].map(t=>db().prepare(`DELETE FROM ${t} WHERE created<?`).bind(cutoff)));}
-export async function GET(req:Request){try{
- const url=new URL(req.url);const a=url.searchParams.get('action');const who=await session(req);const cutoff=Date.now()-AGE;
- if(a==='admin')return reply({error:'管理功能已移到 /admin。'},410);
- if(a==='mine'){if(!who)return reply({stories:[]});return reply({stories:(await db().prepare('SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE owner=? AND created>? ORDER BY created DESC').bind(who,cutoff).all()).results});}
- return reply({stories:(await db().prepare("SELECT id,title,body,era,source,created,letter_type AS letterType,mood,reflection FROM stories WHERE status='approved' AND created>? ORDER BY created DESC LIMIT 100").bind(cutoff).all()).results});
- }catch{return reply({error:'暫時無法讀取資料，請稍後再試。'},503);}}
-export async function POST(req:Request){try{
- if(!sameOrigin(req))return reply({error:'來源驗證失敗'},403);
- if(!req.headers.get('content-type')?.includes('application/json'))return reply({error:'格式不支援'},415);
- const raw=await req.text();if(raw.length>12000)return reply({error:'內容太長'},413);
- let b:any;try{b=JSON.parse(raw);}catch{return reply({error:'格式不正確'},400);}
- if(!b||typeof b!=='object')return reply({error:'格式不正確'},400);
- if(b.action==='session'){const old=await session(req);if(old)return reply({ok:true});await cleanup();const bytes=crypto.getRandomValues(new Uint8Array(32));const t=Array.from(bytes).map(x=>x.toString(16).padStart(2,'0')).join('');await db().prepare('INSERT INTO sessions(hash,created) VALUES(?,?)').bind(await hash(t),Date.now()).run();return reply({ok:true},200,{'Set-Cookie':`rl_session=${t}; HttpOnly; ${new URL(req.url).protocol==='https:'?'Secure; ':''}SameSite=Lax; Path=/; Max-Age=2592000`});}
- if(b.action==='moderate')return reply({error:'管理功能已移到 /admin。'},410);
- const who=await session(req);if(!who)return reply({error:'體驗工作階段已過期，請重新整理頁面。'},401);
- if(b.action==='start'){
- if(!['past','present'].includes(b.letterType)||typeof b.id!=='string'||!/^[a-f0-9-]{36}$/.test(b.id))return reply({error:'無效的試寫選擇'},400);
- const count=await db().prepare('SELECT COUNT(*) AS n FROM writing_attempts WHERE owner=? AND created>?').bind(who,Date.now()-86400000).first<{n:number}>();if((count?.n??0)>=30)return reply({error:'今天已開始多次試寫，請明天再試。'},429);
- await db().prepare('INSERT OR IGNORE INTO writing_attempts(id,owner,letter_type,created) VALUES(?,?,?,?)').bind(b.id,who,b.letterType,Date.now()).run();return reply({ok:true});
- }
- if(b.action==='submit'){
- if(b.letterType!==undefined&&!['past','present'].includes(b.letterType))return reply({error:'無效寫法'},400);const modern=['past','present'].includes(b.letterType);const type=modern?b.letterType:'legacy';
- for(const key of ['title','body','era','source'])if(typeof b[key]!=='string')return reply({error:'請填寫完整'},400);
- const mood=typeof b.mood==='string'?b.mood.trim():'';const reflection=typeof b.reflection==='string'?b.reflection.trim():'';
- const body=b.body.trim();const now=Date.now();const era=type==='present'?new Date(now).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei'}):b.era.trim();
- const title=b.title.trim()||(type==='present'?'今天的心情':'一段仍記得的經歷');
- const source=type==='present'?'present':b.source;
- if(title.length>60||body.length<(modern?1:30)||body.length>1500||!era||era.length>40||mood.length>60||reflection.length>800||!['original','recollection','present'].includes(source)||(type!=='present'&&source==='present')||(type==='present'&&!mood)||b.adult!==true||b.privacy!==true||typeof b.share!=='boolean')return reply({error:'請確認內容、時間、心情與同意選項。'},400);
- let attempt:string|null=null;if(modern){if(typeof b.attempt!=='string')return reply({error:'請先選擇一種寫法。'},400);const row=await db().prepare('SELECT id,completed FROM writing_attempts WHERE id=? AND owner=? AND letter_type=? AND created>?').bind(b.attempt,who,type,now-AGE).first<{id:string;completed:number|null}>();if(!row)return reply({error:'試寫階段已過期，請重新選擇寫法。'},400);if(row.completed!==null)return reply({error:'這封信已送出，請到我的片段查看。'},409);attempt=row.id;}
- const count=await db().prepare('SELECT COUNT(*) AS n FROM stories WHERE owner=? AND created>?').bind(who,now-86400000).first<{n:number}>();if((count?.n??0)>=5)return reply({error:'今天已留下五篇，讓文字休息一下，明天再來。'},429);
- const id=crypto.randomUUID();const insert=db().prepare('INSERT INTO stories(id,owner,title,body,era,source,status,consent,created,letter_type,mood,reflection,attempt) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,who,title,body,era,source,b.share?'pending':'private','v2-2026-11-05:adult,privacy,'+(b.share?'share':'private'),now,type,mood,reflection,attempt);
- await db().batch(attempt?[insert,db().prepare('UPDATE writing_attempts SET completed=?, shared=? WHERE id=? AND owner=?').bind(now,b.share?1:0,attempt,who)]:[insert]);return reply({ok:true,id,status:b.share?'pending':'private'});
- }
- if(b.action==='withdraw'){if(typeof b.id!=='string')return reply({error:'無效代碼'},400);const own=await db().prepare('SELECT id FROM stories WHERE id=? AND owner=?').bind(b.id,who).first();if(!own)return reply({error:'找不到屬於這個瀏覽器的片段。'},404);await db().batch([db().prepare('DELETE FROM stories WHERE id=? AND owner=?').bind(b.id,who),db().prepare('DELETE FROM feedback WHERE story=?').bind(b.id)]);return reply({ok:true});}
- if(b.action==='erase'){await db().batch([db().prepare('DELETE FROM feedback WHERE story IN (SELECT id FROM stories WHERE owner=?) OR owner=?').bind(who,who),db().prepare('DELETE FROM stories WHERE owner=?').bind(who),db().prepare('DELETE FROM writing_attempts WHERE owner=?').bind(who),db().prepare('DELETE FROM sessions WHERE hash=?').bind(who)]);return reply({ok:true},200,{'Set-Cookie':'rl_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0'});}
- if(b.action==='feedback'){if(typeof b.story!=='string'||!['more','resonate','neutral','report','comment'].includes(b.kind)||typeof b.note!=='string'||b.note.length>500)return reply({error:'回饋格式不正確'},400);if(!['demo-1','demo-2','demo-3'].includes(b.story)&&!await db().prepare("SELECT id FROM stories WHERE id=? AND status='approved' AND created>?").bind(b.story,Date.now()-AGE).first())return reply({error:'這篇故事已不再提供。'},404);const count=await db().prepare('SELECT COUNT(*) AS n FROM feedback WHERE owner=? AND created>?').bind(who,Date.now()-86400000).first<{n:number}>();if((count?.n??0)>=30)return reply({error:'今日回饋已足夠，謝謝你。'},429);await db().prepare('INSERT INTO feedback(id,owner,story,kind,note,created) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),who,b.story,b.kind,b.note.trim(),Date.now()).run();return reply({ok:true});}
- return reply({error:'不支援的操作'},400);
- }catch{return reply({error:'這次沒有成功儲存，請保留文字並稍後重試。'},503);}}
+import {
+  completeAttempt,
+  deleteAttemptsByOwner,
+  findAttempt,
+  insertAttempt,
+} from "../../../lib/server/db/attempts";
+import {
+  deleteFeedbackByOrForOwner,
+  deleteFeedbackForStory,
+  insertFeedback,
+} from "../../../lib/server/db/feedback";
+import { AGE, db, purgeExpired } from "../../../lib/server/db/index";
+import { deleteSession } from "../../../lib/server/db/sessions";
+import {
+  CONSENT_VERSION,
+  deleteOwnStory,
+  deleteStoriesByOwner,
+  insertStory,
+  isApprovedStory,
+  listApprovedStories,
+  listOwnStories,
+  ownsStory,
+} from "../../../lib/server/db/stories";
+import { readJsonBody, reply } from "../../../lib/server/http";
+import { overDailyLimit } from "../../../lib/server/rate-limit";
+import { sameOrigin } from "../../../lib/server/same-origin";
+import { CLEAR_SESSION_COOKIE, createSession, currentSession } from "../../../lib/server/session";
+import {
+  jsonObject,
+  parseFeedback,
+  parseStart,
+  parseSubmit,
+  parseWithdraw,
+} from "../../../lib/server/validation";
+
+// Public + anonymous-session API, dispatched on `action`.
+// GET: (none) approved stories, `mine`. POST: session / start / submit /
+// withdraw / erase / feedback.
+
+type Body = Record<string, unknown>;
+
+const MOVED = "管理功能已移到 /admin。";
+/** Built-in sample stories in the reading view that accept feedback. */
+const DEMO_STORIES = ["demo-1", "demo-2", "demo-3"];
+
+export async function GET(req: Request) {
+  try {
+    const action = new URL(req.url).searchParams.get("action");
+    const who = await currentSession(req);
+    const cutoff = Date.now() - AGE;
+    if (action === "admin") return reply({ error: MOVED }, 410);
+    if (action === "mine") return reply({ stories: who ? await listOwnStories(who, cutoff) : [] });
+    return reply({ stories: await listApprovedStories(cutoff) });
+  } catch {
+    return reply({ error: "暫時無法讀取資料，請稍後再試。" }, 503);
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    if (!sameOrigin(req)) return reply({ error: "來源驗證失敗" }, 403);
+    const parsed = await readJsonBody(req, 12000);
+    if (!parsed.ok) return parsed.response;
+    const envelope = jsonObject.safeParse(parsed.body);
+    if (!envelope.success) return reply({ error: "格式不正確" }, 400);
+    const b = envelope.data;
+
+    if (b.action === "session") return await startSession(req);
+    if (b.action === "moderate") return reply({ error: MOVED }, 410);
+    const who = await currentSession(req);
+    if (!who) return reply({ error: "體驗工作階段已過期，請重新整理頁面。" }, 401);
+    switch (b.action) {
+      case "start":
+        return await start(b, who);
+      case "submit":
+        return await submit(b, who);
+      case "withdraw":
+        return await withdraw(b, who);
+      case "erase":
+        return await erase(who);
+      case "feedback":
+        return await feedback(b, who);
+      default:
+        return reply({ error: "不支援的操作" }, 400);
+    }
+  } catch {
+    return reply({ error: "這次沒有成功儲存，請保留文字並稍後重試。" }, 503);
+  }
+}
+
+/** Reuses a live session; otherwise purges expired rows and issues a new one. */
+async function startSession(req: Request) {
+  if (await currentSession(req)) return reply({ ok: true });
+  await purgeExpired();
+  return reply({ ok: true }, 200, { "Set-Cookie": await createSession(req) });
+}
+
+async function start(b: Body, who: string) {
+  const v = parseStart(b);
+  if (!v.ok) return reply({ error: v.error }, 400);
+  if (await overDailyLimit("attempts", who))
+    return reply({ error: "今天已開始多次試寫，請明天再試。" }, 429);
+  await insertAttempt(v.data.id, who, v.data.letterType, Date.now());
+  return reply({ ok: true });
+}
+
+async function submit(b: Body, who: string) {
+  const now = Date.now();
+  const v = parseSubmit(b, now);
+  if (!v.ok) return reply({ error: v.error }, 400);
+  const s = v.data;
+  if (s.attempt !== null) {
+    const row = await findAttempt(s.attempt, who, s.type, now - AGE);
+    if (!row) return reply({ error: "試寫階段已過期，請重新選擇寫法。" }, 400);
+    if (row.completed !== null) return reply({ error: "這封信已送出，請到我的片段查看。" }, 409);
+  }
+  if (await overDailyLimit("stories", who, now))
+    return reply({ error: "今天已留下五篇，讓文字休息一下，明天再來。" }, 429);
+
+  const id = crypto.randomUUID();
+  const status = s.share ? "pending" : "private";
+  const insert = insertStory({
+    id,
+    owner: who,
+    title: s.title,
+    body: s.body,
+    era: s.era,
+    source: s.source,
+    status,
+    consent: `${CONSENT_VERSION}:adult,privacy,${s.share ? "share" : "private"}`,
+    created: now,
+    letterType: s.type,
+    mood: s.mood,
+    reflection: s.reflection,
+    attempt: s.attempt,
+  });
+  await db().batch(
+    s.attempt !== null ? [insert, completeAttempt(s.attempt, who, now, s.share)] : [insert],
+  );
+  return reply({ ok: true, id, status });
+}
+
+async function withdraw(b: Body, who: string) {
+  const v = parseWithdraw(b);
+  if (!v.ok) return reply({ error: v.error }, 400);
+  const { id } = v.data;
+  if (!(await ownsStory(id, who))) return reply({ error: "找不到屬於這個瀏覽器的片段。" }, 404);
+  await db().batch([deleteOwnStory(id, who), deleteFeedbackForStory(id)]);
+  return reply({ ok: true });
+}
+
+/** Deletes everything this session wrote, then the session itself. */
+async function erase(who: string) {
+  await db().batch([
+    deleteFeedbackByOrForOwner(who),
+    deleteStoriesByOwner(who),
+    deleteAttemptsByOwner(who),
+    deleteSession(who),
+  ]);
+  return reply({ ok: true }, 200, { "Set-Cookie": CLEAR_SESSION_COOKIE });
+}
+
+async function feedback(b: Body, who: string) {
+  const v = parseFeedback(b);
+  if (!v.ok) return reply({ error: v.error }, 400);
+  const { story, kind, note } = v.data;
+  if (!DEMO_STORIES.includes(story) && !(await isApprovedStory(story, Date.now() - AGE)))
+    return reply({ error: "這篇故事已不再提供。" }, 404);
+  if (await overDailyLimit("feedback", who))
+    return reply({ error: "今日回饋已足夠，謝謝你。" }, 429);
+  await insertFeedback({
+    id: crypto.randomUUID(),
+    owner: who,
+    story,
+    kind,
+    note: note.trim(),
+    created: Date.now(),
+  });
+  return reply({ ok: true });
+}

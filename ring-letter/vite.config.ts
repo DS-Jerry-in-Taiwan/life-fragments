@@ -15,7 +15,7 @@ const COOKIE = "rl_dev_admin";
 const SIGN_IN_PATH = "/__dev-admin";
 
 /**
- * Dev-only admin identity. In `npm run dev`, lib/admin.ts trusts the
+ * Dev-only admin identity. In `npm run dev`, lib/server/auth.ts trusts the
  * `Cf-Access-Authenticated-User-Email` header (there is no Access locally).
  * The source address can't be the trust boundary: the Cloudflare plugin's
  * quick tunnel, ssh/Docker/WSL forwards and reverse proxies all arrive from

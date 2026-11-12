@@ -22,9 +22,9 @@ npm run dev                # vinext dev，port 5173（對外開放用 -- --hostn
 npm run build              # 產生 dist/，含 dist/server/wrangler.json
 npm start                  # 用 wrangler 在本機跑建置後的 Worker，port 8788
 npm run typecheck
-npm run lint               # 已知 2 個既存錯誤（app/api/letter 的 any、MatchExperience 的 setState-in-effect）
+npm run lint               # 已知 1 個既存錯誤（MatchExperience 的 setState-in-effect）
 npm run db:generate        # 改 db/schema.ts 後產生 drizzle/ 遷移
-npm run test:auth          # lib/access-jwt.ts 單元測試（node --test，Node 原生剝除 TS 型別）
+npm run test:auth          # lib/server/access-jwt.ts 單元測試（node --test，Node 原生剝除 TS 型別）
 ```
 
 API 整合測試（`tests/api.mjs`，單一腳本，沒有個別測試可選）對 **`npm run dev`** 跑：
@@ -43,13 +43,13 @@ npm run test:api                # 預設 TEST_ORIGIN=http://127.0.0.1:5173
 - **設定**：`wrangler.jsonc` 是 Worker 與 D1 綁定（`DB`、`migrations_dir: drizzle`）的唯一來源；`vite.config.ts` 是 `vinext()` + `@cloudflare/vite-plugin`，加上 dev 專用的管理者身分 middleware（`devAdminIdentity()`）。正式環境：D1 `ring-letter-db`、自訂網域 `ringletter.wetrytrysee.cc`、`workers_dev`／`preview_urls` 關閉（Access 只守自訂網域），部署步驟見 `ring-letter/README.md`。`worker/index.ts` 只是把請求交給 `vinext/server/fetch-handler`。
 - **前端（v2 V1 拆分中，見 #4 第 4 節）**：7 條路由 `/`、`/read`、`/write`（`?mode=past|present`）、`/mine`、`/archive`、`/admin`、`/privacy`，各在 `app/<路由>/page.tsx`。`app/layout.tsx` 用 `components/shell/SiteShell.tsx`（夜空、header、footer、隱私說明 dialog，並透過 `ShellContext` 提供 `openPrivacy`／`setAdmin`）包住每一頁；站內導覽用 `NavButton`（`router.push`，暫時保留 v1 的 `<button>` 外觀，V5 再改成連結）。各畫面元件依功能放在 `components/{shell,home,reading,archive,write,mine,admin,story,privacy,common}/`。前端只透過 `lib/api-client.ts` 呼叫 API；每個畫面用 `lib/use-action.ts` 管自己的 busy／error／notice。
 - **試讀與媒合是純靜態**：`data/matching.ts` 的 `MATCH_LETTERS`（八封虛構範例，每個 `SCENARIOS` 類別兩封，下一封互動需要每類至少兩封）與 `FORM_URL_DISTRESS` / `FORM_URL_ECHO`（目前是 `'#'`，點擊會顯示「尚未開放」而非假送出）。這部分不打 API、不寫 DB、不設 cookie。內容會公開，不可放未去識別化的真實原稿。
-- **後端兩個端點**：`app/api/letter/route.ts`（公開＋匿名 session，以 `action` 分派；GET：無 action＝已核准故事、`mine`；POST：`session` / `start` / `submit` / `withdraw` / `erase` / `feedback`）與 `app/api/admin/route.ts`（GET 審閱清單＋回饋＋寫作指標；POST `{id,status}` 審核）。共用的 `db()` / `reply()` / `AGE` / `sameOrigin()` 在 `lib/server.ts`。透過 `cloudflare:workers` 的 `env.DB` 直接寫 SQL；`db/schema.ts` 只用於 drizzle-kit 產生遷移，程式沒有用 Drizzle 查詢。
+- **後端兩個端點**：`app/api/letter/route.ts`（公開＋匿名 session，以 `action` 分派；GET：無 action＝已核准故事、`mine`；POST：`session` / `start` / `submit` / `withdraw` / `erase` / `feedback`）與 `app/api/admin/route.ts`（GET 審閱清單＋回饋＋寫作指標；POST `{id,status}` 審核）。兩個 route 只做分派，共用模組在 `lib/server/`：`session.ts`（`rl_session` cookie、SHA-256）、`rate-limit.ts`（每日上限）、`same-origin.ts`、`http.ts`（`reply()`、JSON body 解析 415／413／400）、`validation.ts`（zod schema，錯誤訊息照舊）、`auth.ts`、`db/`（`index.ts` 的 `db()`／`AGE`／`purgeExpired()`，以及 `stories`／`feedback`／`sessions`／`attempts` 各一個檔，一個查詢一個函式）。透過 `cloudflare:workers` 的 `env.DB` 直接寫 SQL；`db/schema.ts` 只用於 drizzle-kit 產生遷移，程式沒有用 Drizzle 查詢。
 - **匿名身分**：`rl_session` HttpOnly cookie（30 天隨機 token），DB 只存 SHA-256。每 session 每日上限：投稿 5、回饋／開始試寫 30。POST 有同源檢查。
-- **管理者驗證**（`lib/admin.ts` 的 `verifyAdmin()`）：
-  - 正式環境：Cloudflare Access 保護 `/admin*` 與 `/api/admin*`。Worker 仍自己驗 `Cf-Access-Jwt-Assertion`（`lib/access-jwt.ts`：RS256、`aud`、`iss`、`exp`／`nbf`，從 `https://<team>/cdn-cgi/access/certs` 取公鑰並快取 1 小時，未知 `kid` 會重抓一次），再比對 `ADMIN_EMAILS` 白名單。設定值 `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`、`ADMIN_EMAILS`（secret，不進版控）任一缺少就一律拒絕。
+- **管理者驗證**（`lib/server/auth.ts` 的 `verifyAdmin()`）：
+  - 正式環境：Cloudflare Access 保護 `/admin*` 與 `/api/admin*`。Worker 仍自己驗 `Cf-Access-Jwt-Assertion`（`lib/server/access-jwt.ts`：RS256、`aud`、`iss`、`exp`／`nbf`，從 `https://<team>/cdn-cgi/access/certs` 取公鑰並快取 1 小時，未知 `kid` 會重抓一次），再比對 `ADMIN_EMAILS` 白名單。設定值 `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`、`ADMIN_EMAILS`（secret，不進版控）任一缺少就一律拒絕。
   - 管理者必須用整頁導覽進 `/admin` 才會觸發 Access 登入；前端用 `fetch()` 打 `/api/admin` 時若未登入，Access 會回跨來源重新導向而失敗。所以頁尾「管理者登入」是連到 `/admin` 的一般連結。
   - 開發環境（`import.meta.env.DEV`，正式建置會整段移除）：身分直接取 `Cf-Access-Authenticated-User-Email` header。這個 header 由 `vite.config.ts` 的 `devAdminIdentity()` 設定：它先刪掉客戶端送來的所有 `cf-access-*`、`oai-authenticated-user-*` header，只有帶著本次啟動的祕密（寫在 `.wrangler/dev-admin-token`）的請求才會拿到身分——`x-dev-admin-token` + `x-dev-admin-email`（測試用），或透過終端機印出的 `/__dev-admin?token=…` 登入連結取得的 `rl_dev_admin` cookie（瀏覽器用，注入 `.env.local` 的 `DEV_ADMIN_EMAIL`）。**不要改成用來源 IP 判斷**：Cloudflare plugin 的 quick tunnel、ssh／Docker／WSL 轉發、反向代理進來的請求都會是 loopback。
-- **資料保留**：`cleanup()` 在建立新 session 時刪除 30 天前的所有列，**包含已核准的公開故事**（已知問題，排在 v2）。
+- **資料保留**：`purgeExpired()`（`lib/server/db/index.ts`） 在建立新 session 時刪除 30 天前的所有列，**包含已核准的公開故事**（已知問題，排在 v2）。
 - **同意規則**：私人（未同意分享）故事不能被核准；管理者不能修改投稿內文；舊投稿的同意不可沿用到新的人工媒合流程。
 
 `ring-letter/PROJECT_NOTES.md` 記錄了產品決策、隱私限制與歷次瀏覽器 QA 範圍，改動行為前可參考。

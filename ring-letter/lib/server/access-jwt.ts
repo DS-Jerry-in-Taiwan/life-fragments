@@ -80,7 +80,10 @@ function decodePart<T>(part: string): T {
 }
 
 function base64url(s: string): Uint8Array<ArrayBuffer> {
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
+  const b64 = s
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(s.length / 4) * 4, "=");
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
