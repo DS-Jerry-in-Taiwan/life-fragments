@@ -1,4 +1,6 @@
-export default function SubmitSuccess({ onViewMine }: { onViewMine: () => void }) {
+import NavButton from "../shell/NavButton";
+
+export default function SubmitSuccess() {
   return (
     <div className="success">
       <span>✦</span>
@@ -7,9 +9,9 @@ export default function SubmitSuccess({ onViewMine }: { onViewMine: () => void }
         如果你勾選願意分享，會先經人工審閱，再讓其他讀者看見；未勾選的內容只供你與管理團隊查看。
       </p>
       <p>請保留此瀏覽器的 Cookie，才能查看與刪除。</p>
-      <button className="primary" onClick={onViewMine}>
+      <NavButton to="/mine" className="primary">
         查看我的片段 →
-      </button>
+      </NavButton>
     </div>
   );
 }

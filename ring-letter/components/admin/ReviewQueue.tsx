@@ -1,5 +1,7 @@
-import { STATUS_NAME, formatStoryMeta, type ModerationAction, type Story } from "../../lib/stories";
+import type { ModerationAction, Story } from "../../lib/stories";
+import StatusPill from "../story/StatusPill";
 import StoryExtra from "../story/StoryExtra";
+import StoryMeta from "../story/StoryMeta";
 
 export default function ReviewQueue({
   review,
@@ -16,8 +18,8 @@ export default function ReviewQueue({
       {review.length === 0 && <p className="empty-small">尚無投稿，收到後會出現在這裡。</p>}
       {review.map((s) => (
         <article className="own-story" key={s.id}>
-          <span className="pill">{STATUS_NAME[s.status || "pending"]}</span>
-          <p className="era">{formatStoryMeta(s)}</p>
+          <StatusPill status={s.status} />
+          <StoryMeta story={s} />
           <h3>{s.title}</h3>
           <p className="prewrap">{s.body}</p>
           <StoryExtra story={s} />

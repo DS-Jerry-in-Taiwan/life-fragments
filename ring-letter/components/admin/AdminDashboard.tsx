@@ -4,6 +4,7 @@ import * as api from "../../lib/api-client";
 import type { Feedback, ModerationAction, Story, WritingMetric } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import StatusMessage from "../common/StatusMessage";
+import { useShell } from "../shell/ShellContext";
 import FeedbackList from "./FeedbackList";
 import ReviewQueue from "./ReviewQueue";
 import StatsBar from "./StatsBar";
@@ -12,13 +13,10 @@ import WritingMetrics from "./WritingMetrics";
 /**
  * Review queue, writing metrics and reader feedback. Only rendered once
  * /api/admin accepts the viewer (Cloudflare Access + ADMIN_EMAILS);
- * `onAuthorized` lets the footer show 管理信箱.
+ * the shell then lets the footer show 管理信箱.
  */
-export default function AdminDashboard({
-  onAuthorized,
-}: {
-  onAuthorized: (admin: boolean) => void;
-}) {
+export default function AdminDashboard() {
+  const { setAdmin: onAuthorized } = useShell();
   const action = useAction(true);
   const { busy, setNotice } = action;
   const [admin, setAdmin] = useState(false),

@@ -11,6 +11,7 @@ export function useAction(initialBusy = false) {
   async function run(task: () => Promise<void>) {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       await task();
     } catch (e) {

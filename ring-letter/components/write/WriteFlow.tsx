@@ -1,38 +1,59 @@
 "use client";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { LetterType } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import StatusMessage from "../common/StatusMessage";
+import { useShell } from "../shell/ShellContext";
 import ConsentFields from "./ConsentFields";
 import ModeChooser from "./ModeChooser";
 import PastLetterForm from "./PastLetterForm";
 import PresentLetterForm from "./PresentLetterForm";
 import SubmitSuccess from "./SubmitSuccess";
 
-/** 寫一封信: choose past / present → form → success. */
-export default function WriteFlow({
-  onViewMine,
-  onOpenPrivacy,
-}: {
-  onViewMine: () => void;
-  onOpenPrivacy: () => void;
-}) {
+/**
+ * 寫一封信: choose past / present → form → success. The letter type is the
+ * `?mode=` query, so /write?mode=past can be linked to directly.
+ */
+export default function WriteFlow() {
+  const router = useRouter();
+  const { openPrivacy } = useShell();
+  const query = useSearchParams().get("mode");
+  const mode: LetterType | "" = query === "past" || query === "present" ? query : "";
   const action = useAction();
   const { busy, setError } = action;
-  const [mode, setMode] = useState<LetterType | "">(""),
-    [attempt, setAttempt] = useState(""),
+  // The writing attempt recorded by `start`, for the type it was started as.
+  const [attempt, setAttempt] = useState<{ mode: LetterType; id: string } | null>(null),
     [source, setSource] = useState("recollection"),
     [body, setBody] = useState(""),
-    [saved, setSaved] = useState(false);
+    [saved, setSaved] = useState(false),
+    [shownMode, setShownMode] = useState(mode);
+  // A new ?mode= (nav click, back / forward) starts a fresh letter.
+  if (shownMode !== mode) {
+    setShownMode(mode);
+    setSaved(false);
+    setBody("");
+    setSource("recollection");
+  }
+  const setMode = (next: LetterType | "") =>
+    router.push(next ? `/write?mode=${next}` : "/write", { scroll: false });
   function chooseMode(next: LetterType) {
     return action.run(async () => {
-      setAttempt(await api.startWriting(next));
+      setAttempt({ mode: next, id: await api.startWriting(next) });
       setMode(next);
-      setBody("");
-      setSource("recollection");
     });
   }
+  // Opened by a direct link to /write?mode=…: record the attempt now.
+  const starting = useRef<LetterType | null>(null);
+  useEffect(() => {
+    if (!mode || saved || attempt?.mode === mode || starting.current === mode) return;
+    starting.current = mode;
+    action
+      .run(async () => setAttempt({ mode, id: await api.startWriting(mode) }))
+      .finally(() => (starting.current = null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, saved, attempt]);
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -64,7 +85,7 @@ export default function WriteFlow({
         era: mode === "present" ? "今天" : val("era"),
         source: mode === "present" ? "present" : source,
         letterType: mode as LetterType,
-        attempt,
+        attempt: attempt?.mode === mode ? attempt.id : "",
         mood: val("mood"),
         reflection: val("reflection"),
         adult: f.get("adult") === "on",
@@ -95,7 +116,7 @@ export default function WriteFlow({
           </p>
         </div>
         {saved ? (
-          <SubmitSuccess onViewMine={onViewMine} />
+          <SubmitSuccess />
         ) : !mode ? (
           <ModeChooser busy={busy} onChoose={chooseMode} />
         ) : (
@@ -106,7 +127,6 @@ export default function WriteFlow({
               onClick={() => {
                 if (confirm("切換寫法會清除這份未送出的草稿，確定切換？")) {
                   setMode("");
-                  setBody("");
                 }
               }}
             >
@@ -129,7 +149,7 @@ export default function WriteFlow({
             ) : (
               <PresentLetterForm body={body} onBodyChange={setBody} />
             )}
-            <ConsentFields onOpenPrivacy={onOpenPrivacy} />
+            <ConsentFields onOpenPrivacy={openPrivacy} />
             <button className="primary submit" disabled={busy}>
               {busy ? "正在儲存…" : "留下這封信 ↗"}
             </button>

@@ -1,14 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import * as api from "../../lib/api-client";
-import { STATUS_NAME, formatStoryMeta, type Story } from "../../lib/stories";
+import type { Story } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import StatusMessage from "../common/StatusMessage";
+import StatusPill from "../story/StatusPill";
 import StoryExtra from "../story/StoryExtra";
+import StoryMeta from "../story/StoryMeta";
+import NavButton from "../shell/NavButton";
 import EraseAll from "./EraseAll";
 
 /** 我的片段: this browser's submissions, withdraw one or erase everything. */
-export default function MyStories({ onWrite }: { onWrite: () => void }) {
+export default function MyStories() {
   const action = useAction(true);
   const { busy, setNotice } = action;
   const [mine, setMine] = useState<Story[]>([]);
@@ -52,15 +55,15 @@ export default function MyStories({ onWrite }: { onWrite: () => void }) {
             <span>☾</span>
             <h2>還沒有留下的片段</h2>
             <p>有些話，可以從今天開始保存。</p>
-            <button className="secondary" onClick={onWrite}>
+            <NavButton to="/write" className="secondary">
               留下此刻 →
-            </button>
+            </NavButton>
           </div>
         )}
         {mine.map((s) => (
           <article className="own-story" key={s.id}>
-            <span className="pill">{STATUS_NAME[s.status || "pending"]}</span>
-            <p className="era">{formatStoryMeta(s)}</p>
+            <StatusPill status={s.status} />
+            <StoryMeta story={s} />
             <h2>{s.title}</h2>
             <p className="prewrap">{s.body}</p>
             <StoryExtra story={s} />
