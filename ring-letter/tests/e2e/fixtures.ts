@@ -37,10 +37,7 @@ export async function asAdmin(context: BrowserContext) {
 export async function eraseSession(context: BrowserContext) {
   const cookies = await context.cookies(ORIGIN);
   if (!cookies.some((c) => c.name === "rl_session")) return;
-  const r = await context.request.post(ORIGIN + "/api/letter", {
-    headers: { Origin: ORIGIN },
-    data: { action: "erase" },
-  });
+  const r = await context.request.delete(ORIGIN + "/api/me", { headers: { Origin: ORIGIN } });
   expect(r.status(), "清除測試資料失敗").toBe(200);
 }
 

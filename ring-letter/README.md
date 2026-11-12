@@ -55,9 +55,9 @@ npm run test:e2e:update                       # 畫面確定要改時，重新�
 
 ## 管理者
 
-管理介面在 `/admin`，API 在 `/api/admin`。
+管理介面在 `/admin`，API 在 `/api/admin/` 底下（`GET /api/admin/queue`、`POST /api/admin/stories/:id/moderation`）。
 
-**正式環境**：用 Cloudflare Access 建立一個 self-hosted 應用程式，涵蓋 `/admin*` 與 `/api/admin*`，只允許管理者的 email。Worker 會再驗證 Access 帶來的 `Cf-Access-Jwt-Assertion` JWT，需要這三個設定（任一缺少就拒絕所有管理請求）：
+**正式環境**：用 Cloudflare Access 建立一個 self-hosted 應用程式，涵蓋 `/admin*` 與 `/api/admin*`（包含 `/api/admin/` 底下所有子路徑），只允許管理者的 email。Worker 會再驗證 Access 帶來的 `Cf-Access-Jwt-Assertion` JWT，需要這三個設定（任一缺少就拒絕所有管理請求）：
 
 ```sh
 npx wrangler secret put ADMIN_EMAILS         # 逗號分隔，例如 me@example.com
@@ -79,4 +79,4 @@ npm run build
 npx wrangler deploy --config dist/server/wrangler.json
 ```
 
-第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆，政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。
+第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/queue`；部署後的 smoke test 會確認 `/api/admin/queue` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。

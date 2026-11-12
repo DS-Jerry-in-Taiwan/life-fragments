@@ -60,5 +60,5 @@ jobs:
       - name: Smoke test
         run: |
           curl -sf -o /dev/null https://ringletter.wetrytrysee.cc/
-          code=$(curl -s -o /dev/null -w '%{http_code}' https://ringletter.wetrytrysee.cc/api/admin)
-          test "$code" = 302 || { echo "/api/admin returned $code, expected Access redirect"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://ringletter.wetrytrysee.cc/api/admin/queue)
+          test "$code" = 302 || { echo "/api/admin/queue returned $code, expected Access redirect"; exit 1; }

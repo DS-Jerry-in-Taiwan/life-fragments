@@ -1,6 +1,5 @@
 // The only place the frontend talks to the API (#4 §4.5). Components call
-// these functions; when the API moves to REST routes (V2) only this file
-// changes.
+// these functions and never see the REST routes (#4 §5) behind them.
 import type {
   Feedback,
   FeedbackKind,
@@ -45,7 +44,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return d;
 }
 
-function post<T = { ok: true }>(url: string, data: object) {
+/** POST with a JSON body, or with no body when `data` is omitted. */
+function post<T = { ok: true }>(url: string, data?: object) {
+  if (data === undefined) return request<T>(url, { method: "POST" });
   return request<T>(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -53,13 +54,24 @@ function post<T = { ok: true }>(url: string, data: object) {
   });
 }
 
-const letter = (action: string, data: object = {}) => post("/api/letter", { action, ...data });
+/**
+ * One URL path segment. fetch() collapses "." and ".." segments, so
+ * withdrawStory("..") would otherwise become DELETE /api/me.
+ */
+function segment(id: string) {
+  if (id === "" || id === "." || id === "..") throw new Error("無效代碼");
+  return encodeURIComponent(id);
+}
+
+function del<T = { ok: true }>(url: string) {
+  return request<T>(url, { method: "DELETE" });
+}
 
 // One anonymous session per page load, shared by every caller; replaces the
 // old `ready` flag. Reset after a failure or after erasing all data.
 let sessionPromise: Promise<unknown> | null = null;
 function ensureSession() {
-  sessionPromise ??= letter("session").catch((e) => {
+  sessionPromise ??= post("/api/session").catch((e) => {
     sessionPromise = null;
     throw e;
   });
@@ -67,45 +79,45 @@ function ensureSession() {
 }
 
 export async function listApprovedStories() {
-  return (await request<{ stories: Story[] }>("/api/letter")).stories;
+  return (await request<{ stories: Story[] }>("/api/stories")).stories;
 }
 
 export async function listMyStories() {
-  return (await request<{ stories: Story[] }>("/api/letter?action=mine")).stories;
+  return (await request<{ stories: Story[] }>("/api/me/stories")).stories;
 }
 
 /** Records that the author started writing; returns the attempt id. */
 export async function startWriting(letterType: LetterType) {
   await ensureSession();
   const id = crypto.randomUUID();
-  await letter("start", { id, letterType });
+  await post("/api/writing-attempts", { id, letterType });
   return id;
 }
 
 export async function submitLetter(input: SubmitInput) {
   await ensureSession();
-  await letter("submit", input);
+  await post("/api/me/stories", input);
 }
 
 export async function withdrawStory(id: string) {
-  await letter("withdraw", { id });
+  await del(`/api/me/stories/${segment(id)}`);
 }
 
 export async function eraseMyData() {
-  await letter("erase");
+  await del("/api/me");
   sessionPromise = null;
 }
 
 export async function sendFeedback(story: string, kind: FeedbackKind, note = "") {
   await ensureSession();
-  await letter("feedback", { story, kind, note });
+  await post("/api/feedback", { story, kind, note });
 }
 
 export async function getAdminQueue() {
-  const d = await request<Partial<AdminQueue>>("/api/admin");
+  const d = await request<Partial<AdminQueue>>("/api/admin/queue");
   return { stories: d.stories ?? [], feedback: d.feedback ?? [], metrics: d.metrics ?? [] };
 }
 
 export async function moderateStory(id: string, status: ModerationAction) {
-  await post("/api/admin", { id, status });
+  await post(`/api/admin/stories/${segment(id)}/moderation`, { status });
 }

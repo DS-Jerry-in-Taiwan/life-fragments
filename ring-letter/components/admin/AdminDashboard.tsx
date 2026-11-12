@@ -14,7 +14,7 @@ import styles from "./AdminDashboard.module.css";
 
 /**
  * Review queue, writing metrics and reader feedback. Only rendered once
- * /api/admin accepts the viewer (Cloudflare Access + ADMIN_EMAILS);
+ * /api/admin/queue accepts the viewer (Cloudflare Access + ADMIN_EMAILS);
  * the shell then lets the footer show 管理信箱.
  */
 export default function AdminDashboard() {
