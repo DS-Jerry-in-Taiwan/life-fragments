@@ -1,0 +1,83 @@
+"use client";
+import { useEffect, useState } from "react";
+import * as api from "../../lib/api-client";
+import type { Feedback, ModerationAction, Story, WritingMetric } from "../../lib/stories";
+import { useAction } from "../../lib/use-action";
+import StatusMessage from "../common/StatusMessage";
+import FeedbackList from "./FeedbackList";
+import ReviewQueue from "./ReviewQueue";
+import StatsBar from "./StatsBar";
+import WritingMetrics from "./WritingMetrics";
+
+/**
+ * Review queue, writing metrics and reader feedback. Only rendered once
+ * /api/admin accepts the viewer (Cloudflare Access + ADMIN_EMAILS);
+ * `onAuthorized` lets the footer show 管理信箱.
+ */
+export default function AdminDashboard({
+  onAuthorized,
+}: {
+  onAuthorized: (admin: boolean) => void;
+}) {
+  const action = useAction(true);
+  const { busy, setNotice } = action;
+  const [admin, setAdmin] = useState(false),
+    [review, setReview] = useState<Story[]>([]),
+    [feedback, setFeedback] = useState<Feedback[]>([]),
+    [metrics, setMetrics] = useState<WritingMetric[]>([]);
+  async function load() {
+    try {
+      const d = await api.getAdminQueue();
+      setReview(d.stories);
+      setFeedback(d.feedback);
+      setMetrics(d.metrics);
+      setAdmin(true);
+      onAuthorized(true);
+    } catch (e) {
+      setAdmin(false);
+      onAuthorized(false);
+      throw e;
+    }
+  }
+  useEffect(() => {
+    action.run(load);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function moderate(id: string, status: ModerationAction) {
+    if (status === "delete" && !confirm("永久刪除這篇及其回饋？")) return;
+    return action.run(async () => {
+      await api.moderateStory(id, status);
+      await load();
+      setNotice("已更新文章狀態。");
+    });
+  }
+  return (
+    <>
+      <StatusMessage action={action} />
+      {admin && (
+        <section className="admin">
+          <div className="section-intro">
+            <p className="eyebrow">管理者專用</p>
+            <h1>把關每一封來信</h1>
+            <p>
+              <span className="sentence">只審核原文。</span>
+              <span className="sentence">不同意分享的片段不能公開。</span>
+              <span className="sentence">資料提供 30 天存取，過期不再顯示。</span>
+            </p>
+          </div>
+          <StatsBar review={review} feedback={feedback} />
+          <p className="quiet">
+            顯示最近 200 篇、300
+            筆回饋；這些是事件筆數，不是獨立人數。示範故事回饋會標示，不當成真實內容需求證據。
+          </p>
+          <button className="secondary" disabled={busy} onClick={() => action.run(load)}>
+            重新整理
+          </button>
+          <WritingMetrics metrics={metrics} />
+          <ReviewQueue review={review} busy={busy} onModerate={moderate} />
+          <FeedbackList feedback={feedback} review={review} />
+        </section>
+      )}
+    </>
+  );
+}
