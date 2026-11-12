@@ -6,13 +6,14 @@ const worker = {
     return handler.fetch(request, env, ctx);
   },
 
-  /** Daily Cron Trigger (wrangler.jsonc `triggers.crons`): data retention. */
-  scheduled(controller: ScheduledController, _env: Cloudflare.Env, ctx: ExecutionContext) {
-    ctx.waitUntil(
-      runRetention(controller.scheduledTime).then((deleted) =>
-        console.log("retention", JSON.stringify(deleted)),
-      ),
-    );
+  /**
+   * Daily Cron Trigger (wrangler.jsonc `triggers.crons`): data retention.
+   * Awaited rather than passed to ctx.waitUntil(), so a failed run rejects the
+   * handler and shows up as a failed cron invocation.
+   */
+  async scheduled(controller: ScheduledController) {
+    const deleted = await runRetention(controller.scheduledTime);
+    console.log("retention", JSON.stringify(deleted));
   },
 };
 
