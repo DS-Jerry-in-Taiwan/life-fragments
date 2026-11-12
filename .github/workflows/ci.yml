@@ -1,5 +1,5 @@
 # PR checks for ring-letter: typecheck, unit tests, build, the API
-# integration test and the Playwright e2e run, each against `npm run dev`
+# integration and retention tests and the Playwright e2e run, each against `npm run dev`
 # with a fresh local D1.
 # No Cloudflare credentials are used here.
 name: CI
@@ -42,7 +42,7 @@ jobs:
       - run: npm run test:auth
       - run: npm run build
 
-      - name: API integration test
+      - name: API integration and retention tests
         run: |
           npm run db:migrate:local
           # Bind IPv4 explicitly: on the runner `localhost` resolves to ::1,
@@ -53,6 +53,9 @@ jobs:
             sleep 2
           done
           npm run test:api || { echo "--- dev server log"; cat dev.log; exit 1; }
+          # Fires the Cron Trigger with future times; wipes the local D1's
+          # non-approved rows, so it runs last.
+          npm run test:retention || { echo "--- dev server log"; cat dev.log; exit 1; }
 
   # Browser smoke + screenshot comparison (issue #4, V1-a). Playwright runs in
   # the official container so the pixels match the committed baselines,
