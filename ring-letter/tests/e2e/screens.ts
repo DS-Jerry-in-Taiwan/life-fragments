@@ -8,6 +8,8 @@ import { expect, hydrated } from "./fixtures";
  *
  * When V1-d turns tabs into routes, change each `open` to e.g.
  * `page.goto("/read")`; `ready` and the snapshot names stay the same.
+ * Exception: `privacy*` are the dialog over the home page; keep them as the
+ * dialog and add the new /privacy page as its own screen.
  */
 export type Screen = {
   name: string;

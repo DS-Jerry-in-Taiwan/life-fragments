@@ -13,7 +13,9 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // One retry on CI: a cold Vite dep-optimizer can force a full reload on the
+  // first browser visit. A test that only passes on retry is reported as flaky.
+  retries: process.env.CI ? 1 : 0,
   timeout: 60_000,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
   // No platform/project suffix: baselines are only ever produced in the container.
@@ -21,9 +23,10 @@ export default defineConfig({
   expect: {
     timeout: 15_000,
     toHaveScreenshot: {
-      // Same container, same pixels: any difference is a real change.
+      // No pixel may differ beyond the default per-pixel colour tolerance
+      // (0.2), which absorbs anti-aliasing noise between runner CPUs (Skia
+      // picks SIMD paths at runtime) but not any layout or colour change.
       maxDiffPixels: 0,
-      threshold: 0,
       animations: "disabled",
       caret: "hide",
       scale: "css",

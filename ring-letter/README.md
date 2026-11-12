@@ -36,9 +36,9 @@ npm run dev                # http://127.0.0.1:5173
 
 ## 瀏覽器測試與截圖基準
 
-`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（容許差異為 0）。畫面清單在 `tests/e2e/screens.ts`。
+`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
 
-截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去。
+截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
 
 ```sh
 npm run db:migrate:local

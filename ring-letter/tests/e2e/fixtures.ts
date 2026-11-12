@@ -12,7 +12,9 @@ export const WIDTHS = {
 /**
  * The dev server grants an admin identity only to requests carrying its
  * per-run secret (vite.config.ts devAdminIdentity(), same as tests/api.mjs).
- * The headers go only to our own origin, never to Google Fonts.
+ * The headers go only to our own origin, never to Google Fonts. (Playwright
+ * would keep them on a redirect; the dev app never redirects off-origin, and
+ * the token is per dev-server start and only unlocks the local D1.)
  */
 export async function asAdmin(context: BrowserContext) {
   const token =
