@@ -26,7 +26,7 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run db:generate` | 修改 `db/schema.ts` 後產生新的 `drizzle/` 遷移 |
 | `npm run db:migrate:local` | 把 `drizzle/` 的遷移套用到本機 D1 |
 | `npm run test:api` | API 整合測試（需先另開 `npm run dev`） |
-| `npm run test:retention` | 資料保留政策測試（需先另開 `npm run dev`；會清掉本機 D1 的非核准資料，放在 `test:api` 之後跑） |
+| `npm run test:retention` | 資料保留政策測試（需先另開 `npm run dev`；會清掉本機 D1 幾乎所有資料，放在 `test:api` 之後跑） |
 | `npm run test:auth` | Access JWT 驗證的單元測試 |
 | `npm run test:e2e` | Playwright smoke 與截圖比對（需先另開 `npm run dev`，並有 Docker） |
 | `npm run test:e2e:update` | 重新產生截圖基準 |

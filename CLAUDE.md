@@ -32,12 +32,12 @@ API 整合測試（`tests/api.mjs`，單一腳本，沒有個別測試可選）�
 ```sh
 npm run dev                     # 另開一個終端機
 npm run test:api                # 預設 TEST_ORIGIN=http://127.0.0.1:5173
-npm run test:retention          # 保留政策（tests/retention.mjs），會清掉本機 D1 的非核准資料，放最後跑
+npm run test:retention          # 保留政策（tests/retention.mjs），會清掉本機 D1 幾乎所有資料，放最後跑
 ```
 
 測試讀 `.wrangler/dev-admin-token`（dev server 每次啟動產生的祕密）來扮演管理者（見下方「管理者驗證」），所以要先啟動 dev server，也不能對 `npm start` 或正式環境跑：建置後的 Worker 沒有這條路，管理者測試會拿到 403。測試資料最後會自行刪除，但測試中途失敗時，資料會留在本機 D1，下次跑到最後一個檢查會失敗。這時刪掉 `.wrangler/state`，再跑一次 `npm run db:migrate:local`。
 
-`tests/retention.mjs` 用 Cloudflare Vite plugin 的 dev 專用 `/cdn-cgi/handler/scheduled?time=<ms>` 以未來時間觸發 Cron（「31 天後」），並用 `wrangler d1 execute --local` 檢查／插入少量回溯時間的資料。未來時間的 Cron 會刪掉本機 D1 裡**所有**非核准故事、回饋、試寫與 session（不只測試的），所以只對可丟棄的 `.wrangler/state` 跑。`npm start`（wrangler dev 跑建置後的 Worker）的 `/cdn-cgi/handler/scheduled` 在 wrangler 4.92 因 assets router 無法轉送 `ScheduledController` 而回 500，本機測 Cron 一律用 `npm run dev`。
+`tests/retention.mjs` 用 Cloudflare Vite plugin 的 dev 專用 `/cdn-cgi/handler/scheduled?time=<ms>` 以未來時間觸發 Cron（「31 天後」），並用 `wrangler d1 execute --local` 檢查／插入少量回溯時間的資料。未來時間的 Cron 會刪掉本機 D1 裡除了「永久版本且已核准」以外的**所有**故事、回饋、試寫與 session（不只測試的），所以只對可丟棄的 `.wrangler/state` 跑。`npm start`（wrangler dev 跑建置後的 Worker）的 `/cdn-cgi/handler/scheduled` 在 wrangler 4.92 因 assets router 無法轉送 `ScheduledController` 而回 500，本機測 Cron 一律用 `npm run dev`。
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state`。`.wrangler/`、`.vinext/`、`dist/` 都是可丟棄的本機狀態。
 
@@ -56,7 +56,12 @@ npm run test:retention          # 保留政策（tests/retention.mjs），會清
   - 正式環境：Cloudflare Access 保護 `/admin*` 與 `/api/admin*`（含 `/api/admin/queue`、`/api/admin/stories/:id/moderation` 等所有子路徑）。Worker 仍自己驗 `Cf-Access-Jwt-Assertion`（`lib/server/access-jwt.ts`：RS256、`aud`、`iss`、`exp`／`nbf`，從 `https://<team>/cdn-cgi/access/certs` 取公鑰並快取 1 小時，未知 `kid` 會重抓一次），再比對 `ADMIN_EMAILS` 白名單。設定值 `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`、`ADMIN_EMAILS`（secret，不進版控）任一缺少就一律拒絕。
   - 管理者必須用整頁導覽進 `/admin` 才會觸發 Access 登入；前端用 `fetch()` 打 `/api/admin/…` 時若未登入，Access 會回跨來源重新導向而失敗。所以頁尾「管理者登入」是連到 `/admin` 的一般連結。
   - 開發環境（`import.meta.env.DEV`，正式建置會整段移除）：身分直接取 `Cf-Access-Authenticated-User-Email` header。這個 header 由 `vite.config.ts` 的 `devAdminIdentity()` 設定：它先刪掉客戶端送來的所有 `cf-access-*`、`oai-authenticated-user-*` header，只有帶著本次啟動的祕密（寫在 `.wrangler/dev-admin-token`）的請求才會拿到身分——`x-dev-admin-token` + `x-dev-admin-email`（測試用），或透過終端機印出的 `/__dev-admin?token=…` 登入連結取得的 `rl_dev_admin` cookie（瀏覽器用，注入 `.env.local` 的 `DEV_ADMIN_EMAIL`）。**不要改成用來源 IP 判斷**：Cloudflare plugin 的 quick tunnel、ssh／Docker／WSL 轉發、反向代理進來的請求都會是 loopback。
-- **資料保留**（#4 第 6 節，V3-a）：只由每日 Cron 的 `runRetention()`（`lib/server/retention.ts`）在一個 D1 batch 裡刪除；建立 session 不再清理。已核准故事**不自動刪除**（只有撤回、全部刪除、管理者刪除）；其他狀態的故事在 `status_at`（最後一次狀態變更）30 天後連同回饋與 `consent_events` 刪除；`feedback`、`writing_attempts` 從 `created` 起 30 天；`sessions` 暫時維持 v1 的建立後 30 天（V3-c 改成 `last_seen` 後 1 年）。讀取端同一規則（`lib/server/db/stories.ts` 的 `LIVE`）：已核准不看時間，其他的只顯示 `status_at` 30 天內的。審核改變狀態時更新 `status_at`；改成 approved 設 `approved_at`，離開 approved 清成 NULL；重複同一決定不動時間。
+- **資料保留**（#4 第 6 節，V3-a）：只由每日 Cron 的 `runRetention()`（`lib/server/retention.ts`）在一個 D1 batch 裡刪除；建立 session 不再清理。故事的規則看它的同意版本（`stories.consent` 冒號前的前綴，不看 `consent_events`），讀取（公開清單、`isApprovedStory` 回饋資格、我的片段、審閱清單）與刪除共用 `lib/server/db/stories.ts` 的同一個 SQL（`EXPIRES_FROM`／`LIVE`／`EXPIRED_STORY`）：
+  - 版本在 `PERMANENT_CONSENT_VERSIONS`（`v3-2026-11-12`）：已核准**不自動刪除**（只有撤回、全部刪除、管理者刪除）；其他狀態從 `status_at`（最後一次狀態變更）起 30 天。
+  - 其他版本（`v2-2026-11-05`、舊的或空的，承諾的是「30 天」）：任何狀態、包含已核准，一律從 `created` 起 30 天，之後的狀態變更不會延長。
+  - 目前 `CONSENT_VERSION` 仍是 `v2-2026-11-05`，所以真實投稿還不會產生永久故事。**V3-c 才啟用**：把 `CONSENT_VERSION` 換成 `v3-2026-11-12`，同時改同意與隱私文字、加聯絡信箱與 1 年滑動 session（作者要能撤回，才能承諾「保留到撤回」）。
+  - 故事刪除時連同回饋與 `consent_events`；`feedback`、`writing_attempts` 從 `created` 起 30 天；`sessions` 暫時維持 v1 的建立後 30 天（V3-c 改成 `last_seen` 後 1 年）。
+  - 審核改變狀態時更新 `status_at`；改成 approved 設 `approved_at`，離開 approved 清成 NULL；重複同一決定不動時間。
 - **授權歷史**：`consent_events`（append-only：`submit`／`share`／`unshare`＋`consent_version`），投稿時與故事同一個 batch 寫入 `submit`；任何刪除故事的路徑都在同一個 batch 刪掉它的事件。改了 `components/write/ConsentFields.tsx` 的同意文字就要更新 `CONSENT_VERSION`（`lib/server/db/stories.ts`）。
 - **同意規則**：私人（未同意分享）故事不能被核准；管理者不能修改投稿內文；舊投稿的同意不可沿用到新的人工媒合流程。
 
