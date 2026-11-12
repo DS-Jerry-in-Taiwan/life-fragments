@@ -59,7 +59,9 @@ export default function AdminDashboard() {
           <SectionIntro eyebrow="管理者專用" title="把關每一封來信">
             <span className="sentence">只審核原文。</span>
             <span className="sentence">不同意分享的片段不能公開。</span>
-            <span className="sentence">資料提供 30 天存取，過期不再顯示。</span>
+            <span className="sentence">
+              已核准的片段持續保留；其他資料提供 30 天存取，過期不再顯示。
+            </span>
           </SectionIntro>
           <StatsBar review={review} feedback={feedback} />
           <p className="quiet">

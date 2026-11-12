@@ -16,7 +16,7 @@ export default function ConsentFields({ onOpenPrivacy }: { onOpenPrivacy: () => 
         我已滿 18 歲，內容是我的真實經歷，且有權分享。
       </CheckboxField>
       <CheckboxField name="privacy" required>
-        我了解團隊可閱讀投稿，資料提供 30
+        我了解團隊可閱讀投稿；經審閱公開的內容會持續保留，直到撤回或由管理者刪除，其他資料提供 30
         天存取，過期不再顯示並於後續清理。我可在原瀏覽器刪除，已被截圖或轉傳的內容無法收回。
       </CheckboxField>
       <button type="button" className={styles.inlineLink} onClick={onOpenPrivacy}>

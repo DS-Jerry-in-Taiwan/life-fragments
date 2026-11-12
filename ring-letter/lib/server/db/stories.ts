@@ -5,7 +5,7 @@ import { db } from "./index";
  * rows). Bump it whenever the consent text in components/write/ConsentFields.tsx
  * changes.
  */
-export const CONSENT_VERSION = "v2-2026-11-05";
+export const CONSENT_VERSION = "v3-2026-11-12";
 
 /**
  * Visibility rule shared by every story read (#4 §6): approved stories never
