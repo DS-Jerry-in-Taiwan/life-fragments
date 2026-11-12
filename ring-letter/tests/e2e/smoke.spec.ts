@@ -110,3 +110,34 @@ test("write: choosing a type sets ?mode=, and the link opens the form directly",
   await expect(page.getByRole("heading", { level: 1, name: "記下此刻" })).toBeVisible();
   expect((await started).ok()).toBe(true);
 });
+
+test("write: one start per chooser click; a second letter after submit works", async ({ page }) => {
+  const starts: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/letter") && r.postData()?.includes('"start"')) starts.push(r.url());
+  });
+  await page.goto("/write");
+  await hydrated(page);
+  const fill = async (title: string) => {
+    await page.getByLabel("給這封信一個名字（選填）").fill(title);
+    await page.getByLabel("剛剛發生了什麼？").fill("自動化測試的文字，測試結束會刪除。");
+    await page.getByLabel("現在的感覺").fill("平靜");
+    await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
+    await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
+    await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+    await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
+  };
+  await page.getByRole("button", { name: /今天，/ }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "記下此刻" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(starts).toHaveLength(1);
+  await fill("第一封");
+  // Back to the chooser, then forward into the same ?mode=: a new attempt,
+  // so the second letter is not rejected as already sent.
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
+  await page.goForward();
+  await expect(page.getByLabel("剛剛發生了什麼？")).toBeVisible();
+  expect(starts).toHaveLength(2);
+  await fill("第二封");
+});

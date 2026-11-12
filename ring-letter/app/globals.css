@@ -1514,3 +1514,8 @@ nav .nav-form {
   max-height: none;
   overflow: visible;
 }
+.privacy-page h1 {
+  font-size: 27px;
+  letter-spacing: normal;
+  line-height: 1.6;
+}

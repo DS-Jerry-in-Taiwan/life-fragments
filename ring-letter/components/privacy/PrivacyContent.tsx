@@ -1,8 +1,12 @@
 /** The full data-use notice (#4 §4.2: shared by /privacy and the dialog). */
-export default function PrivacyContent() {
+export default function PrivacyContent({ page = false }: { page?: boolean }) {
   return (
     <>
-      <h2 id="privacy-title">讓文字安心留下</h2>
+      {page ? (
+        <h1 id="privacy-page-title">讓文字安心留下</h1>
+      ) : (
+        <h2 id="privacy-title">讓文字安心留下</h2>
+      )}
       <p>
         <span className="sentence">這是 Ring letter 團隊的小型測試網站，僅供 18 歲以上使用。</span>
         <span className="sentence">

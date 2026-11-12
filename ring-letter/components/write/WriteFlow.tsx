@@ -38,22 +38,32 @@ export default function WriteFlow() {
   }
   const setMode = (next: LetterType | "") =>
     router.push(next ? `/write?mode=${next}` : "/write", { scroll: false });
+  // Only the latest `start` may set the attempt (a slow one can't overwrite a newer one).
+  const latest = useRef(0);
+  async function begin(next: LetterType) {
+    const n = ++latest.current;
+    const id = await api.startWriting(next);
+    if (n === latest.current) setAttempt({ mode: next, id });
+  }
   function chooseMode(next: LetterType) {
     return action.run(async () => {
-      setAttempt({ mode: next, id: await api.startWriting(next) });
+      await begin(next);
       setMode(next);
     });
   }
-  // Opened by a direct link to /write?mode=…: record the attempt now.
-  const starting = useRef<LetterType | null>(null);
+  // As in v1, the form only shows once a writing attempt exists for this
+  // type, so a letter can always be submitted.
+  const ready = !!mode && attempt?.mode === mode;
+  // Arrived at /write?mode=… without one (direct link, back / forward):
+  // record it now, once; if that fails the chooser stays, with the error.
+  const autoStarted = useRef<LetterType | null>(null);
   useEffect(() => {
-    if (!mode || saved || attempt?.mode === mode || starting.current === mode) return;
-    starting.current = mode;
-    action
-      .run(async () => setAttempt({ mode, id: await api.startWriting(mode) }))
-      .finally(() => (starting.current = null));
+    if (!mode) autoStarted.current = null;
+    if (!mode || saved || ready || autoStarted.current === mode) return;
+    autoStarted.current = mode;
+    action.run(() => begin(mode));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, saved, attempt]);
+  }, [mode, saved, ready]);
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -85,7 +95,7 @@ export default function WriteFlow() {
         era: mode === "present" ? "今天" : val("era"),
         source: mode === "present" ? "present" : source,
         letterType: mode as LetterType,
-        attempt: attempt?.mode === mode ? attempt.id : "",
+        attempt: attempt!.id,
         mood: val("mood"),
         reflection: val("reflection"),
         adult: f.get("adult") === "on",
@@ -93,6 +103,9 @@ export default function WriteFlow() {
         share: f.get("share") === "on",
       });
       setSaved(true);
+      // That attempt is completed; the next letter needs a new one.
+      setAttempt(null);
+      autoStarted.current = null;
       setBody("");
       form.reset();
     });
@@ -104,11 +117,13 @@ export default function WriteFlow() {
         <div className="section-intro">
           <p className="eyebrow">寫一封信</p>
           <h1>
-            {mode === "past"
-              ? "回想一段經歷"
-              : mode === "present"
-                ? "記下此刻"
-                : "你今天想怎麼寫？"}
+            {!saved && !ready
+              ? "你今天想怎麼寫？"
+              : mode === "past"
+                ? "回想一段經歷"
+                : mode === "present"
+                  ? "記下此刻"
+                  : "你今天想怎麼寫？"}
           </h1>
           <p>
             <span className="sentence">不必寫得漂亮，也不需要有結論。</span>
@@ -117,7 +132,7 @@ export default function WriteFlow() {
         </div>
         {saved ? (
           <SubmitSuccess />
-        ) : !mode ? (
+        ) : !ready ? (
           <ModeChooser busy={busy} onChoose={chooseMode} />
         ) : (
           <form className="write-form" onSubmit={submit}>

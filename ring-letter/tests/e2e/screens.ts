@@ -124,7 +124,7 @@ export const SCREENS: Screen[] = [
     name: "privacy-page",
     open: (page) => route(page, "/privacy"),
     ready: async (page) => {
-      await expect(page.getByRole("heading", { level: 2, name: "讓文字安心留下" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "讓文字安心留下" })).toBeVisible();
       await expect(page.getByRole("dialog")).toHaveCount(0);
     },
   },
