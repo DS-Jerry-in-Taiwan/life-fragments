@@ -26,10 +26,7 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
       </p>
       <h3>多久？如何刪除？</h3>
       <p>
-        <span className="sentence">
-          經審閱公開的文章會持續保留，直到撤回或由管理者刪除；其他資料最多供使用 30
-          天，過期即不再顯示，並由每日排程清理。
-        </span>
+        <span className="sentence">資料最多供使用 30 天，過期即不再顯示，並由每日排程清理。</span>
         <span className="sentence">你可隨時在「我的片段」刪除這個瀏覽器的投稿及回饋。</span>
         <span className="sentence">請保留 Cookie；清除後本版沒有跨裝置找回功能。</span>
         <span className="sentence">系統備份與託管平台紀錄依平台機制保存，不保證同步清除。</span>
