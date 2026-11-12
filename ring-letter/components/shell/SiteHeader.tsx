@@ -1,21 +1,26 @@
-import type { Tab } from "../ring-letter-app";
+"use client";
+import { usePathname } from "next/navigation";
+import NavButton from "./NavButton";
 
-export default function SiteHeader({ tab, go }: { tab: Tab; go: (t: Tab) => void }) {
+const NAV = [
+  ["/read", "讀一封信"],
+  ["/write", "寫一封信"],
+  ["/mine", "我的片段"],
+] as const;
+
+export default function SiteHeader() {
+  const pathname = usePathname();
   return (
     <header>
-      <button className="brand" onClick={() => go("home")}>
+      <NavButton to="/" className="brand">
         <span className="logo">☾</span> Ring letter<span className="brand-small">時光來信</span>
-      </button>
+      </NavButton>
       <nav aria-label="主要導覽">
-        <button className={tab === "read" ? "active" : ""} onClick={() => go("read")}>
-          讀一封信
-        </button>
-        <button className={tab === "write" ? "active" : ""} onClick={() => go("write")}>
-          寫一封信
-        </button>
-        <button className={tab === "mine" ? "active" : ""} onClick={() => go("mine")}>
-          我的片段
-        </button>
+        {NAV.map(([to, label]) => (
+          <NavButton key={to} to={to} className={pathname === to ? "active" : ""}>
+            {label}
+          </NavButton>
+        ))}
       </nav>
     </header>
   );

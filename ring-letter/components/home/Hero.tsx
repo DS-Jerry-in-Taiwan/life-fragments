@@ -1,6 +1,7 @@
+import NavButton from "../shell/NavButton";
 import HeroIllustration from "./HeroIllustration";
 
-export default function Hero({ onRead, onWrite }: { onRead: () => void; onWrite: () => void }) {
+export default function Hero() {
   return (
     <section className="hero">
       <div className="hero-copy">
@@ -23,12 +24,12 @@ export default function Hero({ onRead, onWrite }: { onRead: () => void; onWrite:
           <p>你也可以先讀，不必先寫。</p>
         </div>
         <div className="hero-actions">
-          <button className="primary" onClick={onRead}>
+          <NavButton to="/read" className="primary">
             先讀一封 <span>↗</span>
-          </button>
-          <button className="text-btn" onClick={onWrite}>
+          </NavButton>
+          <NavButton to="/write" className="text-btn">
             我想寫一封 <span>→</span>
-          </button>
+          </NavButton>
         </div>
         <p className="quiet">不必認識彼此，也不必立刻回應。</p>
       </div>

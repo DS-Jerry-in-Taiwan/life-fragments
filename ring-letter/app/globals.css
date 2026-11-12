@@ -1507,3 +1507,15 @@ nav .nav-form {
     animation: none;
   }
 }
+/* /privacy: the dialog's notice as a page (V1-d). Polished in V5. */
+.modal.privacy-page {
+  margin: 62px auto;
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+.privacy-page h1 {
+  font-size: 27px;
+  letter-spacing: normal;
+  line-height: 1.6;
+}

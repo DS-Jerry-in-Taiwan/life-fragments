@@ -2,14 +2,12 @@ import type { Page } from "@playwright/test";
 import { expect, hydrated } from "./fixtures";
 
 /**
- * Every v1 screen, reached the way a user reaches it today (nav / footer
- * buttons). Locate by role, text, aria-* or data-event only — never by CSS
+ * Every screen, opened by its route (V1-d). The privacy dialog is still
+ * opened from the footer; /privacy is the same notice as a page. Locate by role, text, aria-* or data-event only — never by CSS
  * class, which CSS Modules will rewrite (issue #4, 4.6.6).
  *
- * When V1-d turns tabs into routes, change each `open` to e.g.
- * `page.goto("/read")`; `ready` and the snapshot names stay the same.
- * Exception: `privacy*` are the dialog over the home page; keep them as the
- * dialog and add the new /privacy page as its own screen.
+ * Snapshot names are unchanged from the v1 (tab) baselines, which the routed
+ * screens must still match pixel for pixel.
  */
 export type Screen = {
   name: string;
@@ -20,19 +18,17 @@ export type Screen = {
   ready: (page: Page) => Promise<void>;
 };
 
-async function home(page: Page) {
-  await page.goto("/");
+async function route(page: Page, path: string) {
+  await page.goto(path);
   await hydrated(page);
 }
-const nav = (page: Page, name: string) =>
-  page.getByRole("navigation", { name: "主要導覽" }).getByRole("button", { name });
+const home = (page: Page) => route(page, "/");
 const footer = (page: Page, name: string) =>
   page.getByRole("contentinfo").getByRole("button", { name });
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
 
 async function chooser(page: Page) {
-  await home(page);
-  await nav(page, "寫一封信").click();
+  await route(page, "/write");
   await expect(h1(page, "你今天想怎麼寫？")).toBeVisible();
 }
 
@@ -47,9 +43,17 @@ export const SCREENS: Screen[] = [
   },
   {
     name: "read",
+    // Via the home page, like the v1 baseline: home's own random letter uses
+    // the first value of the seeded Math.random sequence, so a direct
+    // goto("/read") would show a different letter. (Also covers client-side
+    // navigation; the routes smoke test covers loading /read directly.)
     open: async (page) => {
       await home(page);
-      await nav(page, "讀一封信").click();
+      await page
+        .getByRole("navigation", { name: "主要導覽" })
+        .getByRole("button", { name: "讀一封信" })
+        .click();
+      await expect(page).toHaveURL(/\/read$/);
     },
     ready: async (page) => {
       await expect(page.getByRole("heading", { name: "先讀一封，不必先寫" })).toBeVisible();
@@ -90,10 +94,7 @@ export const SCREENS: Screen[] = [
   },
   {
     name: "mine",
-    open: async (page) => {
-      await home(page);
-      await nav(page, "我的片段").click();
-    },
+    open: (page) => route(page, "/mine"),
     ready: async (page) => {
       await expect(h1(page, "我的片段")).toBeVisible();
       await expect(page.getByRole("heading", { name: "還沒有留下的片段" })).toBeVisible();
@@ -101,10 +102,7 @@ export const SCREENS: Screen[] = [
   },
   {
     name: "archive",
-    open: async (page) => {
-      await home(page);
-      await footer(page, "先前公開信箱").click();
-    },
+    open: (page) => route(page, "/archive"),
     ready: async (page) => {
       await expect(h1(page, /有一段生活/)).toBeVisible();
       // Fresh DB: no approved stories, so the first hardcoded demo shows.
@@ -123,12 +121,17 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    name: "privacy-page",
+    open: (page) => route(page, "/privacy"),
+    ready: async (page) => {
+      await expect(page.getByRole("heading", { level: 1, name: "讓文字安心留下" })).toBeVisible();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+    },
+  },
+  {
     name: "admin",
     admin: true,
-    open: async (page) => {
-      await page.goto("/admin");
-      await hydrated(page);
-    },
+    open: (page) => route(page, "/admin"),
     ready: async (page) => {
       await expect(h1(page, "把關每一封來信")).toBeVisible();
       // The baseline is of an empty DB; leftover data (e.g. from an aborted
