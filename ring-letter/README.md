@@ -27,10 +27,31 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run db:migrate:local` | 把 `drizzle/` 的遷移套用到本機 D1 |
 | `npm run test:api` | API 整合測試（需先另開 `npm run dev`） |
 | `npm run test:auth` | Access JWT 驗證的單元測試 |
+| `npm run test:e2e` | Playwright smoke 與截圖比對（需先另開 `npm run dev`，並有 Docker） |
+| `npm run test:e2e:update` | 重新產生截圖基準 |
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state` 裡的本機 D1。這個目錄可以直接刪掉重建，刪掉後再跑一次 `npm run db:migrate:local` 即可。
 
 如果你的本機 D1 是 M1 之前用 `wrangler d1 execute --file` 建的，裡面沒有 `d1_migrations` 紀錄，`db:migrate:local` 會因為資料表已存在而失敗。這時刪掉 `.wrangler/state` 重建即可。
+
+## 瀏覽器測試與截圖基準
+
+`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
+
+截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
+
+```sh
+npm run db:migrate:local
+npm run dev                                   # 另開一個終端機
+npm run test:e2e                              # 比對；預設 TEST_ORIGIN=http://127.0.0.1:5173
+TEST_ORIGIN=http://127.0.0.1:5174 npm run test:e2e   # dev server 在別的 port 時
+npm run test:e2e:update                       # 畫面確定要改時，重新產生有差異的基準
+```
+
+- 本機 D1 要是乾淨的（跟 `test:api` 一樣）：管理頁與公開信箱的截圖是空資料庫的樣子。有殘留資料就刪掉 `.wrangler/state` 再跑 `db:migrate:local`。
+- 字型從 Google Fonts 載入，需要連得到網路。Google 對 400／500／600 三個字重回傳同一批可變字型檔、每個檔宣告三次，比對哪一個會隨載入順序而變，造成字形有細微像素差；測試會把這段 CSS 改寫成每個檔一個 `font-weight: 400 600` 的 @font-face（見 `tests/e2e/fixtures.ts`），字檔本身不變。
+- 失敗時差異圖在 `test-results/`；CI 會把 `playwright-report/` 與 `test-results/` 上傳成 artifact。
+- 升級 `@playwright/test` 後，容器版本會跟著換，要重新產生全部基準（`npm run test:e2e -- --update-snapshots=all`）。
 
 ## 管理者
 
