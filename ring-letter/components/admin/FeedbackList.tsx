@@ -1,4 +1,6 @@
 import type { Feedback, FeedbackKind, Story } from "../../lib/stories";
+import admin from "./AdminDashboard.module.css";
+import styles from "./FeedbackList.module.css";
 
 const KIND_NAME: Record<FeedbackKind, string> = {
   more: "想繼續讀",
@@ -18,9 +20,9 @@ export default function FeedbackList({
   return (
     <>
       <h2>閱讀回饋與回報</h2>
-      {feedback.length === 0 && <p className="empty-small">尚無回饋。</p>}
+      {feedback.length === 0 && <p className={admin.emptySmall}>尚無回饋。</p>}
       {feedback.map((f) => (
-        <article className="feedback-item" key={f.id}>
+        <article className={styles.item} key={f.id}>
           <span>{KIND_NAME[f.kind]}</span>
           <small>
             {f.story.startsWith("demo-")

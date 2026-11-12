@@ -1,0 +1,14 @@
+.admin {
+  max-width: 850px;
+  margin: auto;
+  padding-bottom: 70px;
+}
+.admin > h2 {
+  margin-top: var(--space-10);
+  font-size: var(--heading-sm);
+}
+/* Also used by ReviewQueue and FeedbackList. */
+.emptySmall {
+  font-size: var(--text-md);
+  color: var(--muted);
+}

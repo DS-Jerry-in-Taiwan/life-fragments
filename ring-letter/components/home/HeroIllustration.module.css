@@ -1,0 +1,212 @@
+.illustration {
+  height: 490px;
+  position: relative;
+}
+.orbit {
+  position: absolute;
+  border: 1px solid #d7d5c325;
+  border-radius: var(--radius-round);
+  left: -8%;
+  top: 12%;
+  width: 115%;
+  height: 77%;
+  transform: rotate(-28deg);
+}
+.orbitTwo {
+  left: -1%;
+  top: 6%;
+  width: 105%;
+  height: 90%;
+  transform: rotate(35deg);
+  border-style: dashed;
+  border-color: #d7d5c312;
+}
+.moon {
+  position: absolute;
+  width: 108px;
+  height: 108px;
+  border-radius: var(--radius-round);
+  right: 14%;
+  top: 0;
+  background: radial-gradient(circle at 40% 40%, #e3d5ad, #bcae87);
+  box-shadow: var(--shadow-moon);
+}
+.moon:after {
+  content: "";
+  position: absolute;
+  width: 108px;
+  height: 108px;
+  border-radius: var(--radius-round);
+  left: 24px;
+  top: -17px;
+  background: #1b333f;
+}
+.letterArt {
+  position: absolute;
+  width: 285px;
+  min-height: 330px;
+  top: 115px;
+  left: 20%;
+  padding: 30px 32px;
+  background: var(--paper);
+  color: var(--paperink);
+  transform: rotate(-9deg);
+  box-shadow: var(--shadow-letter);
+  border: 1px solid #fcf5e2;
+}
+.letterBack {
+  position: absolute;
+  width: 280px;
+  height: 320px;
+  background: #b5b4a6;
+  top: 125px;
+  left: 23%;
+  transform: rotate(5deg);
+}
+.paperDate {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.12em;
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid #65716933;
+}
+.letterArt p {
+  font-family: var(--serif);
+  font-size: var(--heading-sm);
+  line-height: 1.9;
+  margin: var(--space-6) 0 var(--space-5);
+}
+.paperLines {
+  height: 24px;
+  background: repeating-linear-gradient(transparent 0 11px, #7b807e22 11px 12px);
+}
+.seal {
+  position: absolute;
+  bottom: 20px;
+  right: 24px;
+  border: 1px solid #ac866b;
+  color: #ac866b;
+  border-radius: var(--radius-round);
+  width: 33px;
+  height: 33px;
+  font: italic 20px Georgia;
+  text-align: center;
+  padding-top: var(--space-1);
+  transform: rotate(12deg);
+}
+.spark {
+  position: absolute;
+  color: var(--gold);
+  font-size: 26px;
+}
+.s1 {
+  top: 80px;
+  left: 12%;
+}
+.s2 {
+  right: 0;
+  bottom: 90px;
+  font-size: 40px;
+}
+.s3 {
+  top: 32px;
+  right: 1%;
+  font-size: 35px;
+}
+.orbitNote {
+  position: absolute;
+  bottom: 2px;
+  left: 32%;
+  font-size: var(--text-xs);
+  letter-spacing: 0.18em;
+  color: #aab7bc;
+}
+@media (max-width: 900px) {
+  .illustration {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+  .letterArt {
+    left: 10%;
+  }
+  .letterBack {
+    left: 13%;
+  }
+}
+@media (max-width: 640px) {
+  .illustration {
+    height: 360px;
+    width: 310px;
+    margin: 10px auto 0;
+    transform: scale(0.88);
+    transform-origin: center;
+  }
+  .moon {
+    width: 85px;
+    height: 85px;
+    top: 3px;
+    right: 6%;
+  }
+  .moon:after {
+    width: 85px;
+    height: 85px;
+  }
+  .letterArt {
+    width: 225px;
+    min-height: 250px;
+    top: 85px;
+    left: 12%;
+    padding: 22px;
+  }
+  .letterBack {
+    width: 225px;
+    height: 250px;
+    top: 90px;
+    left: 16%;
+  }
+  .letterArt p {
+    font-size: 20px;
+    line-height: 1.8;
+    margin: 18px 0;
+  }
+  .paperDate {
+    font-size: var(--text-3xs);
+    padding-bottom: 14px;
+  }
+  .paperLines {
+    height: 12px;
+  }
+  .orbitNote {
+    bottom: -20px;
+    left: 21%;
+    font-size: var(--text-2xs);
+  }
+  /* Also overrides .orbitTwo's box (comes later, same specificity). */
+  .orbit {
+    left: -10%;
+    width: 120%;
+    top: 8%;
+    height: 90%;
+  }
+  .spark.s1 {
+    left: -2%;
+    top: 60px;
+  }
+  .s2 {
+    right: -3%;
+    bottom: 50px;
+  }
+}
+@media (max-width: 1000px) {
+  .illustration {
+    width: min(430px, 100%);
+    height: 430px;
+    justify-self: center;
+    margin: 0 auto;
+  }
+}
+@media (max-width: 640px) {
+  .illustration {
+    width: min(310px, 100%);
+    height: 360px;
+  }
+}

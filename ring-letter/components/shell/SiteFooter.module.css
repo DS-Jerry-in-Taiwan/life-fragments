@@ -1,0 +1,44 @@
+.footer {
+  position: relative;
+  z-index: 1;
+  max-width: 1144px;
+  margin: 0 auto;
+  padding: 26px 32px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid var(--line);
+  font-size: var(--text-md);
+  color: var(--muted);
+}
+.footer > span {
+  font-family: var(--font-display);
+}
+.phrase {
+  font: 11px Arial;
+  margin-left: var(--space-4);
+}
+.footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.footer button,
+.footer a {
+  font-size: var(--text-xs);
+  text-decoration: none;
+  padding: 0;
+}
+@media (max-width: 640px) {
+  .footer {
+    display: block;
+    padding: 22px;
+    font-size: var(--text-sm);
+  }
+  .footer > div {
+    margin-top: 15px;
+  }
+  .phrase {
+    font-size: var(--text-2xs);
+  }
+}

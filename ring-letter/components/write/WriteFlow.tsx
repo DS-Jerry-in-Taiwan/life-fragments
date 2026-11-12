@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { LetterType } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
+import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import { useShell } from "../shell/ShellContext";
 import ConsentFields from "./ConsentFields";
@@ -11,6 +12,7 @@ import ModeChooser from "./ModeChooser";
 import PastLetterForm from "./PastLetterForm";
 import PresentLetterForm from "./PresentLetterForm";
 import SubmitSuccess from "./SubmitSuccess";
+import styles from "./WriteFlow.module.css";
 
 /**
  * 寫一封信: choose past / present → form → success. The letter type is the
@@ -113,29 +115,28 @@ export default function WriteFlow() {
   return (
     <>
       <StatusMessage action={action} />
-      <section className="writing">
-        <div className="section-intro">
-          <p className="eyebrow">寫一封信</p>
-          <h1>
-            {!saved && !ready
+      <section className={styles.writing}>
+        <SectionIntro
+          eyebrow="寫一封信"
+          title={
+            !saved && !ready
               ? "你今天想怎麼寫？"
               : mode === "past"
                 ? "回想一段經歷"
                 : mode === "present"
                   ? "記下此刻"
-                  : "你今天想怎麼寫？"}
-          </h1>
-          <p>
-            <span className="sentence">不必寫得漂亮，也不需要有結論。</span>
-            <span className="sentence">只留下你願意記錄的部分。</span>
-          </p>
-        </div>
+                  : "你今天想怎麼寫？"
+          }
+        >
+          <span className="sentence">不必寫得漂亮，也不需要有結論。</span>
+          <span className="sentence">只留下你願意記錄的部分。</span>
+        </SectionIntro>
         {saved ? (
           <SubmitSuccess />
         ) : !ready ? (
           <ModeChooser busy={busy} onChoose={chooseMode} />
         ) : (
-          <form className="write-form" onSubmit={submit}>
+          <form className={styles.form} onSubmit={submit}>
             <button
               type="button"
               className="text-btn"
@@ -165,7 +166,7 @@ export default function WriteFlow() {
               <PresentLetterForm body={body} onBodyChange={setBody} />
             )}
             <ConsentFields onOpenPrivacy={openPrivacy} />
-            <button className="primary submit" disabled={busy}>
+            <button className={`primary ${styles.submit}`} disabled={busy}>
               {busy ? "正在儲存…" : "留下這封信 ↗"}
             </button>
             <p className="quiet">不保證送達日期，也不提供即時回信。</p>

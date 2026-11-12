@@ -1,0 +1,28 @@
+.writing {
+  max-width: 700px;
+  margin: 0 auto;
+  padding-bottom: 80px;
+}
+.form {
+  padding: 30px;
+  background: #ffffff04;
+  border: 1px solid var(--line);
+}
+.form > label {
+  margin-top: var(--space-6);
+}
+.form > :global(.quiet) {
+  line-height: 1.8;
+}
+.submit {
+  width: 100%;
+  margin-top: 26px;
+}
+@media (max-width: 640px) {
+  .form {
+    padding: var(--space-5) var(--space-4);
+  }
+  .writing {
+    padding-bottom: 45px;
+  }
+}

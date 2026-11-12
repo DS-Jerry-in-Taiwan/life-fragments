@@ -1,0 +1,60 @@
+/* The letter paper; .body and .demoNote are used for its children. */
+.storyPaper {
+  background: var(--paper);
+  color: var(--paperink);
+  padding: 42px 55px;
+  box-shadow: var(--shadow-paper);
+  border-top: 3px solid #c8b98e;
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid #34424a25;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-7);
+  color: #67716d;
+}
+.storyPaper h2 {
+  font-size: var(--heading-lg);
+  margin: var(--space-3) 0 var(--space-6);
+  overflow-wrap: anywhere;
+}
+.body {
+  font-family: var(--serif);
+  white-space: pre-wrap;
+  font-size: var(--text-2xl);
+  line-height: 2.25;
+  letter-spacing: 0.035em;
+  overflow-wrap: anywhere;
+}
+.end {
+  text-align: center;
+  color: #8e988f;
+  margin-top: 26px;
+  letter-spacing: 15px;
+}
+.demoNote {
+  font-size: var(--text-xs);
+  color: #68766e;
+  border-top: 1px solid #34424a25;
+  padding-top: 18px;
+  margin: var(--space-5) 0 0;
+}
+@media (max-width: 640px) {
+  .storyPaper {
+    padding: 27px 24px;
+  }
+  .storyPaper h2 {
+    font-size: var(--heading-xs);
+  }
+  .body {
+    font-size: var(--text-xl);
+    line-height: 2.15;
+  }
+  .top {
+    font-size: var(--text-3xs);
+    letter-spacing: 0.02em;
+  }
+}

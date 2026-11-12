@@ -5,6 +5,7 @@ import DistressEntry from "./DistressEntry";
 import MatchedLetter from "./MatchedLetter";
 import MatchingCare from "./MatchingCare";
 import ScenarioFilter from "./ScenarioFilter";
+import styles from "./MatchExperience.module.css";
 
 export default function MatchExperience() {
   const [scenario, setScenario] = useState<Scenario | null>(null),
@@ -28,8 +29,8 @@ export default function MatchExperience() {
     setIndex(Math.floor(Math.random() * pool.length));
   }
   return (
-    <section className="match-experience" id="match-experience" aria-labelledby="match-title">
-      <div className="match-intro">
+    <section className={styles.matchExperience} id="match-experience" aria-labelledby="match-title">
+      <div className={styles.intro}>
         <p className="eyebrow">跨時間的相遇</p>
         <h2 id="match-title">先讀一封，不必先寫</h2>
         <p>先讓一封信來到你面前。想換個故事，就再讀一封。</p>

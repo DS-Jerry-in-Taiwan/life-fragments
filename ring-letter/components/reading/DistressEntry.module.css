@@ -1,0 +1,21 @@
+.distressEntry {
+  text-align: center;
+  margin: var(--space-10) auto;
+  max-width: 40em;
+}
+.distressEntry :global(.quiet) {
+  text-align: left;
+  font-size: var(--text-md);
+  line-height: 2;
+}
+.manualMatch {
+  text-align: left;
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+  margin-top: var(--space-6);
+}
+.manualMatch summary {
+  cursor: pointer;
+  color: var(--gold);
+  padding: 10px 0;
+}

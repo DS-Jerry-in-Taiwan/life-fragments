@@ -1,0 +1,19 @@
+.consent {
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+}
+.consent > p {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  margin-left: 26px;
+}
+.inlineLink {
+  font-size: var(--text-sm);
+  color: var(--gold);
+  text-decoration: underline;
+}
+@media (max-width: 640px) {
+  .consent :global(.check) {
+    font-size: var(--text-sm);
+  }
+}

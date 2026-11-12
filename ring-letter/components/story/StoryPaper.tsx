@@ -1,3 +1,5 @@
+import styles from "./StoryPaper.module.css";
+
 /** The letter-paper frame shared by the archive and the reading page. */
 export default function StoryPaper({
   className = "",
@@ -17,13 +19,16 @@ export default function StoryPaper({
   after?: React.ReactNode;
 } & { [key: `data-${string}`]: string }) {
   return (
-    <article className={className ? `story-paper ${className}` : "story-paper"} {...data}>
-      <div className="story-top">
+    <article
+      className={className ? `${styles.storyPaper} ${className}` : styles.storyPaper}
+      {...data}
+    >
+      <div className={styles.top}>
         <span>{label}</span>
         <span>{mark}</span>
       </div>
       {children}
-      <div className="story-end">· · ·</div>
+      <div className={styles.end}>· · ·</div>
       {after}
     </article>
   );

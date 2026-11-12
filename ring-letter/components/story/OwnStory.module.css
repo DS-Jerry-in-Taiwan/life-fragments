@@ -1,0 +1,16 @@
+/* A submission card: 我的片段 (MyStories) and the admin review queue. */
+.ownStory {
+  border: 1px solid var(--line);
+  padding: 25px;
+  margin: var(--space-5) 0;
+  background: #ffffff03;
+}
+.ownStory h2,
+.ownStory h3 {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .ownStory {
+    padding: var(--space-5);
+  }
+}

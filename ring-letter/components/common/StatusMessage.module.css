@@ -1,0 +1,24 @@
+.message {
+  position: relative;
+  background: #294846;
+  border: 1px solid #748d74;
+  color: #e2e8df;
+  padding: 14px 36px 14px 20px;
+  font-size: var(--text-md);
+  margin: var(--space-5) 0;
+}
+.message.error {
+  background: #493b3b;
+  border-color: #9c7771;
+}
+.message button {
+  position: absolute;
+  right: 8px;
+  top: 7px;
+  font-size: 20px;
+}
+@media (max-width: 640px) {
+  .message {
+    font-size: var(--text-sm);
+  }
+}

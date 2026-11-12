@@ -1,4 +1,5 @@
 import type { LetterType } from "../../lib/stories";
+import styles from "./ModeChooser.module.css";
 
 export default function ModeChooser({
   busy,
@@ -9,7 +10,7 @@ export default function ModeChooser({
 }) {
   return (
     <>
-      <div className="writing-options">
+      <div className={styles.options}>
         <button disabled={busy} onClick={() => onChoose("past")}>
           <span>回憶信</span>
           <h2>

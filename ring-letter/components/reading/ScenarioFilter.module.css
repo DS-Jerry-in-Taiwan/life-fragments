@@ -1,0 +1,34 @@
+.scenarioFilter {
+  margin: var(--space-6) 0 var(--space-8);
+  color: var(--muted);
+  font-size: var(--text-md);
+}
+.scenarioFilter summary {
+  cursor: pointer;
+  color: var(--gold);
+  padding: 10px 0;
+}
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 28px 0 36px;
+}
+.buttons button {
+  padding: var(--space-3) var(--space-2);
+  white-space: nowrap;
+}
+/* `button` keeps this above `.secondary:hover` (utilities.css) in any file order. */
+.buttons button[aria-pressed="true"] {
+  background: var(--gold);
+  color: var(--bg);
+}
+@media (max-width: 640px) {
+  .buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.scenarioFilter .buttons {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  margin: var(--space-4) 0;
+}

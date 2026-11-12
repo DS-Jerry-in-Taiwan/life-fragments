@@ -1,6 +1,8 @@
+import styles from "./HowItWorks.module.css";
+
 export default function HowItWorks() {
   return (
-    <section className="how">
+    <section className={styles.how}>
       <h2>讓現在，遇見一段過去</h2>
       <div>
         <article>

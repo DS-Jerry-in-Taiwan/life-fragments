@@ -1,8 +1,9 @@
 import NavButton from "../shell/NavButton";
+import styles from "./SubmitSuccess.module.css";
 
 export default function SubmitSuccess() {
   return (
-    <div className="success">
+    <div className={styles.success}>
       <span>✦</span>
       <h2>你的文字已留下。</h2>
       <p>

@@ -1,10 +1,11 @@
 import type { WritingMetric } from "../../lib/stories";
+import styles from "./WritingMetrics.module.css";
 
 export default function WritingMetrics({ metrics }: { metrics: WritingMetric[] }) {
   return (
     <>
       <h2>兩種寫法的試寫情況</h2>
-      <div className="metrics">
+      <div className={styles.metrics}>
         <table>
           <thead>
             <tr>

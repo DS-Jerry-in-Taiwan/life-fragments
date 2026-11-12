@@ -1,0 +1,24 @@
+.matchingExplanation {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0 0 var(--space-12);
+}
+.matchingExplanation h2 {
+  font-size: var(--heading-md);
+}
+.matchingExplanation p {
+  color: var(--muted);
+  font-size: var(--text-lg);
+  line-height: 2;
+}
+@media (max-width: 640px) {
+  .matchingExplanation {
+    padding-bottom: var(--space-8);
+  }
+  .matchingExplanation h2 {
+    font-size: var(--heading-xs);
+  }
+  .matchingExplanation p {
+    font-size: var(--text-base);
+  }
+}

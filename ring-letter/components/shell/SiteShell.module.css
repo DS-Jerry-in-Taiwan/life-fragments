@@ -1,0 +1,38 @@
+.sky {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at 90% 20%, #27414b66, transparent 50%),
+    linear-gradient(155deg, #10232f, #122936 65%, #10232c);
+}
+.stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 12% 15%, #d1ceae88 50%, transparent),
+    radial-gradient(1px 1px at 75% 7%, #fff8 50%, transparent),
+    radial-gradient(1px 1px at 92% 43%, #fff9 50%, transparent),
+    radial-gradient(1px 1px at 34% 27%, #fff5 50%, transparent),
+    radial-gradient(2px 2px at 88% 73%, #d1ceae88 50%, transparent);
+  background-size: 700px 700px;
+}
+.main {
+  position: relative;
+  z-index: 1;
+  max-width: 1144px;
+  margin: auto;
+  padding: 0 var(--space-8);
+  min-height: 70vh;
+}
+@media (max-width: 900px) {
+  .main {
+    padding: 0 var(--space-6);
+  }
+}
+@media (max-width: 640px) {
+  .main {
+    padding: 0 22px;
+  }
+}

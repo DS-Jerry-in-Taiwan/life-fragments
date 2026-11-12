@@ -3,6 +3,10 @@ import { useState } from "react";
 import * as api from "../../lib/api-client";
 import type { FeedbackKind } from "../../lib/stories";
 import type { Action } from "../../lib/use-action";
+import CheckboxField from "../common/CheckboxField";
+import chips from "../common/Chips.module.css";
+import reader from "./ArchiveReader.module.css";
+import styles from "./ReaderFeedback.module.css";
 
 /** Optional reader feedback on the story being shown (consent first). */
 export default function ReaderFeedback({
@@ -36,18 +40,16 @@ export default function ReaderFeedback({
     });
   }
   return (
-    <details className="feedback-box">
+    <details className={styles.feedbackBox}>
       <summary>願意告訴我們讀起來如何嗎？</summary>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={feedbackConsent}
-          onChange={(e) => setFeedbackConsent(e.target.checked)}
-        />
+      <CheckboxField
+        checked={feedbackConsent}
+        onChange={(e) => setFeedbackConsent(e.target.checked)}
+      >
         我已滿 18 歲，同意保存本次回饋供團隊測試分析，提供 30
         天存取，過期不再顯示並於後續清理。可在「我的片段」刪除。
-      </label>
-      <div className="chips">
+      </CheckboxField>
+      <div className={chips.chips}>
         {(
           [
             ["resonate", "有一點共鳴"],
@@ -69,7 +71,7 @@ export default function ReaderFeedback({
         onChange={(e) => setNote(e.target.value)}
         placeholder="可不填。請不要留下姓名或聯絡方式。"
       />
-      <div className="reader-actions">
+      <div className={reader.actions}>
         <button
           className="secondary"
           disabled={busy || !note.trim()}
