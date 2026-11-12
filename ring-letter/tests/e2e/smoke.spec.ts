@@ -104,7 +104,7 @@ test("write: choosing a type sets ?mode=, and the link opens the form directly",
   await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
   // Direct link: the form opens and the writing attempt is recorded.
   const started = page.waitForResponse(
-    (r) => r.url().endsWith("/api/letter") && r.request().postData()?.includes('"start"') === true,
+    (r) => r.url().endsWith("/api/writing-attempts") && r.request().method() === "POST",
   );
   await page.goto("/write?mode=present");
   await expect(page.getByRole("heading", { level: 1, name: "記下此刻" })).toBeVisible();
@@ -114,7 +114,7 @@ test("write: choosing a type sets ?mode=, and the link opens the form directly",
 test("write: one start per chooser click; a second letter after submit works", async ({ page }) => {
   const starts: string[] = [];
   page.on("request", (r) => {
-    if (r.url().endsWith("/api/letter") && r.postData()?.includes('"start"')) starts.push(r.url());
+    if (r.url().endsWith("/api/writing-attempts") && r.method() === "POST") starts.push(r.url());
   });
   await page.goto("/write");
   await hydrated(page);
