@@ -1,4 +1,4 @@
-import { asAdmin, expect, hydrated, test, WIDTHS } from "./fixtures";
+import { adminHeaders, asAdmin, expect, hydrated, ORIGIN, test, WIDTHS } from "./fixtures";
 import { SCREENS } from "./screens";
 
 // Functional smoke (issue #4, section 7). Each test gets a fresh browser
@@ -38,6 +38,9 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
   await page.getByRole("button", { name: "留下這封信 ↗" }).click();
   await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
+  await expect(
+    page.getByText("這台裝置會記得你一年，共用裝置請記得到「我的片段」登出。"),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "查看我的片段 →" }).click();
   const story = page
@@ -52,6 +55,76 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   await expect(page.getByRole("status").filter({ hasText: "已刪除這段文字。" })).toBeVisible();
   await expect(story).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "還沒有留下的片段" })).toBeVisible();
+});
+
+test("我的片段: 在這台裝置登出 forgets this browser, the story stays", async ({
+  page,
+  context,
+}) => {
+  // Submitted through the API, without a writing attempt: after logging out
+  // the fixture can't erase this session's rows, and a leftover attempt would
+  // change the admin metrics baseline. Only the story is left, removed below.
+  const title = `e2e 登出測試 ${Date.now()}`;
+  const sameOrigin = { headers: { Origin: ORIGIN } };
+  expect((await context.request.post(ORIGIN + "/api/session", sameOrigin)).status()).toBe(200);
+  const submitted = await context.request.post(ORIGIN + "/api/me/stories", {
+    ...sameOrigin,
+    data: {
+      title,
+      body: "這是自動化瀏覽器測試留下的文字，用來驗證登出，測試結束會刪除。",
+      era: "測試日期",
+      source: "recollection",
+      adult: true,
+      privacy: true,
+      share: false,
+    },
+  });
+  expect(submitted.status()).toBe(200);
+  await page.goto("/mine");
+  await hydrated(page);
+  const session = (await context.cookies(ORIGIN)).find((c) => c.name === "rl_session");
+  expect(session, "應有 session cookie").toBeTruthy();
+  // One year, re-issued on every visit (#4 §6.2).
+  expect(session!.expires - Date.now() / 1000).toBeGreaterThan(364 * 24 * 3600);
+
+  const story = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: title }) });
+  await expect(story).toBeVisible();
+
+  // Cancelling the confirm changes nothing.
+  page.once("dialog", (d) => d.dismiss());
+  await page.getByRole("button", { name: "在這台裝置登出" }).click();
+  await expect(story).toBeVisible();
+
+  let message = "";
+  page.once("dialog", (d) => {
+    message = d.message();
+    return d.accept();
+  });
+  await page.getByRole("button", { name: "在這台裝置登出" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "已在這台裝置登出。" })).toBeVisible();
+  expect(message).toContain("投稿會保留");
+  expect(message).toContain("新的身分");
+  await expect(story).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "還沒有留下的片段" })).toBeVisible();
+  expect((await context.cookies(ORIGIN)).some((c) => c.name === "rl_session")).toBe(false);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "還沒有留下的片段" })).toBeVisible();
+
+  // The story is still on the server; remove it as admin (the fixture's
+  // erase-all can't reach it any more).
+  const queue = await context.request.get(ORIGIN + "/api/admin/queue", { headers: adminHeaders() });
+  expect(queue.status()).toBe(200);
+  const kept = ((await queue.json()).stories as { id: string; title: string }[]).filter(
+    (s) => s.title === title,
+  );
+  expect(kept, "登出後投稿仍在伺服器").toHaveLength(1);
+  const removed = await context.request.post(
+    `${ORIGIN}/api/admin/stories/${encodeURIComponent(kept[0].id)}/moderation`,
+    { headers: { ...adminHeaders(), Origin: ORIGIN }, data: { status: "delete" } },
+  );
+  expect(removed.status()).toBe(200);
 });
 
 test("all 7 routes load directly", async ({ page, context }) => {

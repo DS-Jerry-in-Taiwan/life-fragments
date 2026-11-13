@@ -16,20 +16,18 @@ export const WIDTHS = {
  * would keep them on a redirect; the dev app never redirects off-origin, and
  * the token is per dev-server start and only unlocks the local D1.)
  */
-export async function asAdmin(context: BrowserContext) {
+export function adminHeaders() {
   const token =
     process.env.DEV_ADMIN_TOKEN ||
     readFileSync(new URL("../../.wrangler/dev-admin-token", import.meta.url), "utf8").trim();
+  return { "x-dev-admin-token": token, "x-dev-admin-email": "dev-admin@localhost" };
+}
+
+export async function asAdmin(context: BrowserContext) {
+  const admin = adminHeaders();
   await context.route(
     (url) => url.origin === new URL(ORIGIN).origin,
-    (route) =>
-      route.continue({
-        headers: {
-          ...route.request().headers(),
-          "x-dev-admin-token": token,
-          "x-dev-admin-email": "dev-admin@localhost",
-        },
-      }),
+    (route) => route.continue({ headers: { ...route.request().headers(), ...admin } }),
   );
 }
 
