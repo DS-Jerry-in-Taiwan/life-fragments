@@ -9,7 +9,10 @@ export async function sessionExists(hash: string, since: number) {
 }
 
 export async function insertSession(hash: string, created: number) {
-  await db().prepare("INSERT INTO sessions(hash,created) VALUES(?,?)").bind(hash, created).run();
+  await db()
+    .prepare("INSERT INTO sessions(hash,created,last_seen) VALUES(?,?,?)")
+    .bind(hash, created, created)
+    .run();
 }
 
 export function deleteSession(hash: string) {

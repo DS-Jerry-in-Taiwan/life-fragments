@@ -8,7 +8,11 @@ import { reply } from "../../../../lib/server/http";
 // Cloudflare Access protects /api/admin and everything under it in
 // production; withAdmin() re-checks the Access token and ADMIN_EMAILS.
 
-/** Review queue: every story, feedback and writing metrics. */
+/**
+ * Review queue: stories still visible under the retention rules
+ * (lib/server/db/stories.ts), and the last 30 days of feedback and writing
+ * metrics (older feedback and attempts are deleted by the retention job).
+ */
 export async function GET(req: Request) {
   return guardRead(() =>
     withAdmin(req, async () => {
