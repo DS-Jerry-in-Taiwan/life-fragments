@@ -1,3 +1,5 @@
+import { CONTACT_EMAIL, CONTACT_MAILTO } from "../../lib/contact";
+
 /** The full data-use notice (#4 §4.2: shared by /privacy and the dialog). */
 export default function PrivacyContent({ page = false }: { page?: boolean }) {
   return (
@@ -26,10 +28,35 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
       </p>
       <h3>多久？如何刪除？</h3>
       <p>
-        <span className="sentence">資料最多供使用 30 天，過期即不再顯示，並由每日排程清理。</span>
-        <span className="sentence">你可隨時在「我的片段」刪除這個瀏覽器的投稿及回饋。</span>
-        <span className="sentence">請保留 Cookie；清除後本版沒有跨裝置找回功能。</span>
+        <span className="sentence">
+          未公開的投稿（未勾選分享、審閱中或未通過）在最後一次狀態變更 30 天後刪除。
+        </span>
+        <span className="sentence">經審閱公開的投稿會保留，直到你撤回或管理者刪除。</span>
+        <span className="sentence">
+          依先前版本同意送出的投稿，仍照當時約定，在送出 30 天後刪除。
+        </span>
+        <span className="sentence">回饋與試寫紀錄保存 30 天，由每日排程清理。</span>
         <span className="sentence">系統備份與託管平台紀錄依平台機制保存，不保證同步清除。</span>
+      </p>
+      <h3>這個瀏覽器會記得你</h3>
+      <p>
+        <span className="sentence">
+          投稿的瀏覽器會記得你到最後一次造訪後一年，期間每次回來都會再延長。
+        </span>
+        <span className="sentence">你可隨時在「我的片段」查看並刪除這個瀏覽器的投稿及回饋。</span>
+        <span className="sentence">
+          使用共用裝置時，請記得到「我的片段」登出；登出後投稿仍保留，但不會再出現在這個瀏覽器，之後再投稿會以新的身分開始。
+        </span>
+      </p>
+      <h3>找不回時，請管理者代刪</h3>
+      <p>
+        <span className="sentence">自行管理只限原本投稿的瀏覽器。</span>
+        <span className="sentence">
+          清除了 Cookie、換了裝置，或超過一年沒有回來，請寫信到{" "}
+          <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a>
+          ，附上要刪除投稿的標題、部分內文或大約投稿日期。
+        </span>
+        <span className="sentence">管理者找到後會刪除該篇及其回饋，通常 7 天內處理並回信。</span>
       </p>
       <h3>匿名分享的邊界</h3>
       <p>

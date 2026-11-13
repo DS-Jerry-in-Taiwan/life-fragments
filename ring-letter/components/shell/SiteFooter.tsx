@@ -1,4 +1,5 @@
 "use client";
+import { CONTACT_EMAIL, CONTACT_MAILTO } from "../../lib/contact";
 import NavButton from "./NavButton";
 import styles from "./SiteFooter.module.css";
 
@@ -18,6 +19,7 @@ export default function SiteFooter({
         <NavButton to="/mine">先前投稿與撤回</NavButton>
         <NavButton to="/archive">先前公開信箱</NavButton>
         <button onClick={onOpenPrivacy}>先前投稿資料說明</button>
+        <a href={CONTACT_MAILTO}>聯絡：{CONTACT_EMAIL}</a>
         {admin ? (
           <NavButton to="/admin">管理信箱</NavButton>
         ) : (

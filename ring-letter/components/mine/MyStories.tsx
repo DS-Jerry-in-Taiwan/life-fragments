@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import * as api from "../../lib/api-client";
+import { CONTACT_EMAIL, CONTACT_MAILTO } from "../../lib/contact";
 import type { Story } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import SectionIntro from "../common/SectionIntro";
@@ -11,9 +12,10 @@ import StoryMeta from "../story/StoryMeta";
 import own from "../story/OwnStory.module.css";
 import NavButton from "../shell/NavButton";
 import EraseAll from "./EraseAll";
+import Logout from "./Logout";
 import styles from "./MyStories.module.css";
 
-/** 我的片段: this browser's submissions, withdraw one or erase everything. */
+/** 我的片段: this browser's submissions, withdraw one, log out or erase everything. */
 export default function MyStories() {
   const action = useAction(true);
   const { busy, setNotice } = action;
@@ -39,14 +41,30 @@ export default function MyStories() {
       setNotice("已刪除本瀏覽器對應的投稿與回饋。");
     });
   }
+  function logout() {
+    if (
+      !confirm(
+        "在這台裝置登出？投稿會保留，但不會再出現在這個瀏覽器的「我的片段」，也無法再從這裡刪除。之後再投稿，會以新的身分開始。",
+      )
+    )
+      return;
+    return action.run(async () => {
+      await api.logout();
+      setMine([]);
+      setNotice("已在這台裝置登出。投稿仍保留；需要刪除時，請寫信請管理者代刪。");
+    });
+  }
   return (
     <>
       <StatusMessage action={action} />
       <section className={styles.collection}>
         <SectionIntro eyebrow="只屬於這個瀏覽器的信匣" title="我的片段">
           <span className="sentence">投稿存在伺服器；此瀏覽器的 Cookie 是你的存取憑證。</span>
-          <span className="sentence">清除 Cookie 或換裝置後，將無法自行找回。</span>
-          <span className="sentence">本版提供 30 天存取，過期不再顯示。</span>
+          <span className="sentence">每次回來都會再記得你一年。</span>
+          <span className="sentence">
+            清除 Cookie、換裝置或登出後，無法在這裡找回，可寫信到{" "}
+            <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a> 請管理者代刪。
+          </span>
         </SectionIntro>
         {busy && <p role="status">正在處理…</p>}
         {!busy && !mine.length && (
@@ -71,6 +89,7 @@ export default function MyStories() {
             </button>
           </article>
         ))}
+        <Logout busy={busy} onLogout={logout} />
         <EraseAll busy={busy} onErase={erase} />
       </section>
     </>
