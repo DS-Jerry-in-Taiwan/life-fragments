@@ -124,6 +124,25 @@ export function parseSubmit(b: unknown, now: number): Validated<Submission> {
   return { ok: true, data: { ...content.data, attempt } };
 }
 
+// --- PATCH /api/me/stories/:id/sharing ---------------------------------------
+
+/**
+ * `{share: true, consent: {adult: true, privacy: true, share: true}}` asks to
+ * share (the current consent wording, all three ticked again);
+ * `{share: false}` stops sharing (any `consent` is ignored).
+ */
+const sharingSchema = z.object({ share: z.boolean() });
+const shareConsentSchema = z.object({
+  consent: z.object({ adult: z.literal(true), privacy: z.literal(true), share: z.literal(true) }),
+});
+
+export function parseSharing(b: unknown): Validated<{ share: boolean }> {
+  const v = check(sharingSchema, b, "無效的分享設定");
+  if (!v.ok || !v.data.share) return v;
+  const consent = check(shareConsentSchema, b, "請勾選三項同意，才能申請分享。");
+  return consent.ok ? v : consent;
+}
+
 // --- /api/admin/stories/:id/moderation ------------------------------------
 
 const moderationSchema = z.object({

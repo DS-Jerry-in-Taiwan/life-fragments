@@ -28,7 +28,7 @@ export async function guardRead(run: () => Promise<Response>) {
   }
 }
 
-/** State-changing handlers (POST, DELETE): same-origin check, failures → 503. */
+/** State-changing handlers (POST, PATCH, DELETE): same-origin check, failures → 503. */
 export async function guardWrite(
   req: Request,
   run: () => Promise<Response>,

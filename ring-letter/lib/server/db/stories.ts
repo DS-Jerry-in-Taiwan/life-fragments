@@ -1,3 +1,4 @@
+import { MAX_SHARE_REQUESTS } from "./consent-events";
 import { db } from "./index";
 
 /**
@@ -41,6 +42,10 @@ const LIVE = `COALESCE(${EXPIRES_FROM}>?,1)`;
 /** SQL condition for the retention job; takes one parameter, the cutoff (now - AGE). */
 export const EXPIRED_STORY = `${EXPIRES_FROM}<?`;
 
+/** SQL: the story's 'share' consent events (requests to share again after submission). */
+const SHARE_REQUESTS =
+  "(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id AND e.action='share')";
+
 export type StoryInsert = {
   id: string;
   owner: string;
@@ -68,11 +73,14 @@ export async function listApprovedStories(cutoff: number) {
   return results;
 }
 
-/** The owner's stories still visible under the LIVE rule (`cutoff` = now - AGE). */
+/**
+ * The owner's stories still visible under the LIVE rule (`cutoff` = now - AGE),
+ * each with how many more times it may ask to be shared (#4 §6.1).
+ */
 export async function listOwnStories(owner: string, cutoff: number) {
   const { results } = await db()
     .prepare(
-      `SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE owner=? AND ${LIVE} ORDER BY created DESC`,
+      `SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection,MAX(0,${MAX_SHARE_REQUESTS}-${SHARE_REQUESTS}) AS shareRequestsLeft FROM stories WHERE owner=? AND ${LIVE} ORDER BY created DESC`,
     )
     .bind(owner, cutoff)
     .all();
@@ -83,11 +91,12 @@ export async function listOwnStories(owner: string, cutoff: number) {
  * Stories still visible under the LIVE rule, for the admin review queue,
  * newest first: every approved one (approved v3 stories never expire, and an
  * admin must always be able to find one to delete it on the author's
- * request), plus the 200 newest of any other status.
+ * request), plus the 200 newest of any other status. Each carries its
+ * number of share requests after submission and of consent events (#4 §6.1:
+ * the queue marks pending stories that asked to be shared again).
  */
 export function listAllStories(cutoff: number) {
-  const columns =
-    "id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection";
+  const columns = `id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection,${SHARE_REQUESTS} AS shareRequests,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents`;
   return db()
     .prepare(
       `SELECT * FROM (SELECT ${columns} FROM stories WHERE status='approved' AND ${LIVE}
@@ -112,6 +121,38 @@ export async function ownsStory(id: string, owner: string) {
     .bind(id, owner)
     .first();
   return Boolean(row);
+}
+
+/** One of the owner's live stories, with what a sharing change needs; null if none. */
+export function findOwnStoryForSharing(id: string, owner: string, cutoff: number) {
+  return db()
+    .prepare(
+      `SELECT status,consent,${SHARE_REQUESTS} AS shareRequests FROM stories WHERE id=? AND owner=? AND ${LIVE}`,
+    )
+    .bind(id, owner, cutoff)
+    .first<{ status: string; consent: string; shareRequests: number }>();
+}
+
+/**
+ * The author's sharing change (#4 §6.1): `from` → `to` with the new consent
+ * string, only if the story is still in `from` (a concurrent change makes it
+ * a no-op). Sets status_at, and clears approved_at: a story that asks to be
+ * shared again always goes back to human review, and one that stops sharing
+ * leaves the public list at once. The body is never touched.
+ */
+export function setSharing(
+  id: string,
+  owner: string,
+  from: string,
+  to: "pending" | "private",
+  consent: string,
+  now: number,
+) {
+  return db()
+    .prepare(
+      "UPDATE stories SET status=?, consent=?, status_at=?, approved_at=NULL WHERE id=? AND owner=? AND status=?",
+    )
+    .bind(to, consent, now, id, owner, from);
 }
 
 /** Approved stories accept reader feedback while visible under the LIVE rule. */
