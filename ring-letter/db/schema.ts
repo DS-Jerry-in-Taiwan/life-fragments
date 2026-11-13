@@ -7,7 +7,7 @@ export const sessions = sqliteTable('sessions', { hash:text('hash').primaryKey()
 // Nullable only because SQLite can't ADD a NOT NULL column without a constant default; every write sets
 // status_at, and queries read COALESCE(status_at, created) so a missing value fails safe.
 export const stories = sqliteTable('stories', {id:text('id').primaryKey(), owner:text('owner').notNull(), title:text('title').notNull(), body:text('body').notNull(), era:text('era').notNull(), source:text('source').notNull(), status:text('status').notNull(), consent:text('consent').notNull(), letterType:text('letter_type').notNull().default('legacy'), mood:text('mood').notNull().default(''), reflection:text('reflection').notNull().default(''), attempt:text('attempt').unique(), created:integer('created').notNull(), approvedAt:integer('approved_at'), statusAt:integer('status_at')});
-export const feedback = sqliteTable('feedback',{id:text('id').primaryKey(), owner:text('owner').notNull(), story:text('story').notNull(), kind:text('kind').notNull(), note:text('note').notNull(), created:integer('created').notNull()});
+export const feedback = sqliteTable('feedback',{id:text('id').primaryKey(), owner:text('owner').notNull(), story:text('story').notNull(), kind:text('kind').notNull(), note:text('note').notNull(), created:integer('created').notNull()},(t)=>[index('feedback_story_idx').on(t.story)]);
 
 export const writingAttempts=sqliteTable('writing_attempts',{id:text('id').primaryKey(),owner:text('owner').notNull(),letterType:text('letter_type').notNull(),created:integer('created').notNull(),completed:integer('completed'),shared:integer('shared').notNull().default(0)});
 

@@ -9,7 +9,14 @@ import StatusMessage from "../common/StatusMessage";
 import { useShell } from "../shell/ShellContext";
 import EventLog from "./EventLog";
 import FeedbackList from "./FeedbackList";
-import { filterQuery, parseFilter, scrollToStory, type StoryFilter, taipeiDate } from "./filters";
+import {
+  filterQuery,
+  NO_FILTER,
+  parseFilter,
+  scrollToStory,
+  type StoryFilter,
+  taipeiDate,
+} from "./filters";
 import StoryFilters from "./StoryFilters";
 import StoryList from "./StoryList";
 import SummaryBar from "./SummaryBar";
@@ -34,9 +41,15 @@ export default function AdminDashboard() {
   const { busy, setNotice } = action;
   const [admin, setAdmin] = useState(false),
     [summary, setSummary] = useState<AdminSummary | null>(null),
-    [notes, setNotes] = useState<Record<string, string>>({}),
+    // Per story id: why its card was just refreshed; only for the filters they were made under.
+    [notes, setNotes] = useState<{ key: string; byId: Record<string, string> }>({
+      key: "",
+      byId: {},
+    }),
     [feedbackStory, setFeedbackStory] = useState<{ id: string; title: string } | null>(null),
-    [refreshKey, setRefreshKey] = useState(0);
+    // Bumped to reload the feedback list / the operation log from the top.
+    [feedbackKey, setFeedbackKey] = useState(0),
+    [eventsKey, setEventsKey] = useState(0);
   const jumpTo = useRef<string | null>(null);
   const showError = (e: unknown) => action.setError(message(e));
   const stories = usePagedList<AdminStory>(
@@ -66,10 +79,13 @@ export default function AdminDashboard() {
   }, []);
 
   // A story opened from feedback or the log that wasn't loaded: its card
-  // shows once the id filter's page arrives.
+  // shows once the id filter's page arrives (or it is gone by then).
   useEffect(() => {
-    if (jumpTo.current && scrollToStory(jumpTo.current)) jumpTo.current = null;
-  }, [stories.items]);
+    if (!jumpTo.current || stories.listedKey !== query) return;
+    if (!scrollToStory(jumpTo.current)) setNotice("找不到這篇故事，可能已過期或被刪除。");
+    jumpTo.current = null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stories.items, stories.listedKey]);
 
   function setFilter(next: StoryFilter) {
     const qs = filterQuery(next);
@@ -77,8 +93,13 @@ export default function AdminDashboard() {
   }
   function openStory(id: string) {
     if (scrollToStory(id)) return;
+    const target: StoryFilter = { ...NO_FILTER, status: "all", id };
+    if (filterQuery(target) === query) {
+      setNotice("找不到這篇故事，可能已過期或被刪除。");
+      return;
+    }
     jumpTo.current = id;
-    setFilter({ ...parseFilter(new URLSearchParams()), status: "all", id });
+    setFilter(target);
   }
   function showFeedback(s: AdminStory) {
     setFeedbackStory({ id: s.id, title: s.title });
@@ -86,15 +107,14 @@ export default function AdminDashboard() {
   }
   function note(id: string, text?: string) {
     setNotes((prev) => {
-      const next = { ...prev };
-      if (text) next[id] = text;
-      else delete next[id];
-      return next;
+      const byId = prev.key === query ? { ...prev.byId } : {};
+      if (text) byId[id] = text;
+      else delete byId[id];
+      return { key: query, byId };
     });
   }
-  /** After any change: new counts, and the feedback and log lists from the top. */
-  async function refreshOthers() {
-    setRefreshKey((k) => k + 1);
+  /** New counts after a story changed. */
+  async function refreshSummary() {
     setSummary(await api.getAdminSummary());
   }
   async function refreshCard(id: string) {
@@ -125,18 +145,21 @@ export default function AdminDashboard() {
           note(s.id, "這篇剛剛改變了，請再看一次。");
           setNotice("這篇剛剛改變了，請再看一次。");
         } else throw e;
-        await refreshOthers();
+        await refreshSummary();
         return;
       }
+      // Logged: the operation log reloads. Only a delete takes feedback with it.
+      setEventsKey((k) => k + 1);
       if (status === "delete") {
         stories.remove(s.id);
         if (feedbackStory?.id === s.id) setFeedbackStory(null);
+        setFeedbackKey((k) => k + 1);
         setNotice(`已刪除《${s.title}》（${taipeiDate(s.created)}）`);
       } else {
         await refreshCard(s.id);
         setNotice("已更新文章狀態。");
       }
-      await refreshOthers();
+      await refreshSummary();
     });
   }
 
@@ -165,7 +188,8 @@ export default function AdminDashboard() {
               action.run(async () => {
                 await loadSummary();
                 await stories.reload();
-                setRefreshKey((k) => k + 1);
+                setFeedbackKey((k) => k + 1);
+                setEventsKey((k) => k + 1);
               })
             }
           >
@@ -175,7 +199,7 @@ export default function AdminDashboard() {
           <StoryFilters key={query} filter={filter} summary={summary} onChange={setFilter} />
           <StoryList
             stories={stories.items}
-            notes={notes}
+            notes={notes.key === query ? notes.byId : {}}
             loaded={stories.loaded}
             loading={stories.loading}
             more={stories.more}
@@ -187,18 +211,19 @@ export default function AdminDashboard() {
           <FeedbackList
             enabled={admin}
             story={feedbackStory}
-            refreshKey={refreshKey}
+            refreshKey={feedbackKey}
             action={action}
             onClearStory={() => setFeedbackStory(null)}
             onOpenStory={openStory}
             onDeleted={(f) => {
+              // Removed from the feedback list itself; the card's count and the log change.
               refreshCard(f.story).catch(showError);
-              setRefreshKey((k) => k + 1);
+              setEventsKey((k) => k + 1);
             }}
           />
           <EventLog
             enabled={admin}
-            refreshKey={refreshKey}
+            refreshKey={eventsKey}
             onOpenStory={openStory}
             onError={showError}
           />

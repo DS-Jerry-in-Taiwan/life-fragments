@@ -385,6 +385,10 @@ async function author() {
       );
       expect(r.status).toBe(200);
     },
+    async feedback(story: string, note: string) {
+      const r = await call("POST", "/api/feedback", { story, kind: "comment", note });
+      expect(r.status).toBe(200);
+    },
     erase: async () => expect((await call("DELETE", "/api/me")).status).toBe(200),
   };
 }
@@ -393,6 +397,7 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
   page,
   context,
 }) => {
+  test.setTimeout(120_000); // seeds 51 stories one request at a time
   const tag = `e2e管理${Date.now()}`;
   const authors = await Promise.all(Array.from({ length: 11 }, author));
   try {
@@ -455,6 +460,25 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
     await expect(newest).not.toContainText("剩 30 天");
     await expect(search.getByRole("button", { name: /^已匿名分享（\d+）/ })).toBeVisible();
 
+    // 看回饋（N） filters the feedback to that story; one is deleted after a confirm.
+    const note = `${tag} 的回饋`;
+    await authors[0].feedback(ids[50], note);
+    // Now approved, it left the pending list on the next load: list all (the search stays).
+    await search.getByRole("button", { name: /^全部/ }).click();
+    await expect(page).toHaveURL(new RegExp(`\\?status=all&q=${encodeURIComponent(tag)}$`));
+    await expect(cards).toHaveCount(50);
+    await newest.getByRole("button", { name: "看回饋（1）" }).click();
+    await expect(page.getByText(`只顯示《${newestTitle}》的回饋。`)).toBeVisible();
+    const item = page.getByRole("article").filter({ hasText: note });
+    await expect(item).toHaveCount(1);
+    await expect(item.getByRole("button", { name: `《${newestTitle}》` })).toBeVisible();
+    page.once("dialog", (d) => d.accept());
+    await item.getByRole("button", { name: "刪除這筆回饋" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "已刪除這筆回饋。" })).toBeVisible();
+    await expect(item).toHaveCount(0);
+    await expect(newest.getByRole("button", { name: /^看回饋/ })).toHaveCount(0);
+    await expect(page.getByRole("article").filter({ hasText: "刪除回饋" })).not.toHaveCount(0);
+
     // Delete: confirm names the story; the notice quotes title and date.
     const second = cards.filter({ has: page.getByRole("heading", { name: `${tag} 第 50 篇` }) });
     let message = "";
@@ -469,7 +493,7 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
     ).toBeVisible();
     expect(message).toContain(`${tag} 第 50 篇`);
     await expect(second).toHaveCount(0);
-    await expect(cards).toHaveCount(50);
+    await expect(cards).toHaveCount(49);
 
     // The operation log has both, the deleted story marked.
     const log = page.getByRole("article").filter({ hasText: "dev-admin@localhost" });
@@ -482,7 +506,14 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
     await approved.getByRole("button", { name: ids[50] }).click();
     await expect(newest).toBeFocused();
 
-    // Back: the previous conditions (no search) come back.
+    // Back: the previous conditions come back (the search in pending, then none).
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/admin\\?q=${encodeURIComponent(tag)}$`));
+    await expect(search.getByRole("button", { name: /^等待審閱/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(search.getByLabel(/標題或內文/)).toHaveValue(tag);
     await page.goBack();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(search.getByLabel(/標題或內文/)).toHaveValue("");

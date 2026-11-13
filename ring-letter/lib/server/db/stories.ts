@@ -311,10 +311,14 @@ export function listAdminStories(f: AdminStoryFilter, now: number, limit: number
     const [created, id] = f.cursor;
     add("(created<? OR (created=? AND id<?))", created, created, id);
   }
+  // The page is picked first (inner query), so the per-story counts run only
+  // for its rows. Parameters bind in text order: the feedback cutoff in the
+  // outer SELECT, then the filters, then the LIMIT.
   return db()
     .prepare(
       `SELECT id,title,body,era,source,status,consent,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,${CONSENT_EVENTS} AS consentEvents,${TERMS} AS terms,${EXPIRES_AT} AS expiresAt,(SELECT COUNT(*) FROM feedback f WHERE f.story=stories.id AND f.created>?) AS feedbackCount
-       FROM stories WHERE ${where.join(" AND ")} ORDER BY created DESC,id DESC LIMIT ?`,
+       FROM (SELECT * FROM stories WHERE ${where.join(" AND ")} ORDER BY created DESC,id DESC LIMIT ?) AS stories
+       ORDER BY created DESC,id DESC`,
     )
     .bind(now - AGE, ...args, limit)
     .all<{ id: string; created: number; expiresAt: number | null }>();

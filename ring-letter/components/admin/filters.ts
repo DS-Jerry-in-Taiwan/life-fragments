@@ -26,20 +26,42 @@ export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 
 const STATUSES = new Set(STATUS_FILTERS.map((s) => s.value));
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** A real calendar date YYYY-MM-DD, else "". */
+function day(value: string | null) {
+  if (!value || !DAY_RE.test(value)) return "";
+  const d = new Date(value + "T00:00:00Z");
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value ? value : "";
+}
+
+/**
+ * The filter in the URL. Values the API would refuse (a hand-edited or old
+ * link) fall back instead of leaving a bare 400: unknown ones are dropped, a
+ * reversed date range is swapped, q is cut to 100 characters.
+ */
 export function parseFilter(params: URLSearchParams): StoryFilter {
   const status = params.get("status") as StatusFilter;
   const consent = params.get("consent");
+  const expiring = params.get("expiring") ?? "";
+  const days = /^\d{1,3}$/.test(expiring) ? Number(expiring) : 0;
+  let from = day(params.get("from")),
+    to = day(params.get("to"));
+  if (from && to && from > to) [from, to] = [to, from];
+  const id = params.get("id") ?? "";
   return {
     status: STATUSES.has(status) ? status : "pending",
     reshare: params.get("reshare") === "1",
     consent: consent === "v2" || consent === "v3" ? consent : "",
-    expiring: params.get("expiring") ?? "",
-    q: params.get("q") ?? "",
-    from: params.get("from") ?? "",
-    to: params.get("to") ?? "",
-    id: params.get("id") ?? "",
+    expiring: days >= 1 && days <= 365 ? String(days) : "",
+    q: [...(params.get("q") ?? "")].slice(0, 100).join(""),
+    from,
+    to,
+    id: id.length <= 200 ? id : "",
   };
 }
+
+/** No conditions: pending, nothing ticked, nothing searched. */
+export const NO_FILTER: StoryFilter = parseFilter(new URLSearchParams());
 
 /** The filter as a query string, without defaults (pending, unticked, empty). */
 export function filterQuery(f: StoryFilter) {

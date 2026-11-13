@@ -1,6 +1,6 @@
 import type { AdminSummary } from "../../lib/stories";
 import chips from "../common/Chips.module.css";
-import { isStoryId, STATUS_FILTERS, type StoryFilter } from "./filters";
+import { isStoryId, NO_FILTER, STATUS_FILTERS, type StoryFilter } from "./filters";
 import styles from "./StoryFilters.module.css";
 
 /**
@@ -27,7 +27,8 @@ export default function StoryFilters({
     const form = new FormData(e.currentTarget);
     const text = String(form.get("q") ?? "").trim();
     const range = { from: String(form.get("from") ?? ""), to: String(form.get("to") ?? "") };
-    if (isStoryId(text)) set({ ...range, q: "", id: text.toLowerCase(), status: "all" });
+    // An id lookup drops every other condition: the story is found whatever its state.
+    if (isStoryId(text)) onChange({ ...NO_FILTER, status: "all", id: text.toLowerCase() });
     else set({ ...range, q: text, id: "" });
   }
   return (
@@ -59,11 +60,12 @@ export default function StoryFilters({
         <label className="check">
           <input
             type="checkbox"
-            defaultChecked={filter.expiring === days}
+            defaultChecked={filter.expiring !== ""}
             onChange={(e) => set({ expiring: e.target.checked ? days : "" })}
           />
-          即將到期（{days} 天）
-          {summary && `（${summary.expiring}）`}
+          {/* Another number of days from the URL shows as it is, ticked. */}
+          即將到期（{filter.expiring || days} 天）
+          {summary && (filter.expiring || days) === days && `（${summary.expiring}）`}
         </label>
         <label className={styles.consent}>
           同意版本
