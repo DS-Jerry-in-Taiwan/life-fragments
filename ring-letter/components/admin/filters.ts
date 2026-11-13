@@ -2,6 +2,8 @@
 // so a reload, back/forward or a shared link restores them. The names and
 // values are GET /api/admin/stories' own, passed through unchanged.
 
+import type { AdminStory } from "../../lib/stories";
+
 export type StatusFilter = "pending" | "approved" | "rejected" | "private" | "all";
 
 export type StoryFilter = {
@@ -105,3 +107,18 @@ export function scrollToStory(id: string) {
 }
 
 export const storyAnchor = (id: string) => "story-" + id;
+
+/**
+ * Whether a story fetched again after a moderation still belongs on a list
+ * with these filters. A decision can change its status and, by moving
+ * status_at, its expiry; the server's rules (GET /api/admin/stories) are
+ * applied to the fields that can change. q, dates and id can't.
+ */
+export function stillListed(s: AdminStory, f: StoryFilter, now = Date.now()) {
+  if (f.status !== "all" && s.status !== f.status) return false;
+  if (f.reshare && !(s.shareRequests > 0)) return false;
+  if (f.consent && s.terms !== f.consent) return false;
+  if (f.expiring && (s.expiresAt === null || s.expiresAt > now + Number(f.expiring) * DAY))
+    return false;
+  return true;
+}

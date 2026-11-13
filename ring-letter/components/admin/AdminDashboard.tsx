@@ -15,6 +15,7 @@ import {
   NO_FILTER,
   parseFilter,
   scrollToStory,
+  stillListed,
   type StoryFilter,
   taipeiDate,
 } from "./filters";
@@ -78,6 +79,12 @@ export default function AdminDashboard() {
   const jumpTo = useRef<string | null>(null);
   // A batch request is on its way: refuse a second one before `busy` renders.
   const batching = useRef(false);
+  // The filters now, for a moderation that finishes after back/forward
+  // changed them: its outcome must not be applied to the new list.
+  const currentQuery = useRef(query);
+  useEffect(() => {
+    currentQuery.current = query;
+  }, [query]);
   const showError = (e: unknown) => action.setError(message(e));
   const stories = usePagedList<AdminStory>(
     query,
@@ -119,7 +126,8 @@ export default function AdminDashboard() {
   const listing = stories.listedKey !== query;
   // Changing the filters clears the selection for good: returning to the
   // earlier filters must not bring its ticks back (adjust-state-during-render).
-  if (selection.key !== query && selection.ids.size > 0) setSelection({ key: query, ids: new Set() });
+  if (selection.key !== query && selection.ids.size > 0)
+    setSelection({ key: query, ids: new Set() });
   // A card that left the list (deleted, gone, another page) drops out of the selection.
   const ticked = selection.key === query ? selection.ids : new Set<string>();
   const selected = stories.items.filter((s) => ticked.has(s.id));
@@ -165,6 +173,7 @@ export default function AdminDashboard() {
   async function refreshSummary() {
     setSummary(await api.getAdminSummary());
   }
+  /** Fetches a story again after a single decision; its card stays and shows the result. */
   async function refreshCard(id: string) {
     const current = await api.getAdminStory(id);
     if (current) stories.replace(current);
@@ -176,10 +185,24 @@ export default function AdminDashboard() {
       !confirm(`永久刪除《${s.title}》（${taipeiDate(s.created)}）及其回饋與授權紀錄？無法復原。`)
     )
       return;
+    const started = query;
     return action.run(async () => {
       note(s.id);
       try {
         await api.moderateStory(s.id, status, status === "delete" ? undefined : s);
+        if (currentQuery.current !== started) {
+          // The filters changed meanwhile (back/forward): reload that list instead.
+          stories.reload();
+          setEventsKey((k) => k + 1);
+          if (status === "delete") setFeedbackKey((k) => k + 1);
+          setNotice(
+            status === "delete"
+              ? `已刪除《${s.title}》（${taipeiDate(s.created)}）`
+              : "已更新文章狀態。",
+          );
+          await refreshSummary();
+          return;
+        }
       } catch (e) {
         // 409: changed since listed; 400: e.g. expired meanwhile. Look at this
         // one story again instead of reloading the list (filters, scroll).
@@ -237,8 +260,12 @@ export default function AdminDashboard() {
             ? `\n（勾選的另外 ${selected.length - targets.length} 篇不是等待審閱或已匿名分享，不受影響。）`
             : "");
     if (!confirm(question)) return;
-    // Rejected stories stay on a list that shows them, and leave any other.
+    // Rejected stories are fetched again on a list that can show them (and
+    // leave it if other filters, e.g. expiring, no longer match); any other
+    // list drops them at once.
     const keepRejected = filter.status === "rejected" || filter.status === "all";
+    const started = query;
+    const moved = () => currentQuery.current !== started;
     batching.current = true;
     void action
       .run(async () => {
@@ -247,6 +274,22 @@ export default function AdminDashboard() {
         const done = results.filter((r) => r.ok).map((r) => r.id);
         const failed = results.filter((r) => !r.ok);
 
+        if (moved()) {
+          // The filters changed meanwhile (back/forward): this outcome belongs
+          // to the earlier list, so the current one is loaded again instead.
+          stories.reload();
+          if (done.length) {
+            setEventsKey((k) => k + 1);
+            if (status === "delete") setFeedbackKey((k) => k + 1);
+          }
+          setNotice(
+            `${status === "delete" ? "已永久刪除" : "已不通過或下架"} ${done.length} 篇` +
+              (failed.length ? `；${failed.length} 篇未處理` : "") +
+              "。清單已依目前的篩選重新載入。",
+          );
+          await refreshSummary();
+          return;
+        }
         // The outcome first, so a failing fetch below can't leave it unshown.
         const refetchDone = status === "rejected" && keepRejected;
         const leaving = refetchDone ? [] : done;
@@ -288,6 +331,11 @@ export default function AdminDashboard() {
           refreshSummary(),
           ...again.map((id) => api.getAdminStory(id)),
         ]);
+        if (moved()) {
+          stories.reload();
+          if (counted.status === "rejected") throw counted.reason;
+          return;
+        }
         const isFailed = new Set(failed.map((r) => r.id));
         let removed = 0,
           stale = 0;
@@ -299,7 +347,9 @@ export default function AdminDashboard() {
               ? batchError(failed.find((r) => r.id === id)!).note
               : "";
             note(id, `${reason}（未能重新載入這篇，請按「重新整理」。）`);
-          } else if (f.value) stories.replace(f.value);
+          } else if (f.value && (isFailed.has(id) || stillListed(f.value, filter)))
+            // Refused ones stay to show why; decided ones only while the filters match.
+            stories.replace(f.value);
           else {
             stories.remove(id);
             if (isFailed.has(id)) removed++;
@@ -370,7 +420,9 @@ export default function AdminDashboard() {
             batchBar={
               <BatchBar
                 loaded={stories.items.length}
-                allTicked={stories.items.slice(0, api.MAX_BATCH).every((s) => selectedIds.has(s.id))}
+                allTicked={stories.items
+                  .slice(0, api.MAX_BATCH)
+                  .every((s) => selectedIds.has(s.id))}
                 selected={selected}
                 disabled={busy || listing}
                 onSelectAll={() =>
