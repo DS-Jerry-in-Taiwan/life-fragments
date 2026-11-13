@@ -80,12 +80,17 @@ test("我的片段: 在這台裝置登出 forgets this browser, the story stays"
     },
   });
   expect(submitted.status()).toBe(200);
-  await page.goto("/mine");
-  await hydrated(page);
   const session = (await context.cookies(ORIGIN)).find((c) => c.name === "rl_session");
   expect(session, "應有 session cookie").toBeTruthy();
-  // One year, re-issued on every visit (#4 §6.2).
-  expect(session!.expires - Date.now() / 1000).toBeGreaterThan(364 * 24 * 3600);
+  // The page load itself re-issues the same cookie for another year (#4 §6.2).
+  const visit = await page.goto("/mine");
+  expect(await visit!.headerValue("set-cookie")).toMatch(
+    new RegExp(`^rl_session=${session!.value}; .*Max-Age=31536000$`),
+  );
+  await hydrated(page);
+  const renewed = (await context.cookies(ORIGIN)).find((c) => c.name === "rl_session");
+  expect(renewed!.value).toBe(session!.value);
+  expect(renewed!.expires - Date.now() / 1000).toBeGreaterThan(364 * 24 * 3600);
 
   const story = page
     .getByRole("article")

@@ -7,25 +7,26 @@ import { refreshSession } from "../lib/server/session";
  * cookie (pages and API alike) re-issues the cookie for another year, unless
  * the route set or cleared it itself (POST /api/session, DELETE /api/session,
  * DELETE /api/me). Done here rather than in the routes so that a visit that
- * only reads pages still counts. A failure only skips the refresh.
+ * only reads pages still counts. The lookup runs alongside the handler, so it
+ * adds no D1 round trip before the response (when the route deletes the
+ * session meanwhile, its response clears the cookie and the refresh is
+ * dropped); a failure only skips the refresh.
  */
-async function withSessionRefresh(request: Request, response: Response) {
+async function withSessionRefresh(refresh: Promise<string | null>, response: Response) {
   if (response.headers.getSetCookie().some((c) => c.startsWith("rl_session="))) return response;
-  let cookie: string | null;
-  try {
-    cookie = await refreshSession(request);
-  } catch {
-    return response;
-  }
+  const cookie = await refresh;
   if (!cookie) return response;
   const refreshed = new Response(response.body, response);
   refreshed.headers.append("Set-Cookie", cookie);
+  // A response carrying a personal cookie must never be cached for others.
+  if (!refreshed.headers.has("Cache-Control")) refreshed.headers.set("Cache-Control", "private");
   return refreshed;
 }
 
 const worker = {
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
-    return withSessionRefresh(request, await handler.fetch(request, env, ctx));
+    const refresh = refreshSession(request).catch(() => null);
+    return withSessionRefresh(refresh, await handler.fetch(request, env, ctx));
   },
 
   /**
