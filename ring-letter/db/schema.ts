@@ -15,3 +15,9 @@ export const writingAttempts=sqliteTable('writing_attempts',{id:text('id').prima
 // the story: deleted with it (withdraw, erase, admin delete, retention). Migration 0003 backfills one
 // 'submit' row per existing story.
 export const consentEvents=sqliteTable('consent_events',{id:integer('id').primaryKey(),story:text('story').notNull(),action:text('action').notNull(),consentVersion:text('consent_version').notNull(),created:integer('created').notNull()},(t)=>[index('consent_events_story_idx').on(t.story)]);
+
+// Admin operation log (#4 §5.2): who approved, rejected or deleted what, and when. action is
+// 'approve' | 'reject' | 'delete_story' | 'delete_feedback', target_type 'story' | 'feedback'.
+// Never holds content, titles or sessions, only the target's opaque id; rows outlive their target
+// (a deleted story keeps its log) and are deleted by the retention job after 365 days.
+export const adminEvents=sqliteTable('admin_events',{id:integer('id').primaryKey(),adminEmail:text('admin_email').notNull(),action:text('action').notNull(),targetType:text('target_type').notNull(),targetId:text('target_id').notNull(),created:integer('created').notNull()},(t)=>[index('admin_events_created_idx').on(t.created)]);

@@ -1,5 +1,5 @@
 import { MAX_SHARE_REQUESTS, type SharingSnapshot, unchangedSinceRead } from "./consent-events";
-import { db } from "./index";
+import { AGE, DAY, db, ITEM_IDS } from "./index";
 
 /**
  * Consent wording version stored with every new story (and its consent_events
@@ -37,14 +37,23 @@ const PERMANENT = `${VERSION} IN (${PERMANENT_CONSENT_VERSIONS.map((v) => `'${v}
 const EXPIRES_FROM = `(CASE WHEN ${PERMANENT} THEN (CASE WHEN status='approved' THEN NULL ELSE COALESCE(status_at,created) END) ELSE created END)`;
 
 /** SQL condition for every story read; takes one parameter, the cutoff (now - AGE). */
-const LIVE = `COALESCE(${EXPIRES_FROM}>?,1)`;
+export const LIVE = `COALESCE(${EXPIRES_FROM}>?,1)`;
 
 /** SQL condition for the retention job; takes one parameter, the cutoff (now - AGE). */
 export const EXPIRED_STORY = `${EXPIRES_FROM}<?`;
 
+/** SQL: when the retention job deletes the story (ms; the first daily run after it), or NULL if never. */
+const EXPIRES_AT = `(${EXPIRES_FROM}+${AGE})`;
+
 /** SQL: the story's 'share' consent events (requests to share again after submission). */
 const SHARE_REQUESTS =
   "(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id AND e.action='share')";
+
+/** SQL: the story's consent events, all actions (the admin sends it back with a decision). */
+const CONSENT_EVENTS = "(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id)";
+
+/** SQL: 'v3' for a consent version that keeps approved stories (PERMANENT), 'v2' for every other (30 days). */
+const TERMS = `(CASE WHEN ${PERMANENT} THEN 'v3' ELSE 'v2' END)`;
 
 export type StoryInsert = {
   id: string;
@@ -204,8 +213,20 @@ export function deleteStory(id: string) {
 }
 
 /**
- * Sets an admin decision. Private stories (no share consent) are never
- * matched, so they cannot be approved. Returns false when no story matched.
+ * SQL: story `?3` may take the admin decision `?1` ('approved' | 'rejected')
+ * and is unchanged since the admin read it: `?4` its statusAt, `?5` its
+ * consent-event count (NULL: not checked). Private stories (no share consent)
+ * never match, so they cannot be approved. Shared by moderateStory() and its
+ * admin_events row (admin-events.ts logStoryDecision()).
+ */
+export const MODERATABLE = `id=?3 AND status IN ('pending','approved','rejected')
+         AND (?4 IS NULL OR COALESCE(status_at,created)=?4)
+         AND (?5 IS NULL OR (SELECT COUNT(*) FROM consent_events e WHERE e.story=?3)=?5)`;
+
+/**
+ * Sets an admin decision; `meta.changes` is 0 when no story matched
+ * (MODERATABLE). Batch it right after logStoryDecision() with the same
+ * arguments.
  *
  * A real change sets status_at (restarting the 30-day window of non-approved
  * stories) and approved_at (now when becoming approved, NULL when leaving
@@ -217,25 +238,21 @@ export function deleteStory(id: string) {
  * count catches changes within the same millisecond, which leave statusAt
  * as it was; see storyRevision().
  */
-export async function moderateStory(
+export function moderateStory(
   id: string,
   status: "approved" | "rejected",
-  now = Date.now(),
+  now: number,
   expected: { statusAt?: number; consentEvents?: number } = {},
 ) {
-  const r = await db()
+  return db()
     .prepare(
       `UPDATE stories SET
          status_at=CASE WHEN status=?1 THEN COALESCE(status_at,created) ELSE ?2 END,
          approved_at=CASE WHEN ?1<>'approved' THEN NULL WHEN status='approved' THEN approved_at ELSE ?2 END,
          status=?1
-       WHERE id=?3 AND status IN ('pending','approved','rejected')
-         AND (?4 IS NULL OR COALESCE(status_at,created)=?4)
-         AND (?5 IS NULL OR (SELECT COUNT(*) FROM consent_events e WHERE e.story=?3)=?5)`,
+       WHERE ${MODERATABLE}`,
     )
-    .bind(status, now, id, expected.statusAt ?? null, expected.consentEvents ?? null)
-    .run();
-  return Boolean(r.meta.changes);
+    .bind(status, now, id, expected.statusAt ?? null, expected.consentEvents ?? null);
 }
 
 /** A story's statusAt and consentEvents (as listed in the admin queue), or null if it does not exist. */
@@ -246,4 +263,123 @@ export function storyRevision(id: string) {
     )
     .bind(id)
     .first<{ statusAt: number; consentEvents: number }>();
+}
+
+// --- Admin lists and batch moderation (#4 §5.2) -------------------------------
+
+export type AdminStoryStatus = "pending" | "approved" | "rejected" | "private";
+
+/** GET /api/admin/stories filters (lib/server/validation.ts parseAdminStoryQuery()). */
+export type AdminStoryFilter = {
+  status: AdminStoryStatus | "all";
+  /** Only stories that asked to be shared again after submission. */
+  reshare: boolean;
+  /** v3: a PERMANENT_CONSENT_VERSIONS version; v2: any other (old, legacy or empty). */
+  consent?: "v2" | "v3";
+  /** Deleted by retention within this many days. */
+  expiring?: number;
+  /** Title or body contains this text (taken literally, ASCII case-insensitive). */
+  q?: string;
+  /** Submitted at or after this time (ms). */
+  from?: number;
+  /** Submitted before this time (ms). */
+  to?: number;
+  id?: string;
+  /** The last listed row: [created, id]. */
+  cursor?: [number, string];
+};
+
+/**
+ * One page of stories still visible under the LIVE rule, matching `f`,
+ * newest first (created, then id, descending), at most `limit` rows. Each row
+ * has what the review queue lists (statusAt, shareRequests, consentEvents),
+ * its consent string, its terms ('v2' | 'v3', TERMS) and expiresAt (NULL
+ * when it never expires).
+ */
+export function listAdminStories(f: AdminStoryFilter, now: number, limit: number) {
+  const where = [LIVE];
+  const args: (string | number)[] = [now - AGE];
+  const add = (condition: string, ...values: (string | number)[]) => {
+    where.push(condition);
+    args.push(...values);
+  };
+  if (f.status !== "all") add("status=?", f.status);
+  if (f.reshare) where.push(`${SHARE_REQUESTS}>0`);
+  if (f.consent) where.push(f.consent === "v3" ? PERMANENT : `NOT ${PERMANENT}`);
+  if (f.expiring !== undefined) add(`${EXPIRES_FROM}<=?`, now - AGE + f.expiring * DAY);
+  if (f.q !== undefined) {
+    // instr(), not LIKE: D1 refuses LIKE patterns over 50 bytes (17 CJK
+    // characters), and instr() matches the text literally, so %, _ and \
+    // need no escaping. lower() makes ASCII case-insensitive, as LIKE was.
+    add("(instr(lower(title),lower(?))>0 OR instr(lower(body),lower(?))>0)", f.q, f.q);
+  }
+  if (f.from !== undefined) add("created>=?", f.from);
+  if (f.to !== undefined) add("created<?", f.to);
+  if (f.id !== undefined) add("id=?", f.id);
+  if (f.cursor) {
+    const [created, id] = f.cursor;
+    add("(created<? OR (created=? AND id<?))", created, created, id);
+  }
+  return db()
+    .prepare(
+      `SELECT id,title,body,era,source,status,consent,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,${CONSENT_EVENTS} AS consentEvents,${TERMS} AS terms,${EXPIRES_AT} AS expiresAt
+       FROM stories WHERE ${where.join(" AND ")} ORDER BY created DESC,id DESC LIMIT ?`,
+    )
+    .bind(...args, limit)
+    .all<{ id: string; created: number; expiresAt: number | null }>();
+}
+
+/** Live stories per status (`cutoff` = now - AGE). */
+export function countStoriesByStatus(cutoff: number) {
+  return db()
+    .prepare(`SELECT status,COUNT(*) AS n FROM stories WHERE ${LIVE} GROUP BY status`)
+    .bind(cutoff);
+}
+
+/** Live stories the retention job deletes within `days` days of `now`. */
+export function countExpiringStories(now: number, days: number) {
+  return db()
+    .prepare(`SELECT COUNT(*) AS n FROM stories WHERE ${LIVE} AND ${EXPIRES_FROM}<=?`)
+    .bind(now - AGE, now - AGE + days * DAY);
+}
+
+/**
+ * SQL: stories among the batch items `?1` (JSON [{id, statusAt,
+ * consentEvents}]) that may be rejected or taken down — pending or approved —
+ * and are unchanged since the admin listed them (same statusAt and
+ * consent-event count). Shared by rejectStories() and its admin_events rows
+ * (admin-events.ts logBatchRejections()).
+ */
+export const BATCH_REJECTABLE = `id IN ${ITEM_IDS} AND status IN ('pending','approved')
+       AND EXISTS (SELECT 1 FROM json_each(?1) j WHERE json_extract(j.value,'$.id')=stories.id
+         AND json_extract(j.value,'$.statusAt')=COALESCE(stories.status_at,stories.created)
+         AND json_extract(j.value,'$.consentEvents')=(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id))`;
+
+/**
+ * Batch rejection (#4 §5.2): every BATCH_REJECTABLE story becomes rejected,
+ * the same change as moderateStory(id, "rejected") (always a real change
+ * here: pending or approved only). Returns the ids it changed. Batch it right
+ * after logBatchRejections() with the same items.
+ */
+export function rejectStories(items: string, now: number) {
+  return db()
+    .prepare(
+      `UPDATE stories SET status='rejected',status_at=?2,approved_at=NULL WHERE ${BATCH_REJECTABLE} RETURNING id`,
+    )
+    .bind(items, now);
+}
+
+/** Deletes the stories among the batch items `items`; returns the ids it deleted. */
+export function deleteStories(items: string) {
+  return db().prepare(`DELETE FROM stories WHERE id IN ${ITEM_IDS} RETURNING id`).bind(items);
+}
+
+/** The batch items' stories as they are now, to tell why an item failed. */
+export function storyRevisions(items: string) {
+  return db()
+    .prepare(
+      `SELECT id,status,COALESCE(status_at,created) AS statusAt,${CONSENT_EVENTS} AS consentEvents FROM stories WHERE id IN ${ITEM_IDS}`,
+    )
+    .bind(items)
+    .all<{ id: string; status: string; statusAt: number; consentEvents: number }>();
 }
