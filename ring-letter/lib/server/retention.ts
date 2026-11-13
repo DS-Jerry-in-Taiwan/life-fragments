@@ -1,4 +1,4 @@
-import { AGE, db } from "./db/index";
+import { AGE, db, SESSION_AGE } from "./db/index";
 import { EXPIRED_STORY } from "./db/stories";
 
 // Data retention (#4 §6), run once a day by the Cron Trigger in
@@ -8,15 +8,16 @@ import { EXPIRED_STORY } from "./db/stories";
 // - stories, keyed on their consent version (lib/server/db/stories.ts
 //   EXPIRED_STORY, the same rule the reads use), together with their feedback
 //   and consent_events:
-//   - consent version in PERMANENT_CONSENT_VERSIONS (none yet; V3-c activates
-//     it): approved stories are never deleted automatically, any other status
-//     30 days after its last status change (status_at);
-//   - any other version (the old "30 days" terms): every status, approved
-//     included, 30 days after `created`;
+//   - consent version in PERMANENT_CONSENT_VERSIONS (every submission since
+//     V3-c): approved stories are never deleted automatically, any other
+//     status 30 days after its last status change (status_at);
+//   - any other version (the old "30 days" terms, submissions before V3-c):
+//     every status, approved included, 30 days after `created`;
 // - feedback, writing_attempts: 30 days after `created`. The admin metrics
 //   only ever cover the last 30 days, so nothing visible is lost;
-// - sessions: 30 days after `created`, v1's rule, matching the 30-day cookie
-//   and currentSession(). TODO(V3-c, #4 §6.2): one year after last_seen.
+// - sessions: one year after their last visit (last_seen, or created for rows
+//   without one), matching the sliding one-year cookie and currentSession()
+//   (#4 §6.2). Their stories, feedback and attempts follow their own rules.
 //
 // It also gives every remaining story without a 'submit' consent event one,
 // as the 0003 migration did for existing stories: during a deploy the
@@ -60,7 +61,7 @@ export async function runRetention(now: number): Promise<RetentionResult> {
       ),
       d.prepare("DELETE FROM feedback WHERE created<?").bind(cutoff),
       d.prepare("DELETE FROM writing_attempts WHERE created<?").bind(cutoff),
-      d.prepare("DELETE FROM sessions WHERE created<?").bind(cutoff),
+      d.prepare("DELETE FROM sessions WHERE COALESCE(last_seen,created)<?").bind(now - SESSION_AGE),
     ]);
   return {
     stories: stories.meta.changes,
