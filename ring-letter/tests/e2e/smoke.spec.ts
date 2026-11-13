@@ -568,13 +568,25 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await expect(tick(0)).not.toBeChecked();
     await expect(tick(1)).toBeChecked();
     await expect(count).toHaveText("已勾選 50 篇");
-    // More than 50: refused, not cut short.
+    // More than 50 loaded: 全選 becomes 勾選前 50 篇, so a selection can always be sent.
+    const firstFifty = bar.getByRole("button", { name: "勾選前 50 篇" });
+    await expect(firstFifty).toBeDisabled();
+    // Ticked by hand, more than 50 is refused per button, not cut short.
     await tick(0).check();
     await expect(count).toHaveText("已勾選 51 篇");
     const remove = bar.getByRole("button", { name: /^永久刪除勾選的/ });
     const reject = bar.getByRole("button", { name: /^不通過或下架勾選的/ });
     await expect(remove).toBeDisabled();
     await expect(remove).toHaveAccessibleDescription(/一次最多處理 50 篇/);
+    // 49 of them can be rejected (not the private and the rejected one): within the cap.
+    await expect(reject).toHaveText("不通過或下架勾選的 49 篇");
+    await expect(reject).toBeEnabled();
+    await bar.getByRole("button", { name: "取消全選" }).click();
+    await expect(count).toHaveText("已勾選 0 篇");
+    await firstFifty.click();
+    await expect(count).toHaveText("已勾選 50 篇");
+    await expect(tick(50)).toBeChecked();
+    await expect(tick(0)).not.toBeChecked();
     await bar.getByRole("button", { name: "取消全選" }).click();
     await expect(count).toHaveText("已勾選 0 篇");
 
@@ -626,7 +638,7 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await remove.click();
     await expect(
       page.getByRole("status").filter({
-        hasText: "已永久刪除 3 篇；1 篇未處理（1 篇已不存在），已不存在的 1 篇已從清單移除。",
+        hasText: "已永久刪除 3 篇；1 篇未處理（1 篇已不存在），已從清單移除。",
       }),
     ).toBeVisible();
     expect(message).toContain(
@@ -636,9 +648,27 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await expect(cards).toHaveCount(47);
     await expect(count).toHaveText("已勾選 0 篇");
 
+    // Under a filter that doesn't list rejected stories, rejected cards leave it.
+    await page
+      .getByRole("search", { name: "篩選投稿" })
+      .getByRole("button", { name: /^等待審閱/ })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/admin\\?q=${encodeURIComponent(tag)}$`));
+    await expect(cards).toHaveCount(45);
+    await expect(count).toHaveText("已勾選 0 篇");
+    for (const i of [44, 43]) await tick(i).check();
+    page.once("dialog", (d) => d.accept());
+    await reject.click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "已不通過或下架 2 篇。" }),
+    ).toBeVisible();
+    for (const i of [44, 43]) await expect(card(i)).toHaveCount(0);
+    await expect(cards).toHaveCount(43);
+    await expect(count).toHaveText("已勾選 0 篇");
+
     // The operation log has each one done, the deleted ones marked.
     const log = page.getByRole("article").filter({ hasText: "dev-admin@localhost" });
-    for (const i of [50, 47])
+    for (const i of [50, 47, 44, 43])
       await expect(
         log.filter({ hasText: "暫不分享／下架" }).filter({ hasText: ids[i] }),
       ).not.toContainText("（已刪除）");

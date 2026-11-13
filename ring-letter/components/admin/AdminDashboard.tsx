@@ -33,6 +33,9 @@ const BATCH_ERROR: Record<api.BatchError, { note: string; count: string }> = {
   not_allowed: { note: "未處理：這個狀態不能不通過。", count: "這個狀態不能不通過" },
   missing: { note: "未處理：已不存在。", count: "已不存在" },
 };
+/** An unknown or missing reason (an older or newer API) still gets a note. */
+const batchError = (r: api.BatchResult) =>
+  (r.error && BATCH_ERROR[r.error]) || { note: "未處理，請再看一次。", count: "原因不明" };
 
 /** 《a》《b》《c》等: the first few titles for a batch confirm. */
 function someTitles(stories: AdminStory[], n = 3) {
@@ -111,6 +114,9 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stories.items, stories.listedKey]);
 
+  // The cards shown were listed under other filters (the new ones' first page
+  // is on its way): nothing is ticked or sent until it arrives.
+  const listing = stories.listedKey !== query;
   // A card that left the list (deleted, gone, another page) drops out of the selection.
   const ticked = selection.key === query ? selection.ids : new Set<string>();
   const selected = stories.items.filter((s) => ticked.has(s.id));
@@ -204,16 +210,19 @@ export default function AdminDashboard() {
 
   /**
    * 不通過或下架 (the ticked pending / approved ones) or 永久刪除 (all ticked).
-   * Done: deleted cards leave the list, rejected ones are fetched again.
-   * Refused: they stay ticked with the reason on the card and are fetched
-   * again (new statusAt / consentEvents for the next try); gone ones leave.
+   * The outcome is applied as soon as the POST answers: deleted cards leave
+   * the list, and so do rejected ones unless the status filter lists
+   * rejected stories (暫不分享 or 全部), where they are fetched again. Refused
+   * ones stay ticked with the reason on the card and are fetched again (new
+   * statusAt / consentEvents for the next try); gone ones leave. A fetch that
+   * fails keeps the card as it was, with a note.
    */
   function moderateSelected(status: "rejected" | "delete") {
-    if (batching.current) return;
+    if (batching.current || listing) return;
     const targets = status === "delete" ? selected : selected.filter(canReject);
     if (targets.length === 0) return;
     if (targets.length > api.MAX_BATCH) {
-      action.setError(`一次最多處理 ${api.MAX_BATCH} 篇，目前勾選 ${targets.length} 篇。`);
+      action.setError(`一次最多處理 ${api.MAX_BATCH} 篇，目前要處理 ${targets.length} 篇。`);
       return;
     }
     const titles = someTitles(targets);
@@ -225,6 +234,8 @@ export default function AdminDashboard() {
             ? `\n（勾選的另外 ${selected.length - targets.length} 篇不是等待審閱或已匿名分享，不受影響。）`
             : "");
     if (!confirm(question)) return;
+    // Rejected stories stay on a list that shows them, and leave any other.
+    const keepRejected = filter.status === "rejected" || filter.status === "all";
     batching.current = true;
     void action
       .run(async () => {
@@ -232,22 +243,12 @@ export default function AdminDashboard() {
         const results = await api.moderateStories(status, targets);
         const done = results.filter((r) => r.ok).map((r) => r.id);
         const failed = results.filter((r) => !r.ok);
-        // Fetch again: the rejected ones (new status) and every refused one.
-        const again = [...(status === "rejected" ? done : []), ...failed.map((r) => r.id)];
-        const current = new Map(
-          await Promise.all(again.map(async (id) => [id, await api.getAdminStory(id)] as const)),
-        );
-        if (status === "delete") for (const id of done) stories.remove(id);
-        let removed = 0;
-        for (const id of again) {
-          const story = current.get(id);
-          if (story) stories.replace(story);
-          else {
-            stories.remove(id);
-            if (failed.some((r) => r.id === id)) removed++;
-          }
-        }
-        for (const r of failed) if (current.get(r.id)) note(r.id, BATCH_ERROR[r.error!].note);
+
+        // The outcome first, so a failing fetch below can't leave it unshown.
+        const refetchDone = status === "rejected" && keepRejected;
+        const leaving = refetchDone ? [] : done;
+        for (const id of leaving) stories.remove(id);
+        for (const r of failed) note(r.id, batchError(r).note);
         // Only the refused ones stay ticked.
         select(
           targets.map((s) => s.id),
@@ -257,18 +258,18 @@ export default function AdminDashboard() {
           failed.map((r) => r.id),
           true,
         );
-
         const verb = status === "delete" ? "已永久刪除" : "已不通過或下架";
-        let text = `${verb} ${done.length} 篇`;
-        if (failed.length) {
-          const counts = new Map<api.BatchError, number>();
-          for (const r of failed) counts.set(r.error!, (counts.get(r.error!) ?? 0) + 1);
-          const parts = [...counts].map(([e, n]) => `${n} 篇${BATCH_ERROR[e].count}`);
-          text += `；${failed.length} 篇未處理（${parts.join("、")}）`;
-          if (removed) text += `，已不存在的 ${removed} 篇已從清單移除`;
+        const counts = new Map<string, number>();
+        for (const r of failed) {
+          const { count } = batchError(r);
+          counts.set(count, (counts.get(count) ?? 0) + 1);
         }
-        setNotice(text + "。");
-
+        const summaryText =
+          `${verb} ${done.length} 篇` +
+          (failed.length
+            ? `；${failed.length} 篇未處理（${[...counts].map(([c, n]) => `${n} 篇${c}`).join("、")}）`
+            : "");
+        setNotice(summaryText + "。");
         if (done.length) {
           // Logged: the operation log reloads. Only a delete takes feedback with it.
           setEventsKey((k) => k + 1);
@@ -277,7 +278,36 @@ export default function AdminDashboard() {
             setFeedbackKey((k) => k + 1);
           }
         }
-        await refreshSummary();
+
+        // Then fetch again what stays on the list: rejected ones shown here, and every refused one.
+        const again = [...(refetchDone ? done : []), ...failed.map((r) => r.id)];
+        const [counted, ...fetched] = await Promise.allSettled([
+          refreshSummary(),
+          ...again.map((id) => api.getAdminStory(id)),
+        ]);
+        const isFailed = new Set(failed.map((r) => r.id));
+        let removed = 0,
+          stale = 0;
+        fetched.forEach((f, i) => {
+          const id = again[i];
+          if (f.status === "rejected") {
+            stale++;
+            const reason = isFailed.has(id)
+              ? batchError(failed.find((r) => r.id === id)!).note
+              : "";
+            note(id, `${reason}（未能重新載入這篇，請按「重新整理」。）`);
+          } else if (f.value) stories.replace(f.value);
+          else {
+            stories.remove(id);
+            if (isFailed.has(id)) removed++;
+          }
+        });
+        let text = summaryText;
+        if (removed)
+          text += removed === failed.length ? "，已從清單移除" : `，其中 ${removed} 篇已從清單移除`;
+        if (stale) text += `；${stale} 篇未能重新載入，請按「重新整理」`;
+        setNotice(text + "。");
+        if (counted.status === "rejected") throw counted.reason;
       })
       .finally(() => {
         batching.current = false;
@@ -317,7 +347,13 @@ export default function AdminDashboard() {
             重新整理
           </button>
           <WritingMetrics metrics={summary?.metrics ?? []} />
-          <StoryFilters key={query} filter={filter} summary={summary} onChange={setFilter} />
+          <StoryFilters
+            key={query}
+            filter={filter}
+            summary={summary}
+            disabled={busy}
+            onChange={setFilter}
+          />
           <StoryList
             stories={stories.items}
             notes={notes.key === query ? notes.byId : {}}
@@ -325,16 +361,17 @@ export default function AdminDashboard() {
             loading={stories.loading}
             more={stories.more}
             busy={busy}
+            selectable={!busy && !listing}
             selected={selectedIds}
             onSelect={(id, on) => select([id], on)}
             batchBar={
               <BatchBar
                 loaded={stories.items.length}
                 selected={selected}
-                busy={busy}
+                disabled={busy || listing}
                 onSelectAll={() =>
                   select(
-                    stories.items.map((s) => s.id),
+                    stories.items.slice(0, api.MAX_BATCH).map((s) => s.id),
                     true,
                   )
                 }

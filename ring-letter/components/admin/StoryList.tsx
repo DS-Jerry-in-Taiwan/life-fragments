@@ -10,6 +10,7 @@ export default function StoryList({
   loading,
   more,
   busy,
+  selectable,
   selected,
   batchBar,
   onSelect,
@@ -26,6 +27,8 @@ export default function StoryList({
   /** There is a next page. */
   more: boolean;
   busy: boolean;
+  /** The checkboxes can change (not while busy, nor before the filters' first page). */
+  selectable: boolean;
   /** Ids of the ticked cards. */
   selected: Set<string>;
   /** The batch actions, above the cards when there are any. */
@@ -47,13 +50,14 @@ export default function StoryList({
           busy={busy}
           note={notes[s.id]}
           selected={selected.has(s.id)}
+          selectable={selectable}
           onSelect={onSelect}
           onModerate={onModerate}
           onShowFeedback={onShowFeedback}
         />
       ))}
       {more && (
-        <button className="secondary" disabled={loading} onClick={onMore}>
+        <button className="secondary" disabled={loading || busy} onClick={onMore}>
           載入更多
         </button>
       )}

@@ -24,6 +24,7 @@ export default function StoryCard({
   busy,
   note,
   selected,
+  selectable,
   onSelect,
   onModerate,
   onShowFeedback,
@@ -32,6 +33,7 @@ export default function StoryCard({
   busy: boolean;
   /** Ticked for a batch action (BatchBar). */
   selected: boolean;
+  selectable: boolean;
   onSelect: (id: string, on: boolean) => void;
   /** Why the card was just refreshed (409: 這篇剛剛改變了; a batch's 未處理 reason). */
   note?: string;
@@ -49,7 +51,7 @@ export default function StoryCard({
         <input
           type="checkbox"
           checked={selected}
-          disabled={busy}
+          disabled={!selectable}
           aria-label={`勾選《${s.title}》`}
           onChange={(e) => onSelect(s.id, e.target.checked)}
         />
