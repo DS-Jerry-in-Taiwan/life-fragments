@@ -33,3 +33,23 @@
 .sectionFilter {
   margin-bottom: var(--space-3);
 }
+/* BatchBar: the ticked-card count beside 全選, and why a batch button is disabled. */
+.batch {
+  margin-bottom: var(--space-6);
+}
+.batch > div {
+  align-items: center;
+  margin: var(--space-3) 0;
+}
+.batchCount,
+.batchNote {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.batchNote {
+  margin: 0;
+}
+/* StoryCard: the batch checkbox above the status. */
+.select {
+  margin-bottom: var(--space-2);
+}

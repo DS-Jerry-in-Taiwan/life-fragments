@@ -521,3 +521,178 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
     for (const a of authors) await a.erase();
   }
 });
+
+test("admin: batch 不通過或下架 and 永久刪除, with per-story results", async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(120_000); // seeds 51 stories one request at a time
+  const tag = `e2e批次${Date.now()}`;
+  const title = (i: number) => `${tag} 第 ${String(i + 1).padStart(2, "0")} 篇`;
+  const authors = await Promise.all(Array.from({ length: 11 }, author));
+  const owner = (i: number) => authors[Math.min(Math.floor(i / 5), 10)];
+  const moderate = async (id: string, status: string) => {
+    const r = await context.request.post(
+      `${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`,
+      { headers: { ...adminHeaders(), Origin: ORIGIN }, data: { status } },
+    );
+    expect(r.status()).toBe(200);
+  };
+  try {
+    const ids: string[] = [];
+    for (let i = 0; i < 51; i++) ids.push(await owner(i).submit(title(i)));
+    // The newest first: 50 approved, 49 private, 48 rejected, the rest pending.
+    await moderate(ids[50], "approved");
+    await owner(49).sharing(ids[49], false);
+    await moderate(ids[48], "rejected");
+
+    await asAdmin(context);
+    await page.goto(`/admin?status=all&q=${encodeURIComponent(tag)}`);
+    await hydrated(page);
+    const cards = page.getByRole("article").filter({ hasText: tag });
+    const card = (i: number) =>
+      cards.filter({ has: page.getByRole("heading", { name: title(i) }) });
+    const tick = (i: number) => page.getByRole("checkbox", { name: `勾選《${title(i)}》` });
+    const bar = page.getByRole("group", { name: "批次操作" });
+    const count = bar.getByText(/^已勾選 \d+ 篇$/);
+    await expect(cards).toHaveCount(50);
+
+    // Never a batch approval.
+    await expect(bar.getByRole("button", { name: /核准/ })).toHaveCount(0);
+
+    // 全選 ticks the loaded cards only; one more page arrives unticked.
+    await bar.getByRole("button", { name: "全選已載入的 50 篇" }).click();
+    await expect(count).toHaveText("已勾選 50 篇");
+    await page.getByRole("button", { name: "載入更多" }).click();
+    await expect(cards).toHaveCount(51);
+    await expect(tick(0)).not.toBeChecked();
+    await expect(tick(1)).toBeChecked();
+    await expect(count).toHaveText("已勾選 50 篇");
+    // More than 50 loaded: 全選 becomes 勾選前 50 篇, so a selection can always be sent.
+    const firstFifty = bar.getByRole("button", { name: "勾選前 50 篇" });
+    await expect(firstFifty).toBeDisabled();
+    // Ticked by hand, more than 50 is refused per button, not cut short.
+    await tick(0).check();
+    await expect(count).toHaveText("已勾選 51 篇");
+    const remove = bar.getByRole("button", { name: /^永久刪除勾選的/ });
+    const reject = bar.getByRole("button", { name: /^不通過或下架勾選的/ });
+    await expect(remove).toBeDisabled();
+    await expect(remove).toHaveAccessibleDescription(/一次最多處理 50 篇/);
+    // 49 of them can be rejected (not the private and the rejected one): within the cap.
+    await expect(reject).toHaveText("不通過或下架勾選的 49 篇");
+    await expect(reject).toBeEnabled();
+    await bar.getByRole("button", { name: "取消全選" }).click();
+    await expect(count).toHaveText("已勾選 0 篇");
+    await firstFifty.click();
+    await expect(count).toHaveText("已勾選 50 篇");
+    await expect(tick(50)).toBeChecked();
+    await expect(tick(0)).not.toBeChecked();
+    await expect(firstFifty).toBeDisabled();
+    // 50 ticked but not the first 50: 勾選前 50 篇 can still complete them.
+    await tick(0).check();
+    await tick(50).uncheck();
+    await expect(count).toHaveText("已勾選 50 篇");
+    await expect(firstFifty).toBeEnabled();
+    // Changing the filters clears the selection; coming back doesn't restore it.
+    await page.getByRole("button", { name: /^等待審閱/ }).click();
+    await expect(page).toHaveURL(/status=pending|\/admin\?q=/);
+    await page.goBack();
+    await expect(page).toHaveURL(/status=all/);
+    await expect(count).toHaveText("已勾選 0 篇");
+    await page.getByRole("button", { name: "載入更多" }).click();
+    await expect(cards).toHaveCount(51);
+    await expect(tick(0)).not.toBeChecked();
+
+    // Only a private story ticked: 不通過或下架 doesn't apply, and says why.
+    await tick(49).check();
+    await expect(reject).toBeDisabled();
+    await expect(reject).toHaveAccessibleDescription(/不能不通過或下架/);
+
+    // 不通過或下架: sent for the approved and pending ones only; one changed meanwhile.
+    for (const i of [50, 48, 47, 46]) await tick(i).check();
+    await expect(reject).toHaveText("不通過或下架勾選的 3 篇");
+    await owner(46).sharing(ids[46], false);
+    await owner(46).sharing(ids[46], true);
+    let message = "";
+    page.once("dialog", (d) => {
+      message = d.message();
+      return d.accept();
+    });
+    await reject.click();
+    await expect(
+      page
+        .getByRole("status")
+        .filter({ hasText: "已不通過或下架 2 篇；1 篇未處理（1 篇剛剛改變了）。" }),
+    ).toBeVisible();
+    expect(message).toContain(
+      `不通過或下架 3 篇：《${title(50)}》《${title(47)}》《${title(46)}》`,
+    );
+    expect(message).toContain("另外 2 篇不是等待審閱或已匿名分享");
+    await expect(card(50).getByText("暫不分享", { exact: true })).toBeVisible();
+    await expect(card(47).getByText("暫不分享", { exact: true })).toBeVisible();
+    await expect(tick(50)).not.toBeChecked();
+    await expect(tick(47)).not.toBeChecked();
+    // The refused one: still ticked, the reason on it, its new revision fetched.
+    await expect(card(46).getByText("未處理：這篇剛剛改變了，請再看一次。")).toBeVisible();
+    await expect(card(46)).toContainText("重新申請分享");
+    await expect(tick(46)).toBeChecked();
+    await expect(tick(49)).toBeChecked();
+    await expect(tick(48)).toBeChecked();
+    await expect(cards, "沒有重新載入整個清單").toHaveCount(51);
+
+    // 永久刪除: any status; one deleted elsewhere in between is reported and dropped.
+    await tick(45).check();
+    await moderate(ids[45], "delete");
+    await expect(remove).toHaveText("永久刪除勾選的 4 篇");
+    page.once("dialog", (d) => {
+      message = d.message();
+      return d.accept();
+    });
+    await remove.click();
+    await expect(
+      page.getByRole("status").filter({
+        hasText: "已永久刪除 3 篇；1 篇未處理（1 篇已不存在），已從清單移除。",
+      }),
+    ).toBeVisible();
+    expect(message).toContain(
+      `永久刪除 4 篇（含回饋與授權紀錄），無法復原：《${title(49)}》《${title(48)}》《${title(46)}》等`,
+    );
+    for (const i of [49, 48, 46, 45]) await expect(card(i)).toHaveCount(0);
+    await expect(cards).toHaveCount(47);
+    await expect(count).toHaveText("已勾選 0 篇");
+
+    // Under a filter that doesn't list rejected stories, rejected cards leave it.
+    await page
+      .getByRole("search", { name: "篩選投稿" })
+      .getByRole("button", { name: /^等待審閱/ })
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/admin\\?q=${encodeURIComponent(tag)}$`));
+    await expect(cards).toHaveCount(45);
+    await expect(count).toHaveText("已勾選 0 篇");
+    for (const i of [44, 43]) await tick(i).check();
+    page.once("dialog", (d) => d.accept());
+    await reject.click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "已不通過或下架 2 篇。" }),
+    ).toBeVisible();
+    for (const i of [44, 43]) await expect(card(i)).toHaveCount(0);
+    await expect(cards).toHaveCount(43);
+    await expect(count).toHaveText("已勾選 0 篇");
+
+    // The operation log has each one done, the deleted ones marked.
+    const log = page.getByRole("article").filter({ hasText: "dev-admin@localhost" });
+    for (const i of [50, 47, 44, 43])
+      await expect(
+        log.filter({ hasText: "暫不分享／下架" }).filter({ hasText: ids[i] }),
+      ).not.toContainText("（已刪除）");
+    await expect(
+      log.filter({ hasText: "暫不分享／下架" }).filter({ hasText: ids[46] }),
+    ).toHaveCount(0);
+    for (const i of [49, 48, 46])
+      await expect(
+        log.filter({ hasText: "永久刪除故事" }).filter({ hasText: ids[i] }),
+      ).toContainText("（已刪除）");
+  } finally {
+    for (const a of authors) await a.erase();
+  }
+});

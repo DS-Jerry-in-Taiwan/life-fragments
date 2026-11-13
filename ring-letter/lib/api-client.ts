@@ -220,3 +220,27 @@ export async function moderateStory(
     consentEvents: listed?.consentEvents,
   });
 }
+
+/** At most this many stories per batch (POST /api/admin/moderation; lib/server/validation.ts). */
+export const MAX_BATCH = 50;
+
+/** Why one story of a batch was left as it was. */
+export type BatchError = "conflict" | "not_allowed" | "missing";
+export type BatchResult = { id: string; ok: boolean; error?: BatchError };
+
+/**
+ * 不通過或下架 / 永久刪除 for up to MAX_BATCH stories at once (never approval).
+ * Each item carries its statusAt and consentEvents as the list showed them;
+ * every story gets the single-story rules, so the results (in request order)
+ * can mix done and refused ones.
+ */
+export async function moderateStories(
+  status: "rejected" | "delete",
+  items: { id: string; statusAt: number; consentEvents: number }[],
+) {
+  const { results } = await post<{ results: BatchResult[] }>("/api/admin/moderation", {
+    status,
+    items: items.map(({ id, statusAt, consentEvents }) => ({ id, statusAt, consentEvents })),
+  });
+  return results;
+}

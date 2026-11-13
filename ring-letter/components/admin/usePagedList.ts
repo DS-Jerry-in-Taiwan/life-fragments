@@ -25,6 +25,11 @@ export function usePagedList<T extends { id: string | number }>(
   const [loaded, setLoaded] = useState(false);
   const seq = useRef(0);
   const firstPending = useRef(false);
+  /**
+   * Items removed under `key`, with the load sequence number at removal: a
+   * page requested before that (still on its way) must not bring them back.
+   */
+  const removed = useRef<{ key: string; at: Map<T["id"], number> }>({ key: "", at: new Map() });
 
   /** Fetches a page (the first when `after` is null) into the list; no state is set before the response. */
   async function load(after: string | null) {
@@ -34,10 +39,12 @@ export function usePagedList<T extends { id: string | number }>(
     try {
       const page = await fetchPage(after);
       if (n !== seq.current) return;
+      const gone = removed.current.key === forKey ? removed.current.at : null;
+      const items = gone ? page.items.filter((x) => !(n <= (gone.get(x.id) ?? 0))) : page.items;
       setItems((prev) => {
-        if (!after) return page.items;
+        if (!after) return items;
         const seen = new Set(prev.map((x) => x.id));
-        return [...prev, ...page.items.filter((x) => !seen.has(x.id))];
+        return [...prev, ...items.filter((x) => !seen.has(x.id))];
       });
       setCursor({ key: forKey, next: page.nextCursor });
       setLoaded(true);
@@ -82,6 +89,10 @@ export function usePagedList<T extends { id: string | number }>(
     loadMore,
     reload,
     replace: (item: T) => setItems((prev) => prev.map((x) => (x.id === item.id ? item : x))),
-    remove: (id: T["id"]) => setItems((prev) => prev.filter((x) => x.id !== id)),
+    remove(id: T["id"]) {
+      if (removed.current.key !== key) removed.current = { key, at: new Map() };
+      removed.current.at.set(id, seq.current);
+      setItems((prev) => prev.filter((x) => x.id !== id));
+    },
   };
 }
