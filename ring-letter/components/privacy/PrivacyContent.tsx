@@ -18,7 +18,7 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
       <h3>什麼會被保存？</h3>
       <p>
         <span className="sentence">
-          你送出的標題、文字、心情、回顧、時間標示、來源類型、分享同意與時間，以及自願送出的回饋。
+          你送出的標題、文字、心情、回顧、時間標示、來源類型、分享同意（含之後的變更）與時間，以及自願送出的回饋。
         </span>
         <span className="sentence">
           另記錄選擇的寫法、開始與完成時間，供團隊比較流程；未送出的文字不會保存。
@@ -63,7 +63,10 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
         <span className="sentence">分享後文章可能被任何取得網站連結的人閱讀。</span>
         <span className="sentence">即使沒有姓名，熟悉事件的人仍可能認出作者。</span>
         <span className="sentence">請勿投稿第三人私密資訊；讀者請勿截圖轉傳、辨認作者。</span>
-        <span className="sentence">撤回可停止網站顯示，無法收回別人已保存的內容。</span>
+        <span className="sentence">
+          你可在「我的片段」停止分享，文章會立即從網站下架，之後依未公開投稿的期限刪除；未分享的投稿也可改為分享，重新勾選同意並經人工審閱。
+        </span>
+        <span className="sentence">撤回或停止分享可停止網站顯示，無法收回別人已保存的內容。</span>
       </p>
       <h3>人工審閱，不代寫人生</h3>
       <p>

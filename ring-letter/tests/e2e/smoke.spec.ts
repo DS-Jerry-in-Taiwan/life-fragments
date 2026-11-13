@@ -219,3 +219,85 @@ test("write: one start per chooser click; a second letter after submit works", a
   expect(starts).toHaveLength(2);
   await fill("第二封");
 });
+
+test("我的片段: 改為分享 → approved → 停止分享, and the share cap", async ({ page, context }) => {
+  const title = `e2e 分享測試 ${Date.now()}`;
+  const sameOrigin = { headers: { Origin: ORIGIN } };
+  expect((await context.request.post(ORIGIN + "/api/session", sameOrigin)).status()).toBe(200);
+  const submitted = await context.request.post(ORIGIN + "/api/me/stories", {
+    ...sameOrigin,
+    data: {
+      title,
+      body: "這是自動化瀏覽器測試留下的文字，用來驗證分享設定，測試結束會刪除。",
+      era: "測試日期",
+      source: "recollection",
+      adult: true,
+      privacy: true,
+      share: false,
+    },
+  });
+  expect(submitted.status()).toBe(200);
+  const id = (await submitted.json()).id as string;
+  const sharing = (share: boolean) =>
+    context.request.patch(`${ORIGIN}/api/me/stories/${encodeURIComponent(id)}/sharing`, {
+      ...sameOrigin,
+      data: share ? { share, consent: { adult: true, privacy: true, share: true } } : { share },
+    });
+
+  await page.goto("/mine");
+  await hydrated(page);
+  const story = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: title }) });
+  await expect(story.getByText("未公開保存")).toBeVisible();
+
+  // 改為分享 opens the consent form; all three boxes are required.
+  await story.getByRole("button", { name: "改為分享" }).click();
+  const form = story.getByRole("form", { name: "改為分享" });
+  await expect(form.getByText("這篇還可以申請 3 次。")).toBeVisible();
+  await form.getByRole("button", { name: "確認申請分享" }).click();
+  await expect(story.getByText("未公開保存")).toBeVisible();
+  await form.getByRole("checkbox", { name: /我願意讓這份原文經人工審閱後/ }).check();
+  await form.getByRole("checkbox", { name: /我已滿 18 歲/ }).check();
+  await form.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
+  await form.getByRole("button", { name: "確認申請分享" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "已送出分享申請，等待人工審閱。" }),
+  ).toBeVisible();
+  await expect(story.getByText("等待審閱")).toBeVisible();
+  await expect(form).toHaveCount(0);
+
+  // Approved by the admin, then stopped by the author: off the public list at once.
+  const approve = await context.request.post(
+    `${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`,
+    { headers: { ...adminHeaders(), Origin: ORIGIN }, data: { status: "approved" } },
+  );
+  expect(approve.status()).toBe(200);
+  await page.reload();
+  await hydrated(page);
+  await expect(story.getByText("已匿名分享")).toBeVisible();
+  page.once("dialog", (d) => d.dismiss());
+  await story.getByRole("button", { name: "停止分享" }).click();
+  await expect(story.getByText("已匿名分享")).toBeVisible();
+  let message = "";
+  page.once("dialog", (d) => {
+    message = d.message();
+    return d.accept();
+  });
+  await story.getByRole("button", { name: "停止分享" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "已停止分享，這篇改為不公開保存。" }),
+  ).toBeVisible();
+  expect(message).toContain("立即從公開信箱下架");
+  await expect(story.getByText("未公開保存")).toBeVisible();
+  const pub = await (await context.request.get(ORIGIN + "/api/stories")).json();
+  expect((pub.stories as { id: string }[]).some((s) => s.id === id)).toBe(false);
+
+  // Two more share requests use up the three; the button is then disabled.
+  for (const share of [true, false, true, false]) expect((await sharing(share)).status()).toBe(200);
+  await page.reload();
+  await hydrated(page);
+  await expect(story.getByRole("button", { name: "改為分享" })).toBeDisabled();
+  await expect(story.getByText(/這篇已申請分享 3 次，已達上限/)).toBeVisible();
+  await expect(story.getByRole("button", { name: "撤回並刪除" })).toBeEnabled();
+});

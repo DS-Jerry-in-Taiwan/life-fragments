@@ -56,7 +56,7 @@ npm run test:e2e:update                       # 畫面確定要改時，重新�
 
 ## 管理者
 
-管理介面在 `/admin`，API 在 `/api/admin/` 底下（`GET /api/admin/queue`、`POST /api/admin/stories/:id/moderation`）。
+管理介面在 `/admin`，API 在 `/api/admin/` 底下（`GET /api/admin/queue`、`POST /api/admin/stories/:id/moderation`）。審閱清單上的「重新申請分享」表示作者在「我的片段」把這篇改為分享或再次申請（停止分享後再分享也一樣，一定要重新核准），下方的「授權紀錄 N 筆」是送出、改為分享、停止分享的次數。
 
 **正式環境**：用 Cloudflare Access 建立一個 self-hosted 應用程式，涵蓋 `/admin*` 與 `/api/admin*`（包含 `/api/admin/` 底下所有子路徑），只允許管理者的 email。Worker 會再驗證 Access 帶來的 `Cf-Access-Jwt-Assertion` JWT，需要這三個設定（任一缺少就拒絕所有管理請求）：
 
@@ -87,3 +87,5 @@ npx wrangler deploy --config dist/server/wrangler.json
 ### Session 與資料保留
 
 匿名 session 的 cookie 是 1 年，每次造訪（頁面或 API）都由 `worker/index.ts` 續發，`sessions.last_seen` 每天最多寫一次；最後造訪後 1 年由每日 Cron 刪除。故事保留依同意版本：V3-c 起的投稿（`v3-2026-11-12`）核准公開後保留到撤回或管理者刪除，其他狀態在最後一次狀態變更後 30 天刪除；之前的投稿照當時的 30 天條款（送出後 30 天，包含已核准）。回饋與試寫紀錄 30 天。細節見 `lib/server/retention.ts` 與 `PROJECT_NOTES.md`。
+
+作者可在「我的片段」改為分享（重新勾選目前版本的同意，舊版同意的故事因此改用新條款）或停止分享（已公開的立即下架，改為未公開，依上面的 30 天規則刪除）；每篇送出後最多再申請分享 3 次，每個 session 每天最多調整 10 次（`PATCH /api/me/stories/:id/sharing`）。
