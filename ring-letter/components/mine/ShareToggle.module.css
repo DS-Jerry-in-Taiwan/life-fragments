@@ -23,3 +23,9 @@
   gap: var(--space-4);
   margin-top: var(--space-3);
 }
+.toggle:focus {
+  outline: none;
+}
+.error {
+  color: #e8ada5;
+}

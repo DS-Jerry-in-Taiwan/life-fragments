@@ -251,26 +251,59 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
     .filter({ has: page.getByRole("heading", { name: title }) });
   await expect(story.getByText("未公開保存")).toBeVisible();
 
-  // 改為分享 opens the consent form; all three boxes are required.
-  await story.getByRole("button", { name: "改為分享" }).click();
+  // Every PATCH the page itself sends (the API calls above and below go through context.request).
+  const patches: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "PATCH" && r.url().endsWith("/sharing")) patches.push(r.url());
+  });
+  const noPendingRequests = () => page.waitForLoadState("networkidle");
+
+  // 改為分享 opens the consent form and moves focus into it; 取消 hands focus back.
+  const open = story.getByRole("button", { name: "改為分享" });
+  await open.click();
   const form = story.getByRole("form", { name: "改為分享" });
   await expect(form.getByText("這篇還可以申請 3 次。")).toBeVisible();
+  await expect(form.getByRole("checkbox", { name: /我願意讓這份原文經人工審閱後/ })).toBeFocused();
+  await form.getByRole("button", { name: "取消" }).click();
+  await expect(form).toHaveCount(0);
+  await expect(open).toBeFocused();
+  await open.click();
+
+  // All three boxes are required: an empty submit sends nothing.
   await form.getByRole("button", { name: "確認申請分享" }).click();
-  await expect(story.getByText("未公開保存")).toBeVisible();
+  await noPendingRequests();
+  expect(patches).toHaveLength(0);
   await form.getByRole("checkbox", { name: /我願意讓這份原文經人工審閱後/ }).check();
   await form.getByRole("checkbox", { name: /我已滿 18 歲/ }).check();
   await form.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
+
+  // A refused change (the story changed meanwhile) is reported in the form itself.
+  expect((await sharing(true)).status()).toBe(200);
+  await form.getByRole("button", { name: "確認申請分享" }).click();
+  await expect(form.getByRole("alert")).toHaveText("這篇已在等待審閱。");
+  expect(patches).toHaveLength(1);
+  expect((await sharing(false)).status()).toBe(200);
+
   await form.getByRole("button", { name: "確認申請分享" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "已送出分享申請，等待人工審閱。" }),
   ).toBeVisible();
   await expect(story.getByText("等待審閱")).toBeVisible();
   await expect(form).toHaveCount(0);
+  await expect(story.getByRole("button", { name: "停止分享" })).toBeFocused();
+  expect(patches).toHaveLength(2);
 
   // Approved by the admin, then stopped by the author: off the public list at once.
+  const queue = await context.request.get(ORIGIN + "/api/admin/queue", { headers: adminHeaders() });
+  const listed = ((await queue.json()).stories as { id: string; statusAt: number }[]).find(
+    (s) => s.id === id,
+  );
   const approve = await context.request.post(
     `${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`,
-    { headers: { ...adminHeaders(), Origin: ORIGIN }, data: { status: "approved" } },
+    {
+      headers: { ...adminHeaders(), Origin: ORIGIN },
+      data: { status: "approved", statusAt: listed!.statusAt },
+    },
   );
   expect(approve.status()).toBe(200);
   await page.reload();
@@ -278,7 +311,8 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
   await expect(story.getByText("已匿名分享")).toBeVisible();
   page.once("dialog", (d) => d.dismiss());
   await story.getByRole("button", { name: "停止分享" }).click();
-  await expect(story.getByText("已匿名分享")).toBeVisible();
+  await noPendingRequests();
+  expect(patches, "取消確認不送出").toHaveLength(2);
   let message = "";
   page.once("dialog", (d) => {
     message = d.message();
@@ -290,14 +324,17 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
   ).toBeVisible();
   expect(message).toContain("立即從公開信箱下架");
   await expect(story.getByText("未公開保存")).toBeVisible();
+  await expect(story.getByRole("button", { name: "改為分享" })).toBeFocused();
+  expect(patches).toHaveLength(3);
   const pub = await (await context.request.get(ORIGIN + "/api/stories")).json();
   expect((pub.stories as { id: string }[]).some((s) => s.id === id)).toBe(false);
 
-  // Two more share requests use up the three; the button is then disabled.
-  for (const share of [true, false, true, false]) expect((await sharing(share)).status()).toBe(200);
+  // One more share request uses up the three; the button is then disabled, with the reason as its description.
+  for (const share of [true, false]) expect((await sharing(share)).status()).toBe(200);
   await page.reload();
   await hydrated(page);
-  await expect(story.getByRole("button", { name: "改為分享" })).toBeDisabled();
-  await expect(story.getByText(/這篇已申請分享 3 次，已達上限/)).toBeVisible();
+  const limited = story.getByRole("button", { name: "改為分享" });
+  await expect(limited).toBeDisabled();
+  await expect(limited).toHaveAccessibleDescription(/這篇已申請分享 3 次，已達上限/);
   await expect(story.getByRole("button", { name: "撤回並刪除" })).toBeEnabled();
 });
