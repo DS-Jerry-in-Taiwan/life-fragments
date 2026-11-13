@@ -1,4 +1,5 @@
-import { AGE, db, SESSION_AGE } from "./db/index";
+import { deleteAdminEventsBefore } from "./db/admin-events";
+import { ADMIN_EVENT_AGE, AGE, db, SESSION_AGE } from "./db/index";
 import { EXPIRED_STORY } from "./db/stories";
 
 // Data retention (#4 §6), run once a day by the Cron Trigger in
@@ -17,7 +18,10 @@ import { EXPIRED_STORY } from "./db/stories";
 //   only ever cover the last 30 days, so nothing visible is lost;
 // - sessions: one year after their last visit (last_seen, or created for rows
 //   without one), matching the sliding one-year cookie and currentSession()
-//   (#4 §6.2). Their stories, feedback and attempts follow their own rules.
+//   (#4 §6.2). Their stories, feedback and attempts follow their own rules;
+// - admin_events (the admin operation log, #4 §5.2): one year after `created`
+//   (ADMIN_EVENT_AGE), whether or not their target still exists. Deleting a
+//   story never deletes its log rows.
 //
 // It also gives every remaining story without a 'submit' consent event one,
 // as the 0003 migration did for existing stories: during a deploy the
@@ -31,38 +35,48 @@ export type RetentionResult = {
   backfilledEvents: number;
   writingAttempts: number;
   sessions: number;
+  adminEvents: number;
 };
 
 /** Deletes everything past retention as of `now` (ms), in one D1 batch. */
 export async function runRetention(now: number): Promise<RetentionResult> {
   const cutoff = now - AGE;
   const d = db();
-  const [storyFeedback, stories, consentEvents, backfilled, feedback, writingAttempts, sessions] =
-    await d.batch([
-      // Feedback first: the subquery needs the stories that are about to go.
-      d
-        .prepare(
-          `DELETE FROM feedback WHERE story IN (SELECT id FROM stories WHERE ${EXPIRED_STORY})`,
-        )
-        .bind(cutoff),
-      d.prepare(`DELETE FROM stories WHERE ${EXPIRED_STORY}`).bind(cutoff),
-      // Every event whose story is gone: this run's deletions plus anything
-      // a past delete path missed.
-      d.prepare("DELETE FROM consent_events WHERE story NOT IN (SELECT id FROM stories)"),
-      // Same version rule as the 0003 backfill.
-      d.prepare(
-        `INSERT INTO consent_events (story, action, consent_version, created)
+  const [
+    storyFeedback,
+    stories,
+    consentEvents,
+    backfilled,
+    feedback,
+    writingAttempts,
+    sessions,
+    adminEvents,
+  ] = await d.batch([
+    // Feedback first: the subquery needs the stories that are about to go.
+    d
+      .prepare(
+        `DELETE FROM feedback WHERE story IN (SELECT id FROM stories WHERE ${EXPIRED_STORY})`,
+      )
+      .bind(cutoff),
+    d.prepare(`DELETE FROM stories WHERE ${EXPIRED_STORY}`).bind(cutoff),
+    // Every event whose story is gone: this run's deletions plus anything
+    // a past delete path missed.
+    d.prepare("DELETE FROM consent_events WHERE story NOT IN (SELECT id FROM stories)"),
+    // Same version rule as the 0003 backfill.
+    d.prepare(
+      `INSERT INTO consent_events (story, action, consent_version, created)
          SELECT id, 'submit',
            CASE WHEN instr(consent, ':') > 0 THEN substr(consent, 1, instr(consent, ':') - 1) ELSE consent END,
            created
          FROM stories s
          WHERE NOT EXISTS (SELECT 1 FROM consent_events e WHERE e.story = s.id AND e.action = 'submit')
          ORDER BY created, id`,
-      ),
-      d.prepare("DELETE FROM feedback WHERE created<?").bind(cutoff),
-      d.prepare("DELETE FROM writing_attempts WHERE created<?").bind(cutoff),
-      d.prepare("DELETE FROM sessions WHERE COALESCE(last_seen,created)<?").bind(now - SESSION_AGE),
-    ]);
+    ),
+    d.prepare("DELETE FROM feedback WHERE created<?").bind(cutoff),
+    d.prepare("DELETE FROM writing_attempts WHERE created<?").bind(cutoff),
+    d.prepare("DELETE FROM sessions WHERE COALESCE(last_seen,created)<?").bind(now - SESSION_AGE),
+    deleteAdminEventsBefore(now - ADMIN_EVENT_AGE),
+  ]);
   return {
     stories: stories.meta.changes,
     feedback: storyFeedback.meta.changes + feedback.meta.changes,
@@ -70,5 +84,6 @@ export async function runRetention(now: number): Promise<RetentionResult> {
     backfilledEvents: backfilled.meta.changes,
     writingAttempts: writingAttempts.meta.changes,
     sessions: sessions.meta.changes,
+    adminEvents: adminEvents.meta.changes,
   };
 }

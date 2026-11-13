@@ -1,4 +1,4 @@
-import { db } from "./index";
+import { db, ITEM_IDS } from "./index";
 
 // Append-only consent history (#4 §6.1). Rows share the story's lifetime:
 // every statement that deletes stories is batched with the matching delete
@@ -19,6 +19,11 @@ export function insertConsentEvent(
 
 export function deleteConsentEventsForStory(story: string) {
   return db().prepare("DELETE FROM consent_events WHERE story=?").bind(story);
+}
+
+/** Events of the stories among the batch items `items` (admin batch delete). */
+export function deleteConsentEventsForStories(items: string) {
+  return db().prepare(`DELETE FROM consent_events WHERE story IN ${ITEM_IDS}`).bind(items);
 }
 
 /** Events of every story the owner wrote; batch before deleting the stories. */

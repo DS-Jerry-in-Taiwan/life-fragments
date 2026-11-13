@@ -1,6 +1,7 @@
+import { logStoryDecision, logStoryDelete } from "../../../../../../lib/server/db/admin-events";
 import { deleteConsentEventsForStory } from "../../../../../../lib/server/db/consent-events";
 import { deleteFeedbackForStory } from "../../../../../../lib/server/db/feedback";
-import { db } from "../../../../../../lib/server/db/index";
+import { AGE, db } from "../../../../../../lib/server/db/index";
 import { deleteStory, moderateStory, storyRevision } from "../../../../../../lib/server/db/stories";
 import {
   ADMIN_SAVE_FAILED,
@@ -19,26 +20,42 @@ import { parseModeration } from "../../../../../../lib/server/validation";
  * consentEvents?: number}`. Private stories can't be approved (400). With
  * `statusAt` / `consentEvents` (the values the admin queue listed), an
  * approval or rejection of a story that changed since is refused with 409;
- * delete ignores them.
+ * delete ignores them. A story past its retention window (expired, not yet
+ * deleted by the daily job) is treated as missing: 400, never 409.
+ *
+ * Every applied operation is logged in admin_events with the verified admin
+ * email, in the same batch (lib/server/db/admin-events.ts): an approval or
+ * rejection that changes the status, or the delete of an existing story.
+ * Repeating the current decision, and deleting a missing story, still answer
+ * `{ok: true}` but log nothing.
  */
 export async function POST(req: Request, { params }: IdContext) {
   return guardWrite(
     req,
     () =>
-      withAdmin(req, async () => {
+      withAdmin(req, async (email) => {
         const parsed = await readJsonBody(req, 4000);
         if (!parsed.ok) return parsed.response;
         const v = parseModeration((await params).id, parsed.body);
         if (!v.ok) return reply({ error: v.error }, 400);
         const { id, status, statusAt, consentEvents } = v.data;
+        const now = Date.now();
         if (status === "delete") {
           await db().batch([
+            logStoryDelete(email, id, now),
             deleteFeedbackForStory(id),
             deleteConsentEventsForStory(id),
             deleteStory(id),
           ]);
-        } else if (!(await moderateStory(id, status, Date.now(), { statusAt, consentEvents }))) {
-          const current = await storyRevision(id);
+          return reply({ ok: true });
+        }
+        const expected = { statusAt, consentEvents };
+        const [, decided] = await db().batch([
+          logStoryDecision(email, id, status, now, expected),
+          moderateStory(id, status, now, expected),
+        ]);
+        if (!decided.meta.changes) {
+          const current = await storyRevision(id, now - AGE);
           const changed =
             current &&
             ((statusAt !== undefined && current.statusAt !== statusAt) ||
