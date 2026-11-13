@@ -48,7 +48,9 @@ async function call(method,path,{data,cookie='',admin=false}={}){
 }
 const session=async()=>{const r=await call('POST','/api/session');assert.equal(r.status,200);assert.ok(r.cookie);return r.cookie;};
 const submit=async(cookie,extra={})=>{const r=await call('POST','/api/me/stories',{cookie,data:{...story,...extra}});assert.equal(r.status,200,JSON.stringify(r));return r.data.id;};
-const moderate=async(id,status)=>assert.equal((await call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{admin:true,data:{status}})).status,200);
+// Every story this run moderates, so its admin_events rows can be removed at the end by target id.
+const moderated=new Set();
+const moderate=async(id,status)=>{moderated.add(id);assert.equal((await call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{admin:true,data:{status}})).status,200);};
 const queue=async()=>{const r=await call('GET','/api/admin/queue',{admin:true});assert.equal(r.status,200);return r.data;};
 const publicIds=async()=>(await call('GET','/api/stories')).data.stories.map(x=>x.id);
 const mineIds=async(cookie)=>(await call('GET','/api/me/stories',{cookie})).data.stories.map(x=>x.id);
@@ -75,8 +77,6 @@ const ownerOf=(cookie)=>createHash('sha256').update(cookie.split('=')[1]).digest
 const sqlNum=(s)=>sql(s)[0].n;
 const has=(table,col,id)=>sqlNum(`SELECT COUNT(*) AS n FROM ${table} WHERE ${col}=${q(id)}`)===1;
 
-// Admin events this run writes are removed at the end.
-const firstEvent=sqlNum('SELECT COALESCE(MAX(id),0) AS n FROM admin_events');
 // Approved permanent stories never expire, so an earlier failed run's would stay: remove them first.
 for(const x of (await queue()).stories)if(x.title===story.title)await moderate(x.id,'delete');
 
@@ -89,7 +89,7 @@ const OLD={
  permPrivate:P+'perm-private',     // v3, private, last change 40 days ago: expired
  permFlip:P+'perm-flip',           // v3, approved 400 days ago, rejected now: 30 days from the rejection
  v2Approved:P+'v2-approved',       // v2, approved, created 40 days ago: expired despite approval
- v2Flip:P+'v2-flip',               // v2, created 40 days ago, approved and rejected now: still expired
+ v2Flip:P+'v2-flip',               // v2, pending, created 40 days ago: expired, so moderation is refused
  legacyApproved:P+'legacy-approved', // consent without a version, approved, created 31 days ago: expired
  feedback:P+'old-feedback',
  sessionSeen:P+'session-seen',     // created 400 days ago, last seen 40 days ago: live, kept
@@ -112,13 +112,20 @@ INSERT INTO sessions(hash,created,last_seen) VALUES (${q(OLD.sessionSeen)},${t0-
 const oldSessions=[OLD.sessionSeen,OLD.sessionStale,OLD.sessionNull];
 const sessionsLeft=(hashes)=>sql(`SELECT hash FROM sessions WHERE hash IN ${inList(hashes)}`).map(r=>r.hash).sort();
 const oldStories=[OLD.permApproved,OLD.permPrivate,OLD.permFlip,OLD.v2Approved,OLD.v2Flip,OLD.legacyApproved];
-// Moderation through the API: the v3 story is rejected 400 days after its approval,
-// the v2 story approved and then rejected; both now have a recent status_at.
+// Moderation through the API: the v3 story is rejected 400 days after its approval
+// (a recent status_at). The expired v2 story (awaiting the retention job) can be
+// neither approved nor rejected: either would give it a new window, an approval
+// under v3 terms would keep it forever. Refused as missing (400), nothing logged.
 await moderate(OLD.permFlip,'rejected');
-await moderate(OLD.v2Flip,'approved');
-await moderate(OLD.v2Flip,'rejected');
+for(const status of ['approved','rejected']){
+  moderated.add(OLD.v2Flip);
+  const r=await call('POST','/api/admin/stories/'+encodeURIComponent(OLD.v2Flip)+'/moderation',{admin:true,data:{status}});
+  assert.deepEqual([r.status,r.data],[400,{error:'文章不存在，或作者未同意分享'}],'an expired story cannot be '+status);
+}
 let rows=storyRows(oldStories);
-for(const id of [OLD.permFlip,OLD.v2Flip]){assert.ok(rows[id].statusAt>=t0,'moderation sets status_at');assert.equal(rows[id].approvedAt,null,'leaving approved clears approved_at');}
+assert.ok(rows[OLD.permFlip].statusAt>=t0,'moderation sets status_at');assert.equal(rows[OLD.permFlip].approvedAt,null,'leaving approved clears approved_at');
+assert.deepEqual([rows[OLD.v2Flip].status,rows[OLD.v2Flip].statusAt],['pending',t0-40*DAY],'the expired story is unchanged');
+assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE target_id=${q(OLD.v2Flip)}`),0,'and nothing is logged');
 
 // Read rules, everywhere: public list, feedback, my stories, admin queue.
 const pub0=await publicIds();
@@ -323,7 +330,9 @@ await moderate(OLD.permApproved,'delete');
 await moderate(S.approved,'delete');
 assert.equal(eventsFor([OLD.permApproved,S.approved]).length,0,'admin delete deletes consent events');
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE action='delete_story' AND target_id IN ${inList([OLD.permApproved,S.approved])}`),2,'admin deletes are logged, and the log stays');
-sql('DELETE FROM admin_events WHERE id>'+firstEvent);
+// By target id, not by row id: the one-year cron above empties admin_events, and SQLite then reuses row ids.
+sql(`DELETE FROM admin_events WHERE target_id IN ${inList([...moderated])}`);
+assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE target_id IN ${inList([...moderated])} OR admin_email='retention-test@example.test'`),0,'test admin events removed');
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM stories WHERE title=${q(story.title)}`),0,'test stories removed');
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
 console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin queue, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete; admin_events deleted a year after created, kept when their story is deleted (by retention or an admin)');

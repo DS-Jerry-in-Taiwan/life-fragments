@@ -39,6 +39,12 @@ const EXPIRES_FROM = `(CASE WHEN ${PERMANENT} THEN (CASE WHEN status='approved' 
 /** SQL condition for every story read; takes one parameter, the cutoff (now - AGE). */
 export const LIVE = `COALESCE(${EXPIRES_FROM}>?,1)`;
 
+/**
+ * SQL: LIVE with `?2` as the current time (ms) instead of a cutoff parameter,
+ * for the moderation conditions below, whose statements all bind now at ?2.
+ */
+const LIVE_AT_2 = `COALESCE(${EXPIRES_FROM}>(?2-${AGE}),1)`;
+
 /** SQL condition for the retention job; takes one parameter, the cutoff (now - AGE). */
 export const EXPIRED_STORY = `${EXPIRES_FROM}<?`;
 
@@ -214,12 +220,14 @@ export function deleteStory(id: string) {
 
 /**
  * SQL: story `?3` may take the admin decision `?1` ('approved' | 'rejected')
+ * at time `?2`, is still live there (LIVE: an expired story awaiting the
+ * retention job must not get a new window, or become permanent by approval)
  * and is unchanged since the admin read it: `?4` its statusAt, `?5` its
  * consent-event count (NULL: not checked). Private stories (no share consent)
  * never match, so they cannot be approved. Shared by moderateStory() and its
  * admin_events row (admin-events.ts logStoryDecision()).
  */
-export const MODERATABLE = `id=?3 AND status IN ('pending','approved','rejected')
+export const MODERATABLE = `id=?3 AND status IN ('pending','approved','rejected') AND ${LIVE_AT_2}
          AND (?4 IS NULL OR COALESCE(status_at,created)=?4)
          AND (?5 IS NULL OR (SELECT COUNT(*) FROM consent_events e WHERE e.story=?3)=?5)`;
 
@@ -255,13 +263,16 @@ export function moderateStory(
     .bind(status, now, id, expected.statusAt ?? null, expected.consentEvents ?? null);
 }
 
-/** A story's statusAt and consentEvents (as listed in the admin queue), or null if it does not exist. */
-export function storyRevision(id: string) {
+/**
+ * A live story's statusAt and consentEvents (as listed in the admin queue),
+ * or null if there is none (`cutoff` = now - AGE).
+ */
+export function storyRevision(id: string, cutoff: number) {
   return db()
     .prepare(
-      "SELECT COALESCE(status_at,created) AS statusAt,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents FROM stories WHERE id=?",
+      `SELECT COALESCE(status_at,created) AS statusAt,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents FROM stories WHERE id=? AND ${LIVE}`,
     )
-    .bind(id)
+    .bind(id, cutoff)
     .first<{ statusAt: number; consentEvents: number }>();
 }
 
@@ -345,12 +356,12 @@ export function countExpiringStories(now: number, days: number) {
 
 /**
  * SQL: stories among the batch items `?1` (JSON [{id, statusAt,
- * consentEvents}]) that may be rejected or taken down — pending or approved —
- * and are unchanged since the admin listed them (same statusAt and
+ * consentEvents}]) that may be rejected or taken down at time `?2` — pending
+ * or approved, and live (LIVE) — and are unchanged since the admin listed them (same statusAt and
  * consent-event count). Shared by rejectStories() and its admin_events rows
  * (admin-events.ts logBatchRejections()).
  */
-export const BATCH_REJECTABLE = `id IN ${ITEM_IDS} AND status IN ('pending','approved')
+export const BATCH_REJECTABLE = `id IN ${ITEM_IDS} AND status IN ('pending','approved') AND ${LIVE_AT_2}
        AND EXISTS (SELECT 1 FROM json_each(?1) j WHERE json_extract(j.value,'$.id')=stories.id
          AND json_extract(j.value,'$.statusAt')=COALESCE(stories.status_at,stories.created)
          AND json_extract(j.value,'$.consentEvents')=(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id))`;
@@ -374,12 +385,15 @@ export function deleteStories(items: string) {
   return db().prepare(`DELETE FROM stories WHERE id IN ${ITEM_IDS} RETURNING id`).bind(items);
 }
 
-/** The batch items' stories as they are now, to tell why an item failed. */
-export function storyRevisions(items: string) {
+/**
+ * The batch items' live stories as they are at `now`, to tell why an item
+ * failed (an expired story awaiting the retention job counts as missing).
+ */
+export function storyRevisions(items: string, now: number) {
   return db()
     .prepare(
-      `SELECT id,status,COALESCE(status_at,created) AS statusAt,${CONSENT_EVENTS} AS consentEvents FROM stories WHERE id IN ${ITEM_IDS}`,
+      `SELECT id,status,COALESCE(status_at,created) AS statusAt,${CONSENT_EVENTS} AS consentEvents FROM stories WHERE id IN ${ITEM_IDS} AND ${LIVE_AT_2}`,
     )
-    .bind(items)
+    .bind(items, now)
     .all<{ id: string; status: string; statusAt: number; consentEvents: number }>();
 }

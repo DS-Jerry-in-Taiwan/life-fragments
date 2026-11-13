@@ -17,8 +17,9 @@ type ItemError = "conflict" | "not_allowed" | "missing";
  * items: [{id, statusAt, consentEvents}]}` (1–50 items; approval is never
  * batched: 400). Each item gets the single-story rules
  * (POST /api/admin/stories/:id/moderation), not all-or-nothing:
- * - rejected: only a pending or approved story still at the listed statusAt
- *   and consent-event count is rejected;
+ * - rejected: only a live pending or approved story still at the listed
+ *   statusAt and consent-event count is rejected (an expired story awaiting
+ *   the retention job is `missing`);
  * - delete: any existing story is deleted with its feedback and consent
  *   events (statusAt and consentEvents are not checked, as for a single
  *   delete).
@@ -54,16 +55,16 @@ export async function POST(req: Request) {
         const failed = items.filter((i) => !done.has(i.id));
         const current = new Map(
           failed.length
-            ? (await storyRevisions(JSON.stringify(failed))).results.map((s) => [s.id, s])
+            ? (await storyRevisions(JSON.stringify(failed), now)).results.map((s) => [s.id, s])
             : [],
         );
         return reply({
           results: items.map(({ id, statusAt, consentEvents }) => {
             if (done.has(id)) return { id, ok: true };
-            const now = current.get(id);
-            const error: ItemError = !now
+            const found = current.get(id);
+            const error: ItemError = !found
               ? "missing"
-              : now.statusAt !== statusAt || now.consentEvents !== consentEvents
+              : found.statusAt !== statusAt || found.consentEvents !== consentEvents
                 ? "conflict"
                 : "not_allowed";
             return { id, ok: false, error };

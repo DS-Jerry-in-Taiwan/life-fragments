@@ -1,7 +1,7 @@
 import { logStoryDecision, logStoryDelete } from "../../../../../../lib/server/db/admin-events";
 import { deleteConsentEventsForStory } from "../../../../../../lib/server/db/consent-events";
 import { deleteFeedbackForStory } from "../../../../../../lib/server/db/feedback";
-import { db } from "../../../../../../lib/server/db/index";
+import { AGE, db } from "../../../../../../lib/server/db/index";
 import { deleteStory, moderateStory, storyRevision } from "../../../../../../lib/server/db/stories";
 import {
   ADMIN_SAVE_FAILED,
@@ -20,7 +20,8 @@ import { parseModeration } from "../../../../../../lib/server/validation";
  * consentEvents?: number}`. Private stories can't be approved (400). With
  * `statusAt` / `consentEvents` (the values the admin queue listed), an
  * approval or rejection of a story that changed since is refused with 409;
- * delete ignores them.
+ * delete ignores them. A story past its retention window (expired, not yet
+ * deleted by the daily job) is treated as missing: 400, never 409.
  *
  * Every applied operation is logged in admin_events with the verified admin
  * email, in the same batch (lib/server/db/admin-events.ts): an approval or
@@ -54,7 +55,7 @@ export async function POST(req: Request, { params }: IdContext) {
           moderateStory(id, status, now, expected),
         ]);
         if (!decided.meta.changes) {
-          const current = await storyRevision(id);
+          const current = await storyRevision(id, now - AGE);
           const changed =
             current &&
             ((statusAt !== undefined && current.statusAt !== statusAt) ||

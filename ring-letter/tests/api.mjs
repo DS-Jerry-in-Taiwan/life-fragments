@@ -61,6 +61,7 @@ const deleteFeedback=(id,{admin=true,source=origin,headers={}}={})=>call('DELETE
 const adminList=(path,params={},{admin=true,headers={}}={})=>call('GET','/api/admin/'+path+'?'+new URLSearchParams(params),{admin,headers});
 // Every admin_events row this run writes is removed at the end (rows above this id were there before).
 const firstEvent=sql('SELECT COALESCE(MAX(id),0) AS n FROM admin_events')[0].n;
+try{
 
 // The v1 action endpoints are gone (no compatibility layer).
 for(const [m,p] of [['GET','/api/letter'],['POST','/api/letter'],['GET','/api/admin'],['POST','/api/admin']])
@@ -516,8 +517,8 @@ for(const type of ['past','present']){
 
   // --- Feedback list: kind / story filters, problem reports first, story titles, paging.
   fb=(await session()).cookie;
-  for(const [kind,note] of [['resonate','共鳴 '+tag],['report','回報 '+tag],['comment','留言 '+tag]])
-   assert.equal((await feedback({story:P+'a1',kind,note},fb)).status,200);
+  // Inserted directly with distinct times, so the expected order does not depend on request timing.
+  sql(`INSERT INTO feedback(id,owner,story,kind,note,created) VALUES (${q(P+'fa-1')},'v6-test',${q(P+'a1')},'resonate',${q('共鳴 '+tag)},${now-3000}),(${q(P+'fa-2')},'v6-test',${q(P+'a1')},'report',${q('回報 '+tag)},${now-2000}),(${q(P+'fa-3')},'v6-test',${q(P+'a1')},'comment',${q('留言 '+tag)},${now-1000})`);
   assert.equal((await feedback({story:'demo-1',kind:'report',note:'示範 '+tag},fb)).status,200);
   {
    const r=await adminList('feedback',{story:P+'a1'});
@@ -602,6 +603,21 @@ for(const type of ['past','present']){
    assert.deepEqual((await batchModerate({status:'delete',items:[item(after.k3)]})).data,{results:[{id:P+'k3',ok:false,error:'missing'}]});
   }
 
+  // --- An expired story the retention job has not deleted yet: no moderation path
+  // gives it a new window (or makes it permanent); it counts as missing, nothing is logged.
+  {
+   const id=P+'ex1', statusAt=now-31*DAY;
+   insert([row('ex1',MB+' 過期待刪','pending','v3s',now-40*DAY,statusAt)]);
+   sql(`INSERT INTO consent_events(story,action,consent_version,created) VALUES (${q(id)},'submit',${q(V3)},${now-40*DAY})`);
+   const MISSING='文章不存在，或作者未同意分享';
+   for(const data of [{status:'approved'},{status:'approved',statusAt,consentEvents:1},{status:'rejected'},{status:'rejected',statusAt,consentEvents:1}]){
+    const r=await moderate(id,data,{admin:true});assert.deepEqual([r.status,r.data],[400,{error:MISSING}],JSON.stringify(data));
+   }
+   assert.deepEqual((await batchModerate({status:'rejected',items:[{id,statusAt,consentEvents:1}]})).data,{results:[{id,ok:false,error:'missing'}]});
+   assert.deepEqual(sql(`SELECT status,status_at AS t,approved_at AS a FROM stories WHERE id=${q(id)}`),[{status:'pending',t:statusAt,a:null}],'unchanged');
+   assert.deepEqual(events([id]),[],'nothing logged');
+  }
+
   // --- Operation log: newest first, admin filter, targetExists, paging.
   {
    const r=await adminList('events');
@@ -642,5 +658,8 @@ const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
 assert.ok(!(await adminGet()).data.stories.some(x=>x.title===story.title));
-sql(`DELETE FROM admin_events WHERE id>${firstEvent}`);
 console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin queue counts, concurrent changes, moderation refused when the story changed since the queue was loaded), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
+}finally{
+ // Runs even when a check fails, so a failed run leaves no admin_events behind (nothing else here empties the table, so ids are not reused).
+ sql(`DELETE FROM admin_events WHERE id>${firstEvent}`);
+}
