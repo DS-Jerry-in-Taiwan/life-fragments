@@ -117,6 +117,9 @@ export default function AdminDashboard() {
   // The cards shown were listed under other filters (the new ones' first page
   // is on its way): nothing is ticked or sent until it arrives.
   const listing = stories.listedKey !== query;
+  // Changing the filters clears the selection for good: returning to the
+  // earlier filters must not bring its ticks back (adjust-state-during-render).
+  if (selection.key !== query && selection.ids.size > 0) setSelection({ key: query, ids: new Set() });
   // A card that left the list (deleted, gone, another page) drops out of the selection.
   const ticked = selection.key === query ? selection.ids : new Set<string>();
   const selected = stories.items.filter((s) => ticked.has(s.id));
@@ -360,13 +363,14 @@ export default function AdminDashboard() {
             loaded={stories.loaded}
             loading={stories.loading}
             more={stories.more}
-            busy={busy}
+            busy={busy || listing}
             selectable={!busy && !listing}
             selected={selectedIds}
             onSelect={(id, on) => select([id], on)}
             batchBar={
               <BatchBar
                 loaded={stories.items.length}
+                allTicked={stories.items.slice(0, api.MAX_BATCH).every((s) => selectedIds.has(s.id))}
                 selected={selected}
                 disabled={busy || listing}
                 onSelectAll={() =>

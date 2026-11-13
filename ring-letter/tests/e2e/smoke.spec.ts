@@ -587,8 +587,21 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await expect(count).toHaveText("已勾選 50 篇");
     await expect(tick(50)).toBeChecked();
     await expect(tick(0)).not.toBeChecked();
-    await bar.getByRole("button", { name: "取消全選" }).click();
+    await expect(firstFifty).toBeDisabled();
+    // 50 ticked but not the first 50: 勾選前 50 篇 can still complete them.
+    await tick(0).check();
+    await tick(50).uncheck();
+    await expect(count).toHaveText("已勾選 50 篇");
+    await expect(firstFifty).toBeEnabled();
+    // Changing the filters clears the selection; coming back doesn't restore it.
+    await page.getByRole("button", { name: /^等待審閱/ }).click();
+    await expect(page).toHaveURL(/status=pending|\/admin\?q=/);
+    await page.goBack();
+    await expect(page).toHaveURL(/status=all/);
     await expect(count).toHaveText("已勾選 0 篇");
+    await page.getByRole("button", { name: "載入更多" }).click();
+    await expect(cards).toHaveCount(51);
+    await expect(tick(0)).not.toBeChecked();
 
     // Only a private story ticked: 不通過或下架 doesn't apply, and says why.
     await tick(49).check();

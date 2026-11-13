@@ -16,6 +16,7 @@ export const canReject = (s: AdminStory) => s.status === "pending" || s.status =
  */
 export default function BatchBar({
   loaded,
+  allTicked,
   selected,
   disabled,
   onSelectAll,
@@ -24,6 +25,8 @@ export default function BatchBar({
 }: {
   /** The cards on the page. */
   loaded: number;
+  /** Every card 全選 would tick (the first MAX_BATCH loaded) is ticked already. */
+  allTicked: boolean;
   selected: AdminStory[];
   /** Busy, or the cards shown aren't the current filters' yet. */
   disabled: boolean;
@@ -35,7 +38,6 @@ export default function BatchBar({
   const rejectable = selected.filter(canReject).length;
   const rejectTooMany = rejectable > MAX_BATCH;
   const deleteTooMany = selected.length > MAX_BATCH;
-  const all = Math.min(loaded, MAX_BATCH);
   const note = deleteTooMany
     ? `一次最多處理 ${MAX_BATCH} 篇，目前勾選 ${selected.length} 篇，請先取消一些。`
     : rejectable === 0
@@ -48,7 +50,7 @@ export default function BatchBar({
   return (
     <div className={admin.batch} role="group" aria-label="批次操作">
       <div className={chips.chips}>
-        <button disabled={disabled || selected.length === all} onClick={onSelectAll}>
+        <button disabled={disabled || allTicked} onClick={onSelectAll}>
           {loaded > MAX_BATCH ? `勾選前 ${MAX_BATCH} 篇` : `全選已載入的 ${loaded} 篇`}
         </button>
         <button disabled={disabled || selected.length === 0} onClick={onClear}>
