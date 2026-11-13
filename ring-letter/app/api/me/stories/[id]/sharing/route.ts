@@ -1,5 +1,5 @@
 import {
-  insertConsentEventIfStatus,
+  insertSharingEvent,
   MAX_SHARE_REQUESTS,
 } from "../../../../../../lib/server/db/consent-events";
 import { AGE, db } from "../../../../../../lib/server/db/index";
@@ -75,7 +75,8 @@ export async function PATCH(req: Request, { params }: IdContext) {
 
       const version = share ? CONSENT_VERSION : versionOf(story.consent);
       const to = share ? "pending" : "private";
-      const [update] = await db().batch([
+      const [, update] = await db().batch([
+        insertSharingEvent(id, who, story.status, share ? "share" : "unshare", version, now),
         setSharing(
           id,
           who,
@@ -84,7 +85,6 @@ export async function PATCH(req: Request, { params }: IdContext) {
           `${version}:adult,privacy,${share ? "share" : "private"}`,
           now,
         ),
-        insertConsentEventIfStatus(id, share ? "share" : "unshare", version, now, to),
       ]);
       if (!update.meta.changes)
         return reply({ error: "這篇的狀態剛剛改變了，請重新整理後再試。" }, 409);

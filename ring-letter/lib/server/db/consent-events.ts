@@ -37,23 +37,27 @@ export function deleteConsentEventsByOwner(owner: string) {
 export const MAX_SHARE_REQUESTS = 3;
 
 /**
- * A consent event that is only written when the story is now in `status`
- * with `status_at` = `created`, i.e. when the conditional status update
- * batched just before it took effect (lib/server/db/stories.ts setSharing()).
+ * A consent event for an author's sharing change, written only if the story
+ * still belongs to `owner` and is in `fromStatus`. Batch it right before the
+ * matching conditional update (lib/server/db/stories.ts setSharing(), same
+ * `fromStatus`): a D1 batch is one transaction, so both statements see the
+ * same state, and a request that loses a race (the story already left
+ * `fromStatus`) writes neither the event nor the update.
  */
-export function insertConsentEventIfStatus(
+export function insertSharingEvent(
   story: string,
-  action: ConsentAction,
+  owner: string,
+  fromStatus: string,
+  action: "share" | "unshare",
   consentVersion: string,
   created: number,
-  status: string,
 ) {
   return db()
     .prepare(
       `INSERT INTO consent_events(story,action,consent_version,created)
-       SELECT ?1,?2,?3,?4 WHERE EXISTS (SELECT 1 FROM stories WHERE id=?1 AND status=?5 AND status_at=?4)`,
+       SELECT ?1,?2,?3,?4 WHERE EXISTS (SELECT 1 FROM stories WHERE id=?1 AND owner=?5 AND status=?6)`,
     )
-    .bind(story, action, consentVersion, created, status);
+    .bind(story, action, consentVersion, created, owner, fromStatus);
 }
 
 /**
