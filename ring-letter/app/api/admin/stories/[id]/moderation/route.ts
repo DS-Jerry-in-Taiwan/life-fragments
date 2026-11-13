@@ -18,7 +18,7 @@ import { parseModeration } from "../../../../../../lib/server/validation";
 /**
  * Body `{status: "approved" | "rejected" | "delete", statusAt?: number,
  * consentEvents?: number}`. Private stories can't be approved (400). With
- * `statusAt` / `consentEvents` (the values the admin queue listed), an
+ * `statusAt` / `consentEvents` (the values the admin story list showed), an
  * approval or rejection of a story that changed since is refused with 409;
  * delete ignores them. A story past its retention window (expired, not yet
  * deleted by the daily job) is treated as missing: 400, never 409.

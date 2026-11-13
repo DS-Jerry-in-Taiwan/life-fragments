@@ -7,7 +7,7 @@
   margin-top: var(--space-10);
   font-size: var(--heading-sm);
 }
-/* ReviewQueue (#4 §6.1): a pending story that asked to be shared again, and its consent history count. */
+/* StoryCard (#4 §6.1): a pending story that asked to be shared again, and its consent history count. */
 .reshare {
   margin-left: var(--space-2);
 }
@@ -16,8 +16,20 @@
   color: var(--muted);
   margin: var(--space-1) 0 0;
 }
-/* Also used by ReviewQueue and FeedbackList. */
+/* Also used by StoryList, FeedbackList and EventLog. */
 .emptySmall {
   font-size: var(--text-md);
   color: var(--muted);
+}
+/* StoryCard: the id wraps on narrow screens; the 409 note above the card. */
+.storyId {
+  overflow-wrap: anywhere;
+}
+.cardNote {
+  color: var(--gold);
+  font-size: var(--text-sm);
+}
+/* A section's own filter row (feedback kinds, admins). */
+.sectionFilter {
+  margin-bottom: var(--space-3);
 }

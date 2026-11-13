@@ -102,27 +102,6 @@ export async function listOwnStories(owner: string, cutoff: number) {
   return results;
 }
 
-/**
- * Stories still visible under the LIVE rule, for the admin review queue,
- * newest first: every approved one (approved v3 stories never expire, and an
- * admin must always be able to find one to delete it on the author's
- * request), plus the 200 newest of any other status. Each carries its
- * number of share requests after submission and of consent events (#4 §6.1:
- * the queue marks pending stories that asked to be shared again), and its
- * statusAt, which the admin UI sends back with a decision (moderateStory()).
- */
-export function listAllStories(cutoff: number) {
-  const columns = `id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents`;
-  return db()
-    .prepare(
-      `SELECT * FROM (SELECT ${columns} FROM stories WHERE status='approved' AND ${LIVE}
-       UNION ALL
-       SELECT * FROM (SELECT ${columns} FROM stories WHERE status<>'approved' AND ${LIVE} ORDER BY created DESC LIMIT 200))
-       ORDER BY created DESC`,
-    )
-    .bind(cutoff, cutoff);
-}
-
 export async function countStoriesSince(owner: string, since: number) {
   const row = await db()
     .prepare("SELECT COUNT(*) AS n FROM stories WHERE owner=? AND created>?")
@@ -303,9 +282,10 @@ export type AdminStoryFilter = {
 /**
  * One page of stories still visible under the LIVE rule, matching `f`,
  * newest first (created, then id, descending), at most `limit` rows. Each row
- * has what the review queue lists (statusAt, shareRequests, consentEvents),
- * its consent string, its terms ('v2' | 'v3', TERMS) and expiresAt (NULL
- * when it never expires).
+ * has what the admin card shows and sends back (statusAt, shareRequests,
+ * consentEvents), its consent string, its terms ('v2' | 'v3', TERMS),
+ * expiresAt (NULL when it never expires) and feedbackCount (its feedback
+ * from the last 30 days, what GET /api/admin/feedback?story= lists).
  */
 export function listAdminStories(f: AdminStoryFilter, now: number, limit: number) {
   const where = [LIVE];
@@ -333,10 +313,10 @@ export function listAdminStories(f: AdminStoryFilter, now: number, limit: number
   }
   return db()
     .prepare(
-      `SELECT id,title,body,era,source,status,consent,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,${CONSENT_EVENTS} AS consentEvents,${TERMS} AS terms,${EXPIRES_AT} AS expiresAt
+      `SELECT id,title,body,era,source,status,consent,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,${CONSENT_EVENTS} AS consentEvents,${TERMS} AS terms,${EXPIRES_AT} AS expiresAt,(SELECT COUNT(*) FROM feedback f WHERE f.story=stories.id AND f.created>?) AS feedbackCount
        FROM stories WHERE ${where.join(" AND ")} ORDER BY created DESC,id DESC LIMIT ?`,
     )
-    .bind(...args, limit)
+    .bind(now - AGE, ...args, limit)
     .all<{ id: string; created: number; expiresAt: number | null }>();
 }
 

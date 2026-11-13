@@ -4,7 +4,7 @@ import { createContext, useContext } from "react";
 /** State that lives in the layout and outlasts route changes. */
 export type Shell = {
   openPrivacy: () => void;
-  /** Footer shows 管理信箱 once /api/admin/queue has accepted the viewer. */
+  /** Footer shows 管理信箱 once /api/admin/summary has accepted the viewer. */
   setAdmin: (admin: boolean) => void;
 };
 

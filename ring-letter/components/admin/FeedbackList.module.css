@@ -16,3 +16,10 @@
   margin: 7px 0;
   overflow-wrap: anywhere;
 }
+/* A feedback's story title, or a logged story id: goes to its card. */
+.title {
+  font-size: inherit;
+  color: var(--gold);
+  text-decoration: underline;
+  padding: 0;
+}
