@@ -21,6 +21,8 @@
 .footer > div {
   display: flex;
   flex-wrap: wrap;
+  /* Links and buttons have different line boxes: line their text up. */
+  align-items: baseline;
   gap: 18px;
 }
 .footer button,
