@@ -65,3 +65,6 @@
   letter-spacing: normal;
   line-height: 1.6;
 }
+.modal a {
+  color: var(--gold);
+}

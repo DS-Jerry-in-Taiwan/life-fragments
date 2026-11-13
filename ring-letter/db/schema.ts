@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
-// last_seen: backfilled from created by migration 0003 and set on insert. Not read yet: sliding sessions are V3-c (#4 §6.2).
+// last_seen: the session's last visit, at most a day stale (lib/server/session.ts refreshSession()); sessions expire a year after it (#4 §6.2). Backfilled from created by migration 0003.
 export const sessions = sqliteTable('sessions', { hash:text('hash').primaryKey(), created:integer('created').notNull(), lastSeen:integer('last_seen') });
 // approved_at: set when moderated to approved, cleared when moved away from it.
 // status_at: time of the last status change; the 30-day window of non-approved stories counts from it.

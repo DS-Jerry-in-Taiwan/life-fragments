@@ -37,7 +37,7 @@ npm run dev                # http://127.0.0.1:5173
 
 ## 瀏覽器測試與截圖基準
 
-`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
+`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
 
 截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
 
@@ -81,3 +81,9 @@ npx wrangler deploy --config dist/server/wrangler.json
 ```
 
 第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/queue`；部署後的 smoke test 會確認 `/api/admin/queue` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。
+
+頁尾與隱私說明公開的聯絡信箱 `ringletter@wetrytrysee.cc`（`lib/contact.ts`）用 Cloudflare Email Routing 轉寄給管理者，不公開管理者自己的信箱：在 `wetrytrysee.cc` 的 Email → Email Routing 建立這個自訂地址並指向已驗證的目的地信箱。作者遺失 cookie、換裝置或超過一年沒回來時，會寫信來請管理者代刪（#4 第 6.2 節）：在 `/admin` 依標題、部分內文或大約日期找到該篇，用「永久刪除」移除（連同回饋與同意紀錄），通常 7 天內回信告知。
+
+### Session 與資料保留
+
+匿名 session 的 cookie 是 1 年，每次造訪（頁面或 API）都由 `worker/index.ts` 續發，`sessions.last_seen` 每天最多寫一次；最後造訪後 1 年由每日 Cron 刪除。故事保留依同意版本：V3-c 起的投稿（`v3-2026-11-12`）核准公開後保留到撤回或管理者刪除，其他狀態在最後一次狀態變更後 30 天刪除；之前的投稿照當時的 30 天條款（送出後 30 天，包含已核准）。回饋與試寫紀錄 30 天。細節見 `lib/server/retention.ts` 與 `PROJECT_NOTES.md`。

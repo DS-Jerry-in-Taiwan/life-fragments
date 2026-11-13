@@ -68,7 +68,7 @@ function del<T = { ok: true }>(url: string) {
 }
 
 // One anonymous session per page load, shared by every caller; replaces the
-// old `ready` flag. Reset after a failure or after erasing all data.
+// old `ready` flag. Reset after a failure, after erasing all data or logging out.
 let sessionPromise: Promise<unknown> | null = null;
 function ensureSession() {
   sessionPromise ??= post("/api/session").catch((e) => {
@@ -105,6 +105,12 @@ export async function withdrawStory(id: string) {
 
 export async function eraseMyData() {
   await del("/api/me");
+  sessionPromise = null;
+}
+
+/** 在這台裝置登出: forgets this browser's session; its stories stay. */
+export async function logout() {
+  await del("/api/session");
   sessionPromise = null;
 }
 

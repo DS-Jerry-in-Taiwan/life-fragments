@@ -1,9 +1,32 @@
 import handler from "vinext/server/fetch-handler";
 import { runRetention } from "../lib/server/retention";
+import { refreshSession } from "../lib/server/session";
+
+/**
+ * Sliding sessions (#4 §6.2): every response to a request with a live session
+ * cookie (pages and API alike) re-issues the cookie for another year, unless
+ * the route set or cleared it itself (POST /api/session, DELETE /api/session,
+ * DELETE /api/me). Done here rather than in the routes so that a visit that
+ * only reads pages still counts. The lookup runs alongside the handler, so it
+ * adds no D1 round trip before the response (when the route deletes the
+ * session meanwhile, its response clears the cookie and the refresh is
+ * dropped); a failure only skips the refresh.
+ */
+async function withSessionRefresh(refresh: Promise<string | null>, response: Response) {
+  if (response.headers.getSetCookie().some((c) => c.startsWith("rl_session="))) return response;
+  const cookie = await refresh;
+  if (!cookie) return response;
+  const refreshed = new Response(response.body, response);
+  refreshed.headers.append("Set-Cookie", cookie);
+  // A response carrying a personal cookie must never be cached for others.
+  if (!refreshed.headers.has("Cache-Control")) refreshed.headers.set("Cache-Control", "private");
+  return refreshed;
+}
 
 const worker = {
-  fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
-    return handler.fetch(request, env, ctx);
+  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
+    const refresh = refreshSession(request).catch(() => null);
+    return withSessionRefresh(refresh, await handler.fetch(request, env, ctx));
   },
 
   /**
