@@ -7,6 +7,7 @@ import { useAction } from "../../lib/use-action";
 import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import { useShell } from "../shell/ShellContext";
+import BatchBar, { canReject } from "./BatchBar";
 import EventLog from "./EventLog";
 import FeedbackList from "./FeedbackList";
 import {
@@ -25,6 +26,22 @@ import WritingMetrics from "./WritingMetrics";
 import styles from "./AdminDashboard.module.css";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/** A batch item left as it was: the note on its card, and its part of the notice. */
+const BATCH_ERROR: Record<api.BatchError, { note: string; count: string }> = {
+  conflict: { note: "未處理：這篇剛剛改變了，請再看一次。", count: "剛剛改變了" },
+  not_allowed: { note: "未處理：這個狀態不能不通過。", count: "這個狀態不能不通過" },
+  missing: { note: "未處理：已不存在。", count: "已不存在" },
+};
+
+/** 《a》《b》《c》等: the first few titles for a batch confirm. */
+function someTitles(stories: AdminStory[], n = 3) {
+  const titles = stories
+    .slice(0, n)
+    .map((s) => `《${s.title}》`)
+    .join("");
+  return stories.length > n ? titles + "等" : titles;
+}
 
 /**
  * 摘要 → 篩選列 → 故事清單 → 回饋 → 操作紀錄 (#4 §5.2). The story filters
@@ -49,8 +66,15 @@ export default function AdminDashboard() {
     [feedbackStory, setFeedbackStory] = useState<{ id: string; title: string } | null>(null),
     // Bumped to reload the feedback list / the operation log from the top.
     [feedbackKey, setFeedbackKey] = useState(0),
-    [eventsKey, setEventsKey] = useState(0);
+    [eventsKey, setEventsKey] = useState(0),
+    // Ticked cards for a batch action; only for the filters they were ticked under.
+    [selection, setSelection] = useState<{ key: string; ids: Set<string> }>({
+      key: "",
+      ids: new Set(),
+    });
   const jumpTo = useRef<string | null>(null);
+  // A batch request is on its way: refuse a second one before `busy` renders.
+  const batching = useRef(false);
   const showError = (e: unknown) => action.setError(message(e));
   const stories = usePagedList<AdminStory>(
     query,
@@ -86,6 +110,21 @@ export default function AdminDashboard() {
     jumpTo.current = null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stories.items, stories.listedKey]);
+
+  // A card that left the list (deleted, gone, another page) drops out of the selection.
+  const ticked = selection.key === query ? selection.ids : new Set<string>();
+  const selected = stories.items.filter((s) => ticked.has(s.id));
+  const selectedIds = new Set(selected.map((s) => s.id));
+  function select(ids: string[], on: boolean) {
+    setSelection((prev) => {
+      const next = new Set(prev.key === query ? prev.ids : []);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return { key: query, ids: next };
+    });
+  }
 
   function setFilter(next: StoryFilter) {
     const qs = filterQuery(next);
@@ -163,6 +202,88 @@ export default function AdminDashboard() {
     });
   }
 
+  /**
+   * 不通過或下架 (the ticked pending / approved ones) or 永久刪除 (all ticked).
+   * Done: deleted cards leave the list, rejected ones are fetched again.
+   * Refused: they stay ticked with the reason on the card and are fetched
+   * again (new statusAt / consentEvents for the next try); gone ones leave.
+   */
+  function moderateSelected(status: "rejected" | "delete") {
+    if (batching.current) return;
+    const targets = status === "delete" ? selected : selected.filter(canReject);
+    if (targets.length === 0) return;
+    if (targets.length > api.MAX_BATCH) {
+      action.setError(`一次最多處理 ${api.MAX_BATCH} 篇，目前勾選 ${targets.length} 篇。`);
+      return;
+    }
+    const titles = someTitles(targets);
+    const question =
+      status === "delete"
+        ? `永久刪除 ${targets.length} 篇（含回饋與授權紀錄），無法復原：${titles}`
+        : `不通過或下架 ${targets.length} 篇：${titles}` +
+          (targets.length < selected.length
+            ? `\n（勾選的另外 ${selected.length - targets.length} 篇不是等待審閱或已匿名分享，不受影響。）`
+            : "");
+    if (!confirm(question)) return;
+    batching.current = true;
+    void action
+      .run(async () => {
+        for (const s of targets) note(s.id);
+        const results = await api.moderateStories(status, targets);
+        const done = results.filter((r) => r.ok).map((r) => r.id);
+        const failed = results.filter((r) => !r.ok);
+        // Fetch again: the rejected ones (new status) and every refused one.
+        const again = [...(status === "rejected" ? done : []), ...failed.map((r) => r.id)];
+        const current = new Map(
+          await Promise.all(again.map(async (id) => [id, await api.getAdminStory(id)] as const)),
+        );
+        if (status === "delete") for (const id of done) stories.remove(id);
+        let removed = 0;
+        for (const id of again) {
+          const story = current.get(id);
+          if (story) stories.replace(story);
+          else {
+            stories.remove(id);
+            if (failed.some((r) => r.id === id)) removed++;
+          }
+        }
+        for (const r of failed) if (current.get(r.id)) note(r.id, BATCH_ERROR[r.error!].note);
+        // Only the refused ones stay ticked.
+        select(
+          targets.map((s) => s.id),
+          false,
+        );
+        select(
+          failed.map((r) => r.id),
+          true,
+        );
+
+        const verb = status === "delete" ? "已永久刪除" : "已不通過或下架";
+        let text = `${verb} ${done.length} 篇`;
+        if (failed.length) {
+          const counts = new Map<api.BatchError, number>();
+          for (const r of failed) counts.set(r.error!, (counts.get(r.error!) ?? 0) + 1);
+          const parts = [...counts].map(([e, n]) => `${n} 篇${BATCH_ERROR[e].count}`);
+          text += `；${failed.length} 篇未處理（${parts.join("、")}）`;
+          if (removed) text += `，已不存在的 ${removed} 篇已從清單移除`;
+        }
+        setNotice(text + "。");
+
+        if (done.length) {
+          // Logged: the operation log reloads. Only a delete takes feedback with it.
+          setEventsKey((k) => k + 1);
+          if (status === "delete") {
+            if (feedbackStory && done.includes(feedbackStory.id)) setFeedbackStory(null);
+            setFeedbackKey((k) => k + 1);
+          }
+        }
+        await refreshSummary();
+      })
+      .finally(() => {
+        batching.current = false;
+      });
+  }
+
   return (
     <>
       <StatusMessage action={action} />
@@ -204,6 +325,23 @@ export default function AdminDashboard() {
             loading={stories.loading}
             more={stories.more}
             busy={busy}
+            selected={selectedIds}
+            onSelect={(id, on) => select([id], on)}
+            batchBar={
+              <BatchBar
+                loaded={stories.items.length}
+                selected={selected}
+                busy={busy}
+                onSelectAll={() =>
+                  select(
+                    stories.items.map((s) => s.id),
+                    true,
+                  )
+                }
+                onClear={() => setSelection({ key: query, ids: new Set() })}
+                onModerate={moderateSelected}
+              />
+            }
             onMore={stories.loadMore}
             onModerate={moderate}
             onShowFeedback={showFeedback}

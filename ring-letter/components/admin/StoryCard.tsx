@@ -23,12 +23,17 @@ export default function StoryCard({
   story: s,
   busy,
   note,
+  selected,
+  onSelect,
   onModerate,
   onShowFeedback,
 }: {
   story: AdminStory;
   busy: boolean;
-  /** Why the card was just refreshed (409: 這篇剛剛改變了). */
+  /** Ticked for a batch action (BatchBar). */
+  selected: boolean;
+  onSelect: (id: string, on: boolean) => void;
+  /** Why the card was just refreshed (409: 這篇剛剛改變了; a batch's 未處理 reason). */
   note?: string;
   onModerate: (story: AdminStory, status: ModerationAction) => void;
   onShowFeedback: (story: AdminStory) => void;
@@ -40,6 +45,16 @@ export default function StoryCard({
           {note}
         </p>
       )}
+      <label className={`check ${admin.select}`}>
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={busy}
+          aria-label={`勾選《${s.title}》`}
+          onChange={(e) => onSelect(s.id, e.target.checked)}
+        />
+        勾選
+      </label>
       <StatusPill status={s.status} />
       {s.status === "pending" && s.shareRequests > 0 && (
         <span className={`${pill.pill} ${admin.reshare}`}>重新申請分享</span>
