@@ -79,13 +79,23 @@ export async function listOwnStories(owner: string, cutoff: number) {
   return results;
 }
 
-/** Every story, any status, still visible under the LIVE rule, for the admin review queue. */
+/**
+ * Stories still visible under the LIVE rule, for the admin review queue,
+ * newest first: every approved one (approved v3 stories never expire, and an
+ * admin must always be able to find one to delete it on the author's
+ * request), plus the 200 newest of any other status.
+ */
 export function listAllStories(cutoff: number) {
+  const columns =
+    "id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection";
   return db()
     .prepare(
-      `SELECT id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection FROM stories WHERE ${LIVE} ORDER BY created DESC LIMIT 200`,
+      `SELECT * FROM (SELECT ${columns} FROM stories WHERE status='approved' AND ${LIVE}
+       UNION ALL
+       SELECT * FROM (SELECT ${columns} FROM stories WHERE status<>'approved' AND ${LIVE} ORDER BY created DESC LIMIT 200))
+       ORDER BY created DESC`,
     )
-    .bind(cutoff);
+    .bind(cutoff, cutoff);
 }
 
 export async function countStoriesSince(owner: string, since: number) {

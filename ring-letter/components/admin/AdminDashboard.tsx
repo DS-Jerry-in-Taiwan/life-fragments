@@ -60,12 +60,13 @@ export default function AdminDashboard() {
             <span className="sentence">只審核原文。</span>
             <span className="sentence">不同意分享的片段不能公開。</span>
             <span className="sentence">
-              核准公開的投稿保留到撤回（舊版同意者仍為送出後 30 天）；未公開投稿、回饋與試寫紀錄 30 天後清除。
+              核准公開的投稿保留到撤回（舊版同意者仍為送出後 30 天）；未公開投稿、回饋與試寫紀錄 30
+              天後清除。
             </span>
           </SectionIntro>
           <StatsBar review={review} feedback={feedback} />
           <p className="quiet">
-            顯示最近 200 篇、300
+            顯示全部已核准的投稿、最近 200 篇其他投稿與 300
             筆回饋；這些是事件筆數，不是獨立人數。示範故事回饋會標示，不當成真實內容需求證據。
           </p>
           <button className="secondary" disabled={busy} onClick={() => action.run(load)}>

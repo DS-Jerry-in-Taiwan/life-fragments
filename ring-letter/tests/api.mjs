@@ -146,13 +146,13 @@ for(const type of ['past','present']){
 {
  const DAY=86400000, c=(await session()).cookie, h=hashOf(c);
  const lastSeen=()=>sql(`SELECT last_seen AS t FROM sessions WHERE hash=${q(h)}`)[0]?.t;
- const page=async(cookie)=>{const r=await fetch(origin+'/',{headers:{Cookie:cookie}});await r.arrayBuffer();return {status:r.status,setCookie:r.headers.get('set-cookie')};};
+ const page=async(cookie)=>{const r=await fetch(origin+'/',{headers:{Cookie:cookie}});await r.arrayBuffer();return {status:r.status,setCookie:r.headers.get('set-cookie'),cache:r.headers.get('cache-control')};};
  // A pre-V3-c session: created 40 days ago, 30-day cookie, last seen 40 days ago. Still live, upgraded to one year.
  const old=Date.now()-40*DAY;
  sql(`UPDATE sessions SET created=${old},last_seen=${old} WHERE hash=${q(h)}`);
- const p=await page(c);assert.equal(p.status,200);assert.equal(p.setCookie,refreshed(c),'a page visit re-issues the cookie for a year');
+ const p=await page(c);assert.equal(p.status,200);assert.equal(p.setCookie,refreshed(c),'a page visit re-issues the cookie for a year');assert.equal(p.cache,'private','and is not cacheable for others');
  const seen=lastSeen();assert.ok(seen>Date.now()-60000,'and moves last_seen to now');
- assert.equal((await mine(c)).setCookie,refreshed(c),'API reads too');
+ {const r=await mine(c);assert.equal(r.setCookie,refreshed(c),'API reads too');}
  assert.equal(lastSeen(),seen,'at most one last_seen write a day');
  sql(`UPDATE sessions SET last_seen=${Date.now()-DAY+3600000} WHERE hash=${q(h)}`);
  const recent=lastSeen();await page(c);assert.equal(lastSeen(),recent,'last_seen younger than a day is not rewritten');
@@ -198,6 +198,25 @@ for(const type of ['past','present']){
  assert.equal(sql(`SELECT COUNT(*) AS n FROM feedback WHERE owner=${q(h)}`)[0].n,0,'admin delete takes the feedback with it');
 }
 
+// --- The admin queue lists every live approved story, however many newer
+// stories there are (approved v3 stories never expire, and the admin must be
+// able to find one to delete it for its author); other statuses are capped at 200.
+{
+ const P='api-cap-', now=Date.now(), old=now-60*86400000;
+ const cols='id,owner,title,body,era,source,status,consent,created,status_at,approved_at';
+ const del=`DELETE FROM stories WHERE id LIKE '${P}%'`;
+ sql(`${del}; INSERT INTO stories(${cols}) VALUES (${q(P+'old-approved')},'cap-test','上限測試：舊的已核准','測試內容','測試','recollection','approved','v3-2026-11-12:adult,privacy,share',${old},${old},${old});
+ WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<210)
+ INSERT INTO stories(${cols}) SELECT '${P}'||i,'cap-test','上限測試：較新的待審','測試內容','測試','recollection','pending','v3-2026-11-12:adult,privacy,share',${now}-i,${now}-i,NULL FROM n;`);
+ try{
+  const listed=(await adminGet()).data.stories;
+  assert.ok(listed.some(x=>x.id===P+'old-approved'),'an old approved story stays in the admin queue behind 210 newer ones');
+  assert.equal(listed.filter(x=>x.status!=='approved').length,200,'other statuses capped at 200');
+  assert.ok(listed.some(x=>x.id===P+'1')&&!listed.some(x=>x.id===P+'210'),'the newest ones');
+  const created=listed.map(x=>x.created);assert.deepEqual(created,[...created].sort((x,y)=>y-x),'newest first');
+ }finally{sql(del);}
+}
+
 // Admin delete removes any story, private ones included.
 const extra=await submit({...story,share:false},b.cookie);assert.equal(extra.status,200);
 assert.equal((await moderate(extra.data.id,{status:'delete'},{admin:true})).status,200);
@@ -206,4 +225,4 @@ const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
 assert.ok(!(await adminGet()).data.stories.some(x=>x.title===story.title));
-console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, erase, cleanup');
+console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, erase, cleanup');
