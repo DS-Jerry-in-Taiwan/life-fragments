@@ -80,7 +80,7 @@ npm run build
 npx wrangler deploy --config dist/server/wrangler.json
 ```
 
-第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/queue`；部署後的 smoke test 會確認 `/api/admin/queue` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。
+第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/summary`；部署後的 smoke test 會確認 `/api/admin/summary` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。
 
 頁尾與隱私說明公開的聯絡信箱 `ringletter@wetrytrysee.cc`（`lib/contact.ts`）用 Cloudflare Email Routing 轉寄給管理者，不公開管理者自己的信箱：在 `wetrytrysee.cc` 的 Email → Email Routing 建立這個自訂地址並指向已驗證的目的地信箱。作者遺失 cookie、換裝置或超過一年沒回來時，會寫信來請管理者代刪（#4 第 6.2 節）：在 `/admin` 狀態選「全部」，用搜尋框（標題或部分內文）加投稿日期範圍找到該篇，用「永久刪除」移除（連同回饋與同意紀錄），通常 7 天內回信告知。
 

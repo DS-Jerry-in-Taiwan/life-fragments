@@ -102,27 +102,6 @@ export async function listOwnStories(owner: string, cutoff: number) {
   return results;
 }
 
-/**
- * Stories still visible under the LIVE rule, for the admin review queue,
- * newest first: every approved one (approved v3 stories never expire, and an
- * admin must always be able to find one to delete it on the author's
- * request), plus the 200 newest of any other status. Each carries its
- * number of share requests after submission and of consent events (#4 §6.1:
- * the queue marks pending stories that asked to be shared again), and its
- * statusAt, which the admin UI sends back with a decision (moderateStory()).
- */
-export function listAllStories(cutoff: number) {
-  const columns = `id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents`;
-  return db()
-    .prepare(
-      `SELECT * FROM (SELECT ${columns} FROM stories WHERE status='approved' AND ${LIVE}
-       UNION ALL
-       SELECT * FROM (SELECT ${columns} FROM stories WHERE status<>'approved' AND ${LIVE} ORDER BY created DESC LIMIT 200))
-       ORDER BY created DESC`,
-    )
-    .bind(cutoff, cutoff);
-}
-
 export async function countStoriesSince(owner: string, since: number) {
   const row = await db()
     .prepare("SELECT COUNT(*) AS n FROM stories WHERE owner=? AND created>?")
