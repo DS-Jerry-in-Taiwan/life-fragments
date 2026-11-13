@@ -63,6 +63,14 @@ function segment(id: string) {
   return encodeURIComponent(id);
 }
 
+function patch<T>(url: string, data: object) {
+  return request<T>(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
 function del<T = { ok: true }>(url: string) {
   return request<T>(url, { method: "DELETE" });
 }
@@ -103,6 +111,23 @@ export async function withdrawStory(id: string) {
   await del(`/api/me/stories/${segment(id)}`);
 }
 
+export type SharingResult = { status: string; shareRequestsLeft: number };
+
+/**
+ * 改為分享 / 再次申請分享 (`share: true`, the three consent boxes ticked
+ * again) or 停止分享 (`share: false`) for one of this browser's stories.
+ */
+export async function setStorySharing(
+  id: string,
+  share: boolean,
+  consent?: { adult: boolean; privacy: boolean; share: boolean },
+) {
+  return patch<SharingResult>(
+    `/api/me/stories/${segment(id)}/sharing`,
+    share ? { share, consent } : { share },
+  );
+}
+
 export async function eraseMyData() {
   await del("/api/me");
   sessionPromise = null;
@@ -124,6 +149,19 @@ export async function getAdminQueue() {
   return { stories: d.stories ?? [], feedback: d.feedback ?? [], metrics: d.metrics ?? [] };
 }
 
-export async function moderateStory(id: string, status: ModerationAction) {
-  await post(`/api/admin/stories/${segment(id)}/moderation`, { status });
+/**
+ * `listed`: the story's statusAt and consentEvents as the queue listed them,
+ * so the decision is refused (409) if the story changed since (e.g. the
+ * author asked again).
+ */
+export async function moderateStory(
+  id: string,
+  status: ModerationAction,
+  listed?: { statusAt?: number; consentEvents?: number },
+) {
+  await post(`/api/admin/stories/${segment(id)}/moderation`, {
+    status,
+    statusAt: listed?.statusAt,
+    consentEvents: listed?.consentEvents,
+  });
 }

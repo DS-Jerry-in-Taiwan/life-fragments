@@ -4,6 +4,7 @@ import StoryExtra from "../story/StoryExtra";
 import StoryMeta from "../story/StoryMeta";
 import chips from "../common/Chips.module.css";
 import own from "../story/OwnStory.module.css";
+import pill from "../story/StatusPill.module.css";
 import admin from "./AdminDashboard.module.css";
 
 export default function ReviewQueue({
@@ -13,7 +14,12 @@ export default function ReviewQueue({
 }: {
   review: Story[];
   busy: boolean;
-  onModerate: (id: string, status: ModerationAction) => void;
+  /** `listed`: statusAt and consentEvents as listed, so a story that changed since is refused (409). */
+  onModerate: (
+    id: string,
+    status: ModerationAction,
+    listed?: { statusAt?: number; consentEvents?: number },
+  ) => void;
 }) {
   return (
     <>
@@ -22,17 +28,25 @@ export default function ReviewQueue({
       {review.map((s) => (
         <article className={own.ownStory} key={s.id}>
           <StatusPill status={s.status} />
+          {s.status === "pending" && (s.shareRequests ?? 0) > 0 && (
+            <span className={`${pill.pill} ${admin.reshare}`}>重新申請分享</span>
+          )}
           <StoryMeta story={s} />
+          {(s.consentEvents ?? 0) > 1 && (
+            <p className={admin.consentHistory}>
+              授權紀錄 {s.consentEvents} 筆（送出後申請分享 {s.shareRequests ?? 0} 次）
+            </p>
+          )}
           <h3>{s.title}</h3>
           <p className="prewrap">{s.body}</p>
           <StoryExtra story={s} />
           <div className={chips.chips}>
             {s.status !== "private" && (
               <>
-                <button disabled={busy} onClick={() => onModerate(s.id, "approved")}>
+                <button disabled={busy} onClick={() => onModerate(s.id, "approved", s)}>
                   核准分享原文
                 </button>
-                <button disabled={busy} onClick={() => onModerate(s.id, "rejected")}>
+                <button disabled={busy} onClick={() => onModerate(s.id, "rejected", s)}>
                   暫不分享／下架
                 </button>
               </>

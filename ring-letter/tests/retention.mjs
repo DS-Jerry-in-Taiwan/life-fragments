@@ -52,6 +52,7 @@ const moderate=async(id,status)=>assert.equal((await call('POST','/api/admin/sto
 const queue=async()=>{const r=await call('GET','/api/admin/queue',{admin:true});assert.equal(r.status,200);return r.data;};
 const publicIds=async()=>(await call('GET','/api/stories')).data.stories.map(x=>x.id);
 const mineIds=async(cookie)=>(await call('GET','/api/me/stories',{cookie})).data.stories.map(x=>x.id);
+const sharing=(id,cookie,share)=>call('PATCH','/api/me/stories/'+encodeURIComponent(id)+'/sharing',{cookie,data:share?{share,consent:{adult:true,privacy:true,share:true}}:{share}});
 const feedback=(story,cookie)=>call('POST','/api/feedback',{cookie,data:{story,kind:'resonate',note:'保留政策測試'}});
 /** Fires the Cron Trigger as if it were `time` (ms). */
 async function cron(time){
@@ -154,9 +155,19 @@ for(const id of all)assert.equal(rows[id].statusAt,rows[id].created,'status_at s
 const V2S={approved:P+'v2-fresh-approved',flip:P+'v2-fresh-flip'};
 const v2All=Object.values(V2S);
 const tv2=Date.now();
+// Author sharing changes (#4 §6.1, V3-b), made later between beforeReject and afterReject:
+// a v3 approved story that stops sharing, a v2 private story that asks to be
+// shared (re-consenting moves it onto v3) and a v2 approved story that stops
+// sharing (keeps v2). The v2 rows belong to session d so it can change them.
+const d=await session(), dOwner=ownerOf(d);
+const SH={v3Stop:await submit(d),v2Share:P+'v2-share',v2Stop:P+'v2-stop'};
+const shAll=Object.values(SH);
+const rowD=(id,status,consent)=>row(id,status,consent,tv2,tv2,status==='approved'?tv2:null).replace(q(mOwner),q(dOwner));
 sql(`INSERT INTO stories(id,owner,title,body,era,source,status,consent,created,status_at,approved_at) VALUES
- ${row(V2S.approved,'pending',V2+':adult,privacy,share',tv2,tv2,null)},${row(V2S.flip,'pending',V2+':adult,privacy,share',tv2,tv2,null)};
-INSERT INTO consent_events(story,action,consent_version,created) VALUES ${ev(V2S.approved,V2,tv2)},${ev(V2S.flip,V2,tv2)};`);
+ ${row(V2S.approved,'pending',V2+':adult,privacy,share',tv2,tv2,null)},${row(V2S.flip,'pending',V2+':adult,privacy,share',tv2,tv2,null)},
+ ${rowD(SH.v2Share,'private',V2+':adult,privacy,private')},${rowD(SH.v2Stop,'approved',V2+':adult,privacy,share')};
+INSERT INTO consent_events(story,action,consent_version,created) VALUES ${ev(V2S.approved,V2,tv2)},${ev(V2S.flip,V2,tv2)},${ev(SH.v2Share,V2,tv2)},${ev(SH.v2Stop,V2,tv2)};`);
+await moderate(SH.v3Stop,'approved');
 await moderate(S.rejected,'rejected');
 await moderate(S.approved,'approved');
 await moderate(S.flip,'approved');
@@ -182,7 +193,15 @@ assert.equal((await feedback('demo-2',b)).status,200);
 const beforeReject=Date.now();
 await moderate(S.flip,'rejected');
 await moderate(V2S.flip,'rejected');
+for(const [id,share] of [[SH.v3Stop,false],[SH.v2Share,true],[SH.v2Stop,false]])assert.equal((await sharing(id,d,share)).status,200);
 const afterReject=Date.now();
+{
+  const r=storyRows(shAll);
+  for(const id of shAll)assert.ok(r[id].statusAt>=beforeReject&&r[id].statusAt<=afterReject,'a sharing change sets status_at');
+  assert.deepEqual(shAll.map(id=>r[id].status),['private','pending','private']);
+  assert.deepEqual(Object.fromEntries(sql(`SELECT id,consent FROM stories WHERE id IN ${inList(shAll)}`).map(x=>[x.id,x.consent])),{[SH.v3Stop]:V3+':adult,privacy,private',[SH.v2Share]:V3+':adult,privacy,share',[SH.v2Stop]:V2+':adult,privacy,private'});
+  assert.ok(!(await publicIds()).includes(SH.v2Stop),'a stopped v2 story leaves the public list');
+}
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM feedback WHERE owner=${q(ownerOf(b))} AND created<${beforeReject-1500}`)+sqlNum(`SELECT COUNT(*) AS n FROM writing_attempts WHERE id=${q(attempt2)} AND created<${beforeReject-1500}`),0,'test too slow: these rows must be younger than the next cron cutoff');
 rows=storyRows(all);
 assert.ok(rows[S.flip].statusAt>=beforeReject&&rows[S.flip].statusAt<=afterReject,'rejection sets status_at');
@@ -192,6 +211,7 @@ assert.ok(pub1.includes(V2S.approved),'so is a fresh approved v2 story');
 
 // --- Cron at now+29 days: this run's rows are not old enough yet.
 await cron(Date.now()+29*DAY);
+assert.deepEqual(Object.keys(storyRows(shAll)).sort(),[...shAll].sort(),'stories with sharing changes survive too');
 assert.deepEqual(Object.keys(storyRows([...all,...v2All])).sort(),[...all,...v2All].sort(),'recent stories survive');
 assert.equal(eventsFor([...all,...v2All]).length,all.length+v2All.length);
 assert.equal(feedbackOn([S.approved,S.flip,V2S.approved]),3);
@@ -229,6 +249,9 @@ const metricAfter=(await queue()).metrics.find(x=>x.letterType==='present')?.sta
 assert.ok(remaining>=1&&remaining<metricBefore,'the cron removed some attempts and kept the newer one');
 assert.equal(metricAfter,remaining,'metrics count exactly the remaining attempts');
 assert.ok(!storyRows([OLD.permFlip])[OLD.permFlip],'permanent rejected story deleted 30 days after the rejection');
+// Sharing changes: v3 (also a v2 story that re-consented to share) count from the change; a v2 story keeps 30 days from created.
+assert.deepEqual(Object.keys(storyRows(shAll)).sort(),[SH.v3Stop,SH.v2Share].sort(),'v3 approved → stop sharing: 30 days from the change; v2 private → share: now v3 pending, 30 days from the change; v2 approved → stop: still 30 days from created');
+assert.deepEqual(eventsFor([SH.v2Stop]),[],'with its consent events');
 assert.ok(storyRows([OLD.permApproved])[OLD.permApproved],'permanent approved story never auto-deleted');
 
 // --- Cron 30 days after everything: feedback and attempts go; v3 approved stories and sessions stay.
@@ -237,6 +260,7 @@ assert.ok(!has('feedback','story','demo-2'),'feedback deleted 30 days after crea
 assert.equal(feedbackOn([S.approved]),0,'feedback on a kept story too');
 assert.ok(!has('writing_attempts','id',attempt2));
 assert.deepEqual(Object.keys(storyRows(all)),[S.approved],'v3 rejected story deleted 30 days after the rejection; the approved one kept');
+assert.deepEqual(Object.keys(storyRows(shAll)),[],'stories whose sharing changed deleted 30 days after the change (never kept as approved)');
 assert.deepEqual(await mineIds(a),[S.approved],'sessions outlive 30 days: the author still sees the kept story');
 assert.ok((await publicIds()).includes(OLD.permApproved),'permanent approved story stays public');
 assert.equal(eventsFor([OLD.permApproved]).length,1);
@@ -283,4 +307,4 @@ await moderate(S.approved,'delete');
 assert.equal(eventsFor([OLD.permApproved,S.approved]).length,0,'admin delete deletes consent events');
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM stories WHERE title=${q(story.title)}`),0,'test stories removed');
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
-console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin queue, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete');
+console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin queue, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete');
