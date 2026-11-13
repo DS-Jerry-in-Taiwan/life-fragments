@@ -37,27 +37,50 @@ export function deleteConsentEventsByOwner(owner: string) {
 export const MAX_SHARE_REQUESTS = 3;
 
 /**
+ * What an author's sharing change read before writing: the story's status,
+ * when that status was set, and how many consent events it had. Every
+ * transition writes an event, so the event count changes even when a story
+ * returns to the same status (A → B → A) within the same millisecond.
+ */
+export type SharingSnapshot = { status: string; statusAt: number; events: number };
+
+/**
+ * SQL: story `?1` owned by `?2` is still as read (`?3` status, `?4` status
+ * time) and has `?5` + `written` consent events (`written` = 1 once this
+ * request's own event has been inserted earlier in the same batch).
+ */
+export function unchangedSinceRead(written: 0 | 1) {
+  return `EXISTS (SELECT 1 FROM stories WHERE id=?1 AND owner=?2 AND status=?3 AND COALESCE(status_at,created)=?4)
+       AND (SELECT COUNT(*) FROM consent_events WHERE story=?1)=?5+${written}`;
+}
+
+/**
  * A consent event for an author's sharing change, written only if the story
- * still belongs to `owner` and is in `fromStatus`. Batch it right before the
- * matching conditional update (lib/server/db/stories.ts setSharing(), same
- * `fromStatus`): a D1 batch is one transaction, so both statements see the
- * same state, and a request that loses a race (the story already left
- * `fromStatus`) writes neither the event nor the update.
+ * is unchanged since `from` was read (status, status time and event count:
+ * unchangedSinceRead) and, for a share request, it still has a
+ * request left. Batch it right before the matching setSharing() with the same
+ * snapshot: a D1 batch is one transaction, and the update requires this event
+ * (event count + 1), so a stale or losing request — including one that read
+ * an older request count — writes neither the event nor the update.
  */
 export function insertSharingEvent(
   story: string,
   owner: string,
-  fromStatus: string,
+  from: SharingSnapshot,
   action: "share" | "unshare",
   consentVersion: string,
   created: number,
 ) {
+  const underCap =
+    action === "share"
+      ? ` AND (SELECT COUNT(*) FROM consent_events WHERE story=?1 AND action='share')<${MAX_SHARE_REQUESTS}`
+      : "";
   return db()
     .prepare(
       `INSERT INTO consent_events(story,action,consent_version,created)
-       SELECT ?1,?2,?3,?4 WHERE EXISTS (SELECT 1 FROM stories WHERE id=?1 AND owner=?5 AND status=?6)`,
+       SELECT ?1,?6,?7,?8 WHERE ${unchangedSinceRead(0)}${underCap}`,
     )
-    .bind(story, action, consentVersion, created, owner, fromStatus);
+    .bind(story, owner, from.status, from.statusAt, from.events, action, consentVersion, created);
 }
 
 /**

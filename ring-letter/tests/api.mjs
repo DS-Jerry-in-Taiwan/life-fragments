@@ -339,6 +339,16 @@ for(const type of ['past','present']){
  assert.equal(row(v2a).consent,V2+':adult,privacy,private','stopping keeps the consent version');
  assert.deepEqual(events(v2a),['submit:'+V2,'unshare:'+V2]);
  assert.ok(!(await isPublic(v2a)));
+ // Concurrent requests on one story: exactly one wins, one event is written,
+ // the rest get 409 (the writes are conditional on the story being unchanged since it was read).
+ {
+  const id=(await submit({...story,share:false},other)).data.id, before=events(id).length;
+  const rs=await Promise.all([shareOn(id,other),shareOn(id,other),shareOn(id,other),shareOff(id,other)]);
+  assert.ok(rs.every(r=>r.status===200||r.status===409),JSON.stringify(rs.map(r=>r.status)));
+  assert.equal(rs.filter(r=>r.status===200&&r.data.status==='pending').length,1,'one share request wins');
+  assert.equal(events(id).length,before+rs.filter(r=>r.status===200).length,'one event per applied change');
+  assert.deepEqual((await withdraw(id,other)).data,{ok:true});
+ }
  // Moderation with the statusAt the queue listed: refused (409) once the story changed since,
  // e.g. the author stopped sharing and asked again between loading the queue and deciding.
  const STALE='這篇的狀態剛剛改變了，請重新整理後再審閱。';
@@ -373,4 +383,4 @@ const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
 assert.ok(!(await adminGet()).data.stories.some(x=>x.title===story.title));
-console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin queue counts, moderation refused when the story changed since the queue was loaded), erase, cleanup');
+console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin queue counts, concurrent changes, moderation refused when the story changed since the queue was loaded), erase, cleanup');

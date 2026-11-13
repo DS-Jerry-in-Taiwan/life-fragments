@@ -1,4 +1,4 @@
-import { MAX_SHARE_REQUESTS } from "./consent-events";
+import { MAX_SHARE_REQUESTS, type SharingSnapshot, unchangedSinceRead } from "./consent-events";
 import { db } from "./index";
 
 /**
@@ -128,32 +128,35 @@ export async function ownsStory(id: string, owner: string) {
 export function findOwnStoryForSharing(id: string, owner: string, cutoff: number) {
   return db()
     .prepare(
-      `SELECT status,consent,${SHARE_REQUESTS} AS shareRequests FROM stories WHERE id=? AND owner=? AND ${LIVE}`,
+      `SELECT status,consent,${SHARE_REQUESTS} AS shareRequests,COALESCE(status_at,created) AS statusAt,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS events FROM stories WHERE id=? AND owner=? AND ${LIVE}`,
     )
     .bind(id, owner, cutoff)
-    .first<{ status: string; consent: string; shareRequests: number }>();
+    .first<SharingSnapshot & { consent: string; shareRequests: number }>();
 }
 
 /**
- * The author's sharing change (#4 §6.1): `from` → `to` with the new consent
- * string, only if the story is still in `from` (a concurrent change makes it
- * a no-op). Sets status_at, and clears approved_at: a story that asks to be
- * shared again always goes back to human review, and one that stops sharing
- * leaves the public list at once. The body is never touched.
+ * The author's sharing change (#4 §6.1): snapshot → `to` with the new consent
+ * string. Batch it right after insertSharingEvent() with the same snapshot:
+ * it applies only if the story is unchanged since it was read AND that event
+ * was just written (event count = snapshot + 1), so a stale or losing request
+ * changes nothing. Sets status_at, and clears approved_at: a story that asks
+ * to be shared again always goes back to human review, and one that stops
+ * sharing leaves the public list at once. The body is never touched.
  */
 export function setSharing(
   id: string,
   owner: string,
-  from: string,
+  from: SharingSnapshot,
   to: "pending" | "private",
   consent: string,
   now: number,
 ) {
   return db()
     .prepare(
-      "UPDATE stories SET status=?, consent=?, status_at=?, approved_at=NULL WHERE id=? AND owner=? AND status=?",
+      `UPDATE stories SET status=?6, consent=?7, status_at=?8, approved_at=NULL
+       WHERE id=?1 AND ${unchangedSinceRead(1)}`,
     )
-    .bind(to, consent, now, id, owner, from);
+    .bind(id, owner, from.status, from.statusAt, from.events, to, consent, now);
 }
 
 /** Approved stories accept reader feedback while visible under the LIVE rule. */

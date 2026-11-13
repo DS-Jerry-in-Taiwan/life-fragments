@@ -76,11 +76,11 @@ export async function PATCH(req: Request, { params }: IdContext) {
       const version = share ? CONSENT_VERSION : versionOf(story.consent);
       const to = share ? "pending" : "private";
       const [, update] = await db().batch([
-        insertSharingEvent(id, who, story.status, share ? "share" : "unshare", version, now),
+        insertSharingEvent(id, who, story, share ? "share" : "unshare", version, now),
         setSharing(
           id,
           who,
-          story.status,
+          story,
           to,
           `${version}:adult,privacy,${share ? "share" : "private"}`,
           now,
