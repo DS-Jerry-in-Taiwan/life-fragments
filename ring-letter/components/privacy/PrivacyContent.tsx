@@ -36,6 +36,9 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
           依先前版本同意送出的投稿，仍照當時約定，在送出 30 天後刪除。
         </span>
         <span className="sentence">回饋與試寫紀錄保存 30 天，由每日排程清理。</span>
+        <span className="sentence">
+          管理者的審閱與刪除操作會記錄操作者與時間（不含內容），保留一年。
+        </span>
         <span className="sentence">系統備份與託管平台紀錄依平台機制保存，不保證同步清除。</span>
       </p>
       <h3>這個瀏覽器會記得你</h3>
