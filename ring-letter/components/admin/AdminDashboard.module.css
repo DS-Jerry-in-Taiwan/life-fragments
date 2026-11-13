@@ -7,6 +7,15 @@
   margin-top: var(--space-10);
   font-size: var(--heading-sm);
 }
+/* ReviewQueue (#4 §6.1): a pending story that asked to be shared again, and its consent history count. */
+.reshare {
+  margin-left: var(--space-2);
+}
+.consentHistory {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  margin: var(--space-1) 0 0;
+}
 /* Also used by ReviewQueue and FeedbackList. */
 .emptySmall {
   font-size: var(--text-md);

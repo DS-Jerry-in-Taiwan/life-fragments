@@ -4,6 +4,7 @@ import StoryExtra from "../story/StoryExtra";
 import StoryMeta from "../story/StoryMeta";
 import chips from "../common/Chips.module.css";
 import own from "../story/OwnStory.module.css";
+import pill from "../story/StatusPill.module.css";
 import admin from "./AdminDashboard.module.css";
 
 export default function ReviewQueue({
@@ -22,7 +23,15 @@ export default function ReviewQueue({
       {review.map((s) => (
         <article className={own.ownStory} key={s.id}>
           <StatusPill status={s.status} />
+          {s.status === "pending" && (s.shareRequests ?? 0) > 0 && (
+            <span className={`${pill.pill} ${admin.reshare}`}>重新申請分享</span>
+          )}
           <StoryMeta story={s} />
+          {(s.consentEvents ?? 0) > 1 && (
+            <p className={admin.consentHistory}>
+              授權紀錄 {s.consentEvents} 筆（送出後申請分享 {s.shareRequests ?? 0} 次）
+            </p>
+          )}
           <h3>{s.title}</h3>
           <p className="prewrap">{s.body}</p>
           <StoryExtra story={s} />

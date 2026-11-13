@@ -13,9 +13,10 @@ import own from "../story/OwnStory.module.css";
 import NavButton from "../shell/NavButton";
 import EraseAll from "./EraseAll";
 import Logout from "./Logout";
+import ShareToggle from "./ShareToggle";
 import styles from "./MyStories.module.css";
 
-/** 我的片段: this browser's submissions, withdraw one, log out or erase everything. */
+/** 我的片段: this browser's submissions, change one's sharing or withdraw it, log out or erase everything. */
 export default function MyStories() {
   const action = useAction(true);
   const { busy, setNotice } = action;
@@ -31,6 +32,25 @@ export default function MyStories() {
       await api.withdrawStory(id);
       await load();
       setNotice("已刪除這段文字。");
+    });
+  }
+  function share(id: string, consent: { adult: boolean; privacy: boolean; share: boolean }) {
+    return action.run(async () => {
+      await api.setStorySharing(id, true, consent);
+      await load();
+      setNotice("已送出分享申請，等待人工審閱。");
+    });
+  }
+  function stopSharing(s: Story) {
+    const message =
+      s.status === "approved"
+        ? "停止分享？這篇會立即從公開信箱下架，改為不公開保存，仍留在「我的片段」；未公開的文字最多保存 30 天，讀者回饋也照常在 30 天後清除。之後想再分享，需要重新申請並經人工審閱。"
+        : "停止分享？這篇會退出審閱，改為不公開保存，仍留在「我的片段」；未公開的文字最多保存 30 天。之後想再分享，需要重新申請並經人工審閱。";
+    if (!confirm(message)) return;
+    return action.run(async () => {
+      await api.setStorySharing(s.id, false);
+      await load();
+      setNotice("已停止分享，這篇改為不公開保存。");
     });
   }
   function erase() {
@@ -84,6 +104,13 @@ export default function MyStories() {
             <h2>{s.title}</h2>
             <p className="prewrap">{s.body}</p>
             <StoryExtra story={s} />
+            <ShareToggle
+              key={s.status}
+              story={s}
+              busy={busy}
+              onShare={share}
+              onStop={stopSharing}
+            />
             <button className="danger" disabled={busy} onClick={() => withdraw(s.id)}>
               撤回並刪除
             </button>

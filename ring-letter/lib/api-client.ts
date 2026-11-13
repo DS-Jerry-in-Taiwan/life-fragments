@@ -63,6 +63,14 @@ function segment(id: string) {
   return encodeURIComponent(id);
 }
 
+function patch<T>(url: string, data: object) {
+  return request<T>(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
 function del<T = { ok: true }>(url: string) {
   return request<T>(url, { method: "DELETE" });
 }
@@ -101,6 +109,23 @@ export async function submitLetter(input: SubmitInput) {
 
 export async function withdrawStory(id: string) {
   await del(`/api/me/stories/${segment(id)}`);
+}
+
+export type SharingResult = { status: string; shareRequestsLeft: number };
+
+/**
+ * 改為分享 / 再次申請分享 (`share: true`, the three consent boxes ticked
+ * again) or 停止分享 (`share: false`) for one of this browser's stories.
+ */
+export async function setStorySharing(
+  id: string,
+  share: boolean,
+  consent?: { adult: boolean; privacy: boolean; share: boolean },
+) {
+  return patch<SharingResult>(
+    `/api/me/stories/${segment(id)}/sharing`,
+    share ? { share, consent } : { share },
+  );
 }
 
 export async function eraseMyData() {

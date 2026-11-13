@@ -11,6 +11,11 @@ export type Story = {
   letterType?: string;
   mood?: string;
   reflection?: string;
+  /** 我的片段: how many more times this story may ask to be shared (#4 §6.1). */
+  shareRequestsLeft?: number;
+  /** Admin queue: share requests after submission, and consent events in all. */
+  shareRequests?: number;
+  consentEvents?: number;
 };
 
 export type FeedbackKind = "more" | "resonate" | "neutral" | "report" | "comment";
