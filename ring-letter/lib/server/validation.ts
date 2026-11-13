@@ -149,14 +149,19 @@ const moderationSchema = z.object({
   id: z.string(),
   status: z.enum(["approved", "rejected", "delete"]),
   statusAt: z.number().int().nonnegative().optional(),
+  consentEvents: z.number().int().nonnegative().optional(),
 });
 
 /**
- * `id` from the URL path; `status` and the optional `statusAt` (the story's
- * statusAt as the admin queue listed it) from the JSON body. Any other body
- * field is ignored.
+ * `id` from the URL path; `status` and the optional `statusAt` and
+ * `consentEvents` (the story's values as the admin queue listed them) from the
+ * JSON body. Any other body field is ignored.
  */
 export function parseModeration(id: unknown, b: unknown) {
   const body = typeof b === "object" && b !== null ? (b as Record<string, unknown>) : {};
-  return check(moderationSchema, { id, status: body.status, statusAt: body.statusAt }, "無效操作");
+  return check(
+    moderationSchema,
+    { id, status: body.status, statusAt: body.statusAt, consentEvents: body.consentEvents },
+    "無效操作",
+  );
 }

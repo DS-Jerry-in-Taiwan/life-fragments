@@ -369,6 +369,18 @@ for(const type of ['past','present']){
  // Unchanged private story: still the private-consent 400; delete ignores statusAt.
  err(await moderate(v2a,{status:'approved',statusAt:(await queued(v2a)).statusAt},{admin:true}),400,'文章不存在，或作者未同意分享');
  err(await moderate('no-such-story',{status:'approved',statusAt:1},{admin:true}),400,'文章不存在，或作者未同意分享');
+ // A change within the same millisecond leaves statusAt as listed; the consent-event count still differs.
+ {
+  ok(await shareOff(v2p,other),'private',1);ok(await shareOn(v2p,other),'pending',0);
+  const listed=await queued(v2p);
+  assert.equal(typeof listed.consentEvents,'number');
+  sql(`INSERT INTO consent_events(story,action,consent_version,created) VALUES (${q(v2p)},'unshare',${q(V3)},${listed.statusAt}),(${q(v2p)},'share',${q(V3)},${listed.statusAt})`);
+  err(await moderate(v2p,{status:'approved',statusAt:listed.statusAt,consentEvents:listed.consentEvents},{admin:true}),409,STALE);
+  for(const bad of ['1',-1,1.5,null])err(await moderate(v2p,{status:'approved',consentEvents:bad},{admin:true}),400,'無效操作');
+  assert.equal(row(v2p).status,'pending');
+  const again=await queued(v2p);
+  assert.equal((await moderate(v2p,{status:'approved',statusAt:again.statusAt,consentEvents:again.consentEvents},{admin:true})).status,200);
+ }
  // Erase-all takes the history with it.
  assert.equal((await erase(c)).status,200);
  assert.equal((await erase(other)).status,200);

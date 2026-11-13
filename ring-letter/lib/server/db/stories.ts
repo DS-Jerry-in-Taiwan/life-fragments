@@ -211,15 +211,17 @@ export function deleteStory(id: string) {
  * stories) and approved_at (now when becoming approved, NULL when leaving
  * approved). Repeating the current decision changes neither timestamp.
  *
- * `expectedStatusAt` (optional): the statusAt the admin was shown. When given,
- * the decision only applies if the story has not changed since (e.g. the
- * author stopped sharing and asked again in between); see storyStatusAt().
+ * `expected` (optional): the statusAt and consentEvents the admin was shown.
+ * When given, the decision only applies if the story has not changed since
+ * (e.g. the author stopped sharing and asked again in between). The event
+ * count catches changes within the same millisecond, which leave statusAt
+ * as it was; see storyRevision().
  */
 export async function moderateStory(
   id: string,
   status: "approved" | "rejected",
   now = Date.now(),
-  expectedStatusAt?: number,
+  expected: { statusAt?: number; consentEvents?: number } = {},
 ) {
   const r = await db()
     .prepare(
@@ -228,18 +230,20 @@ export async function moderateStory(
          approved_at=CASE WHEN ?1<>'approved' THEN NULL WHEN status='approved' THEN approved_at ELSE ?2 END,
          status=?1
        WHERE id=?3 AND status IN ('pending','approved','rejected')
-         AND (?4 IS NULL OR COALESCE(status_at,created)=?4)`,
+         AND (?4 IS NULL OR COALESCE(status_at,created)=?4)
+         AND (?5 IS NULL OR (SELECT COUNT(*) FROM consent_events e WHERE e.story=?3)=?5)`,
     )
-    .bind(status, now, id, expectedStatusAt ?? null)
+    .bind(status, now, id, expected.statusAt ?? null, expected.consentEvents ?? null)
     .run();
   return Boolean(r.meta.changes);
 }
 
-/** A story's statusAt (as listed in the admin queue), or null if it does not exist. */
-export async function storyStatusAt(id: string) {
-  const row = await db()
-    .prepare("SELECT COALESCE(status_at,created) AS statusAt FROM stories WHERE id=?")
+/** A story's statusAt and consentEvents (as listed in the admin queue), or null if it does not exist. */
+export function storyRevision(id: string) {
+  return db()
+    .prepare(
+      "SELECT COALESCE(status_at,created) AS statusAt,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents FROM stories WHERE id=?",
+    )
     .bind(id)
-    .first<{ statusAt: number }>();
-  return row?.statusAt ?? null;
+    .first<{ statusAt: number; consentEvents: number }>();
 }

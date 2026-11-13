@@ -150,9 +150,18 @@ export async function getAdminQueue() {
 }
 
 /**
- * `statusAt`: the story's statusAt as the queue listed it, so the decision is
- * refused (409) if the story changed since (e.g. the author asked again).
+ * `listed`: the story's statusAt and consentEvents as the queue listed them,
+ * so the decision is refused (409) if the story changed since (e.g. the
+ * author asked again).
  */
-export async function moderateStory(id: string, status: ModerationAction, statusAt?: number) {
-  await post(`/api/admin/stories/${segment(id)}/moderation`, { status, statusAt });
+export async function moderateStory(
+  id: string,
+  status: ModerationAction,
+  listed?: { statusAt?: number; consentEvents?: number },
+) {
+  await post(`/api/admin/stories/${segment(id)}/moderation`, {
+    status,
+    statusAt: listed?.statusAt,
+    consentEvents: listed?.consentEvents,
+  });
 }

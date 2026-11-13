@@ -295,14 +295,18 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
 
   // Approved by the admin, then stopped by the author: off the public list at once.
   const queue = await context.request.get(ORIGIN + "/api/admin/queue", { headers: adminHeaders() });
-  const listed = ((await queue.json()).stories as { id: string; statusAt: number }[]).find(
-    (s) => s.id === id,
-  );
+  const listed = (
+    (await queue.json()).stories as { id: string; statusAt: number; consentEvents: number }[]
+  ).find((s) => s.id === id);
   const approve = await context.request.post(
     `${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`,
     {
       headers: { ...adminHeaders(), Origin: ORIGIN },
-      data: { status: "approved", statusAt: listed!.statusAt },
+      data: {
+        status: "approved",
+        statusAt: listed!.statusAt,
+        consentEvents: listed!.consentEvents,
+      },
     },
   );
   expect(approve.status()).toBe(200);

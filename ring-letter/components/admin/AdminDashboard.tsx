@@ -43,10 +43,14 @@ export default function AdminDashboard() {
     action.run(load);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  function moderate(id: string, status: ModerationAction, statusAt?: number) {
+  function moderate(
+    id: string,
+    status: ModerationAction,
+    listed?: { statusAt?: number; consentEvents?: number },
+  ) {
     if (status === "delete" && !confirm("永久刪除這篇及其回饋？")) return;
     return action.run(async () => {
-      await api.moderateStory(id, status, statusAt);
+      await api.moderateStory(id, status, listed);
       await load();
       setNotice("已更新文章狀態。");
     });
