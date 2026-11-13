@@ -48,6 +48,14 @@ export function deleteFeedbackByOrForOwner(owner: string) {
     .bind(owner, owner);
 }
 
+export function listFeedback(since: number) {
+  return db()
+    .prepare(
+      "SELECT id,story,kind,note,created FROM feedback WHERE created>? ORDER BY created DESC LIMIT 300",
+    )
+    .bind(since);
+}
+
 /** GET /api/admin/feedback filters (lib/server/validation.ts parseAdminFeedbackQuery()). */
 export type AdminFeedbackFilter = {
   kind?: string;
