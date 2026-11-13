@@ -64,7 +64,8 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
         <span className="sentence">即使沒有姓名，熟悉事件的人仍可能認出作者。</span>
         <span className="sentence">請勿投稿第三人私密資訊；讀者請勿截圖轉傳、辨認作者。</span>
         <span className="sentence">
-          你可在「我的片段」停止分享，文章會立即從網站下架，之後依未公開投稿的期限刪除；未分享的投稿也可改為分享，重新勾選同意並經人工審閱。
+          你可在「我的片段」停止分享，文章會立即從網站下架，之後依未公開投稿的期限刪除；未分享的投稿也可改為分享，重新勾選同意並經人工審閱，每篇最多申請
+          3 次。
         </span>
         <span className="sentence">撤回或停止分享可停止網站顯示，無法收回別人已保存的內容。</span>
       </p>
