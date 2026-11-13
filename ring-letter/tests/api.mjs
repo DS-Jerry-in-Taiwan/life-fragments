@@ -241,7 +241,7 @@ for(const type of ['past','present']){
  assert.equal(await left(p),3,'my stories carry the share requests left');
  assert.deepEqual(events(p),['submit:'+V3]);
  // Body checks (before ownership), cross-origin, owner isolation.
- for(const data of [{},{share:'yes'},{share:null},[]])err(await sharing(p,data,c),400,'無效的分享設定');
+ for(const data of [{},{share:'yes'},{share:'true'},{share:1},{share:null},[]])err(await sharing(p,data,c),400,'無效的分享設定');
  for(const consent of [undefined,{},{...CONSENT,adult:false},{...CONSENT,privacy:false},{...CONSENT,share:false},{adult:'true',privacy:true,share:true}])
   err(await sharing(p,{share:true,consent},c),400,'請勾選三項同意，才能申請分享。');
  assert.equal((await sharing(p,undefined,c,{raw:'{"share":false}',type:'text/plain'})).status,415);
@@ -329,6 +329,26 @@ for(const type of ['past','present']){
  assert.equal(row(v2a).consent,V2+':adult,privacy,private','stopping keeps the consent version');
  assert.deepEqual(events(v2a),['submit:'+V2,'unshare:'+V2]);
  assert.ok(!(await isPublic(v2a)));
+ // Moderation with the statusAt the queue listed: refused (409) once the story changed since,
+ // e.g. the author stopped sharing and asked again between loading the queue and deciding.
+ const STALE='這篇的狀態剛剛改變了，請重新整理後再審閱。';
+ const listedAt=(await queued(v2p)).statusAt;
+ assert.equal(typeof listedAt,'number','the queue lists statusAt');
+ ok(await shareOff(v2p,other),'private',2);
+ err(await moderate(v2p,{status:'approved',statusAt:listedAt},{admin:true}),409,STALE);
+ ok(await shareOn(v2p,other),'pending',1);
+ err(await moderate(v2p,{status:'approved',statusAt:listedAt},{admin:true}),409,STALE);
+ err(await moderate(v2p,{status:'rejected',statusAt:listedAt},{admin:true}),409,STALE);
+ assert.equal(row(v2p).status,'pending','a refused decision changes nothing');
+ const relisted=(await queued(v2p)).statusAt;
+ assert.ok(relisted>listedAt);
+ assert.equal((await moderate(v2p,{status:'approved',statusAt:relisted},{admin:true})).status,200);
+ assert.ok(await isPublic(v2p));
+ err(await moderate(v2p,{status:'rejected',statusAt:relisted},{admin:true}),409,STALE,'the approval itself changed it');
+ for(const bad of ['1',-1,1.5,null])err(await moderate(v2p,{status:'rejected',statusAt:bad},{admin:true}),400,'無效操作');
+ // Unchanged private story: still the private-consent 400; delete ignores statusAt.
+ err(await moderate(v2a,{status:'approved',statusAt:(await queued(v2a)).statusAt},{admin:true}),400,'文章不存在，或作者未同意分享');
+ err(await moderate('no-such-story',{status:'approved',statusAt:1},{admin:true}),400,'文章不存在，或作者未同意分享');
  // Erase-all takes the history with it.
  assert.equal((await erase(c)).status,200);
  assert.equal((await erase(other)).status,200);
@@ -343,4 +363,4 @@ const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
 assert.ok(!(await adminGet()).data.stories.some(x=>x.title===story.title));
-console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin queue counts), erase, cleanup');
+console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin queue counts, moderation refused when the story changed since the queue was loaded), erase, cleanup');

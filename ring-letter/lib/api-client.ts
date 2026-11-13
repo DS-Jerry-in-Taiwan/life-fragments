@@ -149,6 +149,10 @@ export async function getAdminQueue() {
   return { stories: d.stories ?? [], feedback: d.feedback ?? [], metrics: d.metrics ?? [] };
 }
 
-export async function moderateStory(id: string, status: ModerationAction) {
-  await post(`/api/admin/stories/${segment(id)}/moderation`, { status });
+/**
+ * `statusAt`: the story's statusAt as the queue listed it, so the decision is
+ * refused (409) if the story changed since (e.g. the author asked again).
+ */
+export async function moderateStory(id: string, status: ModerationAction, statusAt?: number) {
+  await post(`/api/admin/stories/${segment(id)}/moderation`, { status, statusAt });
 }

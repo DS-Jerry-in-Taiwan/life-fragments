@@ -93,10 +93,11 @@ export async function listOwnStories(owner: string, cutoff: number) {
  * admin must always be able to find one to delete it on the author's
  * request), plus the 200 newest of any other status. Each carries its
  * number of share requests after submission and of consent events (#4 §6.1:
- * the queue marks pending stories that asked to be shared again).
+ * the queue marks pending stories that asked to be shared again), and its
+ * statusAt, which the admin UI sends back with a decision (moderateStory()).
  */
 export function listAllStories(cutoff: number) {
-  const columns = `id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection,${SHARE_REQUESTS} AS shareRequests,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents`;
+  const columns = `id,title,body,era,source,status,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id) AS consentEvents`;
   return db()
     .prepare(
       `SELECT * FROM (SELECT ${columns} FROM stories WHERE status='approved' AND ${LIVE}
@@ -206,17 +207,36 @@ export function deleteStory(id: string) {
  * A real change sets status_at (restarting the 30-day window of non-approved
  * stories) and approved_at (now when becoming approved, NULL when leaving
  * approved). Repeating the current decision changes neither timestamp.
+ *
+ * `expectedStatusAt` (optional): the statusAt the admin was shown. When given,
+ * the decision only applies if the story has not changed since (e.g. the
+ * author stopped sharing and asked again in between); see storyStatusAt().
  */
-export async function moderateStory(id: string, status: "approved" | "rejected", now = Date.now()) {
+export async function moderateStory(
+  id: string,
+  status: "approved" | "rejected",
+  now = Date.now(),
+  expectedStatusAt?: number,
+) {
   const r = await db()
     .prepare(
       `UPDATE stories SET
          status_at=CASE WHEN status=?1 THEN COALESCE(status_at,created) ELSE ?2 END,
          approved_at=CASE WHEN ?1<>'approved' THEN NULL WHEN status='approved' THEN approved_at ELSE ?2 END,
          status=?1
-       WHERE id=?3 AND status IN ('pending','approved','rejected')`,
+       WHERE id=?3 AND status IN ('pending','approved','rejected')
+         AND (?4 IS NULL OR COALESCE(status_at,created)=?4)`,
     )
-    .bind(status, now, id)
+    .bind(status, now, id, expectedStatusAt ?? null)
     .run();
   return Boolean(r.meta.changes);
+}
+
+/** A story's statusAt (as listed in the admin queue), or null if it does not exist. */
+export async function storyStatusAt(id: string) {
+  const row = await db()
+    .prepare("SELECT COALESCE(status_at,created) AS statusAt FROM stories WHERE id=?")
+    .bind(id)
+    .first<{ statusAt: number }>();
+  return row?.statusAt ?? null;
 }

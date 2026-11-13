@@ -14,7 +14,8 @@ export default function ReviewQueue({
 }: {
   review: Story[];
   busy: boolean;
-  onModerate: (id: string, status: ModerationAction) => void;
+  /** `statusAt`: as listed, so a story that changed since is refused (409). */
+  onModerate: (id: string, status: ModerationAction, statusAt?: number) => void;
 }) {
   return (
     <>
@@ -38,10 +39,10 @@ export default function ReviewQueue({
           <div className={chips.chips}>
             {s.status !== "private" && (
               <>
-                <button disabled={busy} onClick={() => onModerate(s.id, "approved")}>
+                <button disabled={busy} onClick={() => onModerate(s.id, "approved", s.statusAt)}>
                   核准分享原文
                 </button>
-                <button disabled={busy} onClick={() => onModerate(s.id, "rejected")}>
+                <button disabled={busy} onClick={() => onModerate(s.id, "rejected", s.statusAt)}>
                   暫不分享／下架
                 </button>
               </>

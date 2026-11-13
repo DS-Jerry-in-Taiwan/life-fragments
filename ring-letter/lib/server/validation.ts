@@ -148,11 +148,15 @@ export function parseSharing(b: unknown): Validated<{ share: boolean }> {
 const moderationSchema = z.object({
   id: z.string(),
   status: z.enum(["approved", "rejected", "delete"]),
+  statusAt: z.number().int().nonnegative().optional(),
 });
 
-/** `id` from the URL path, `status` from the JSON body (any other body field is ignored). */
+/**
+ * `id` from the URL path; `status` and the optional `statusAt` (the story's
+ * statusAt as the admin queue listed it) from the JSON body. Any other body
+ * field is ignored.
+ */
 export function parseModeration(id: unknown, b: unknown) {
-  const status =
-    typeof b === "object" && b !== null ? (b as Record<string, unknown>).status : undefined;
-  return check(moderationSchema, { id, status }, "無效操作");
+  const body = typeof b === "object" && b !== null ? (b as Record<string, unknown>) : {};
+  return check(moderationSchema, { id, status: body.status, statusAt: body.statusAt }, "無效操作");
 }
