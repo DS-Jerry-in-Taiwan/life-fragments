@@ -366,7 +366,9 @@ for(const type of ['past','present']){
  // the rest get 409 (the writes are conditional on the story being unchanged since it was read).
  {
   const id=(await submit({...story,share:false},other)).data.id, before=events(id).length;
-  const rs=await Promise.all([shareOn(id,other),shareOn(id,other),shareOn(id,other),shareOff(id,other)]);
+  // Only share requests race here: with a stop-sharing request in the mix, share → stop → share is
+  // a valid serial order in which two share requests legitimately succeed.
+  const rs=await Promise.all([shareOn(id,other),shareOn(id,other),shareOn(id,other),shareOn(id,other)]);
   assert.ok(rs.every(r=>r.status===200||r.status===409),JSON.stringify(rs.map(r=>r.status)));
   assert.equal(rs.filter(r=>r.status===200&&r.data.status==='pending').length,1,'one share request wins');
   assert.equal(events(id).length,before+rs.filter(r=>r.status===200).length,'one event per applied change');
