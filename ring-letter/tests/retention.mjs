@@ -28,7 +28,7 @@ const root=fileURLToPath(new URL('..',import.meta.url));
 const token=process.env.DEV_ADMIN_TOKEN||readFileSync(new URL('../.wrangler/dev-admin-token',import.meta.url),'utf8').trim();
 const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:5173';
 const ADMIN={'x-dev-admin-token':token,'x-dev-admin-email':'dev-admin@localhost'};
-const DAY=24*60*60*1000, AGE=30*DAY, SESSION_AGE=365*DAY;
+const DAY=24*60*60*1000, AGE=30*DAY, SESSION_AGE=365*DAY, ADMIN_EVENT_AGE=365*DAY;
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 
 /**
@@ -75,6 +75,8 @@ const ownerOf=(cookie)=>createHash('sha256').update(cookie.split('=')[1]).digest
 const sqlNum=(s)=>sql(s)[0].n;
 const has=(table,col,id)=>sqlNum(`SELECT COUNT(*) AS n FROM ${table} WHERE ${col}=${q(id)}`)===1;
 
+// Admin events this run writes are removed at the end.
+const firstEvent=sqlNum('SELECT COALESCE(MAX(id),0) AS n FROM admin_events');
 // Approved permanent stories never expire, so an earlier failed run's would stay: remove them first.
 for(const x of (await queue()).stories)if(x.title===story.title)await moderate(x.id,'delete');
 
@@ -266,6 +268,21 @@ assert.ok((await publicIds()).includes(OLD.permApproved),'permanent approved sto
 assert.equal(eventsFor([OLD.permApproved]).length,1);
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
 
+// --- admin_events (#4 §5.2): deleted a year after `created`, whether or not the
+// target still exists; a story deleted by retention keeps its log rows.
+{
+  const T=Date.now()+40*DAY, who='retention-test@example.test';
+  const logged=(id)=>sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE target_id=${q(id)}`);
+  assert.ok(!storyRows([S.rejected])[S.rejected],'(the rejected story is gone)');
+  assert.equal(logged(S.rejected),1,'its reject event outlives it');
+  sql(`INSERT INTO admin_events(admin_email,action,target_type,target_id,created) VALUES (${q(who)},'reject','story','retention-old',${T-ADMIN_EVENT_AGE-1000}),(${q(who)},'delete_feedback','feedback','retention-new',${T-ADMIN_EVENT_AGE+60000})`);
+  await cron(T);
+  assert.deepEqual(sql(`SELECT target_id AS t FROM admin_events WHERE admin_email=${q(who)}`).map(r=>r.t),['retention-new'],'events older than a year deleted, younger kept');
+  assert.equal(logged(S.rejected),1,'this run\'s events are younger than a year');
+  await cron(T+120000);
+  assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE admin_email=${q(who)}`),0);
+}
+
 // --- Sessions: one year after their last visit. Just before that for the
 // backdated session last seen 40 days ago it stays; a day after, every
 // session is gone, and the approved v3 stories are still public.
@@ -305,6 +322,8 @@ assert.equal(eventsFor([e1]).length,0,'erase-all deletes consent events');
 await moderate(OLD.permApproved,'delete');
 await moderate(S.approved,'delete');
 assert.equal(eventsFor([OLD.permApproved,S.approved]).length,0,'admin delete deletes consent events');
+assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE action='delete_story' AND target_id IN ${inList([OLD.permApproved,S.approved])}`),2,'admin deletes are logged, and the log stays');
+sql('DELETE FROM admin_events WHERE id>'+firstEvent);
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM stories WHERE title=${q(story.title)}`),0,'test stories removed');
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
-console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin queue, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete');
+console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin queue, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete; admin_events deleted a year after created, kept when their story is deleted (by retention or an admin)');
