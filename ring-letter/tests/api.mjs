@@ -24,11 +24,21 @@ function sql(command){
 const q=(s)=>"'"+String(s).replaceAll("'","''")+"'";
 const hashOf=(cookie)=>createHash('sha256').update(cookie.split('=')[1]).digest('hex');
 async function body(r){const t=await r.text();try{return JSON.parse(t);}catch{return {raw:t};}}
+/**
+ * fetch(), retried once when a kept-alive socket was closed by the dev server
+ * while idle (its keep-alive timeout is 5 s; the synchronous sql() calls in
+ * between block the event loop, so the client can't notice). No response was
+ * received, so the request never reached the app. Same as tests/retention.mjs.
+ */
+async function request(url,init){
+ try{return await fetch(url,init);}
+ catch(e){if(e.cause?.code!=='UND_ERR_SOCKET')throw e;return fetch(url,init);}
+}
 /** One request. `data` (when given) is sent as JSON unless `raw` is set; non-GET requests carry Origin unless `source` is null. */
 async function call(method,path,{data,raw,type='application/json',cookie='',admin=false,source=origin,headers={}}={}){
  const h={...(source&&method!=='GET'?{Origin:source}:{}),...(cookie?{Cookie:cookie}:{}),...(admin?ADMIN:{}),...headers};
  let payload;if(raw!==undefined){payload=raw;h['Content-Type']=type;}else if(data!==undefined){payload=JSON.stringify(data);h['Content-Type']=type;}
- const r=await fetch(origin+path,{method,headers:h,body:payload,redirect:'manual'});
+ const r=await request(origin+path,{method,headers:h,body:payload,redirect:'manual'});
  return {status:r.status,data:await body(r),cookie:r.headers.get('set-cookie')?.split(';')[0],setCookie:r.headers.get('set-cookie')};
 }
 const session=(o)=>call('POST','/api/session',o);
@@ -152,7 +162,7 @@ for(const type of ['past','present']){
 {
  const DAY=86400000, c=(await session()).cookie, h=hashOf(c);
  const lastSeen=()=>sql(`SELECT last_seen AS t FROM sessions WHERE hash=${q(h)}`)[0]?.t;
- const page=async(cookie)=>{const r=await fetch(origin+'/',{headers:{Cookie:cookie}});await r.arrayBuffer();return {status:r.status,setCookie:r.headers.get('set-cookie'),cache:r.headers.get('cache-control')};};
+ const page=async(cookie)=>{const r=await request(origin+'/',{headers:{Cookie:cookie}});await r.arrayBuffer();return {status:r.status,setCookie:r.headers.get('set-cookie'),cache:r.headers.get('cache-control')};};
  // A pre-V3-c session: created 40 days ago, 30-day cookie, last seen 40 days ago. Still live, upgraded to one year.
  const old=Date.now()-40*DAY;
  sql(`UPDATE sessions SET created=${old},last_seen=${old} WHERE hash=${q(h)}`);
