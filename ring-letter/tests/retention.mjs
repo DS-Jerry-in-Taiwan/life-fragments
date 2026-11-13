@@ -51,7 +51,10 @@ const submit=async(cookie,extra={})=>{const r=await call('POST','/api/me/stories
 // Every story this run moderates, so its admin_events rows can be removed at the end by target id.
 const moderated=new Set();
 const moderate=async(id,status)=>{moderated.add(id);assert.equal((await call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{admin:true,data:{status}})).status,200);};
-const queue=async()=>{const r=await call('GET','/api/admin/queue',{admin:true});assert.equal(r.status,200);return r.data;};
+const adminGet=async(path)=>{const r=await call('GET','/api/admin/'+path,{admin:true});assert.equal(r.status,200,JSON.stringify(r.data));return r.data;};
+/** Every live story the admin list shows (status=all, every page). */
+const adminStories=async(extra='')=>{let rows=[],cursor='';do{const d=await adminGet('stories?status=all'+extra+(cursor?'&cursor='+cursor:''));rows.push(...d.stories);cursor=d.nextCursor;}while(cursor);return rows;};
+const metrics=async()=>(await adminGet('summary')).metrics;
 const publicIds=async()=>(await call('GET','/api/stories')).data.stories.map(x=>x.id);
 const mineIds=async(cookie)=>(await call('GET','/api/me/stories',{cookie})).data.stories.map(x=>x.id);
 const sharing=(id,cookie,share)=>call('PATCH','/api/me/stories/'+encodeURIComponent(id)+'/sharing',{cookie,data:share?{share,consent:{adult:true,privacy:true,share:true}}:{share}});
@@ -78,7 +81,7 @@ const sqlNum=(s)=>sql(s)[0].n;
 const has=(table,col,id)=>sqlNum(`SELECT COUNT(*) AS n FROM ${table} WHERE ${col}=${q(id)}`)===1;
 
 // Approved permanent stories never expire, so an earlier failed run's would stay: remove them first.
-for(const x of (await queue()).stories)if(x.title===story.title)await moderate(x.id,'delete');
+for(const x of await adminStories('&q='+encodeURIComponent(story.title)))if(x.title===story.title)await moderate(x.id,'delete');
 
 // --- Backdated rows (inserted directly: the request handlers use the real clock,
 // and real submissions only produce the current, permanent consent version).
@@ -127,7 +130,7 @@ assert.ok(rows[OLD.permFlip].statusAt>=t0,'moderation sets status_at');assert.eq
 assert.deepEqual([rows[OLD.v2Flip].status,rows[OLD.v2Flip].statusAt],['pending',t0-40*DAY],'the expired story is unchanged');
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE target_id=${q(OLD.v2Flip)}`),0,'and nothing is logged');
 
-// Read rules, everywhere: public list, feedback, my stories, admin queue.
+// Read rules, everywhere: public list, feedback, my stories, admin story list.
 const pub0=await publicIds();
 assert.ok(pub0.includes(OLD.permApproved),'a 400-day-old approved permanent-version story is public');
 assert.ok(!pub0.includes(OLD.v2Approved),'an approved v2 story is hidden 30 days after created');
@@ -137,7 +140,7 @@ assert.equal((await feedback(OLD.v2Approved,m)).status,404,'the expired v2 one d
 assert.equal((await feedback(OLD.legacyApproved,m)).status,404);
 const visible=[OLD.permApproved,OLD.permFlip];
 assert.deepEqual((await mineIds(m)).filter(id=>id.startsWith(P)).sort(),[...visible].sort(),'my stories: permanent approved, and permanent rejected within 30 days of the rejection');
-assert.deepEqual((await queue()).stories.map(x=>x.id).filter(id=>id.startsWith(P)).sort(),[...visible].sort(),'admin queue: same rule');
+assert.deepEqual((await adminStories()).map(x=>x.id).filter(id=>id.startsWith(P)).sort(),[...visible].sort(),'admin story list: same rule');
 // Creating sessions no longer purges anything (v1 purged on every new session).
 await session();
 assert.equal(sqlNum(`SELECT (SELECT COUNT(*) FROM stories WHERE id LIKE '${P}%')+(SELECT COUNT(*) FROM feedback WHERE id=${q(OLD.feedback)})+(SELECT COUNT(*) FROM sessions WHERE hash IN ${inList(oldSessions)}) AS n`),oldStories.length+1+oldSessions.length,'POST /api/session must not delete anything');
@@ -238,7 +241,7 @@ assert.deepEqual(sessionsLeft(oldSessions),[OLD.sessionSeen],'sessions deleted a
 // more than 30 days before it, approved ones and the recently rejected one
 // included; v3 stories go 30 days after their last status change unless
 // approved; the newer feedback and attempt are not old enough.
-const metricBefore=(await queue()).metrics.find(x=>x.letterType==='present')?.starts||0;
+const metricBefore=(await metrics()).find(x=>x.letterType==='present')?.starts||0;
 assert.ok(metricBefore>=2,'both attempts counted');
 await cron(beforeReject+AGE-1500);
 assert.deepEqual(Object.keys(storyRows(v2All)),[],'v2 stories deleted 30 days after created, whatever their status or status_at');
@@ -254,7 +257,7 @@ assert.ok(has('feedback','story','demo-2'),'feedback younger than 30 days kept')
 assert.ok(!has('writing_attempts','id',attempt),'writing attempt deleted 30 days after created');
 assert.ok(has('writing_attempts','id',attempt2),'a newer attempt kept');
 const remaining=sqlNum("SELECT COUNT(*) AS n FROM writing_attempts WHERE letter_type='present'");
-const metricAfter=(await queue()).metrics.find(x=>x.letterType==='present')?.starts||0;
+const metricAfter=(await metrics()).find(x=>x.letterType==='present')?.starts||0;
 assert.ok(remaining>=1&&remaining<metricBefore,'the cron removed some attempts and kept the newer one');
 assert.equal(metricAfter,remaining,'metrics count exactly the remaining attempts');
 assert.ok(!storyRows([OLD.permFlip])[OLD.permFlip],'permanent rejected story deleted 30 days after the rejection');
@@ -335,4 +338,4 @@ sql(`DELETE FROM admin_events WHERE target_id IN ${inList([...moderated])}`);
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE target_id IN ${inList([...moderated])} OR admin_email='retention-test@example.test'`),0,'test admin events removed');
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM stories WHERE title=${q(story.title)}`),0,'test stories removed');
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
-console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin queue, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete; admin_events deleted a year after created, kept when their story is deleted (by retention or an admin)');
+console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin story list, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete; admin_events deleted a year after created, kept when their story is deleted (by retention or an admin)');

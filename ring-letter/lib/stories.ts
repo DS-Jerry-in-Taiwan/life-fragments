@@ -13,9 +13,9 @@ export type Story = {
   reflection?: string;
   /** 我的片段: how many more times this story may ask to be shared (#4 §6.1). */
   shareRequestsLeft?: number;
-  /** Admin queue: last status change, sent back with a decision (409 if it changed since). */
+  /** Admin list: last status change, sent back with a decision (409 if it changed since). */
   statusAt?: number;
-  /** Admin queue: share requests after submission, and consent events in all. */
+  /** Admin list: share requests after submission, and consent events in all. */
   shareRequests?: number;
   consentEvents?: number;
 };
@@ -28,6 +28,47 @@ export type Feedback = {
   kind: FeedbackKind;
   note: string;
   created: number;
+};
+
+/** A story as GET /api/admin/stories lists it. */
+export type AdminStory = Story & {
+  status: string;
+  created: number;
+  statusAt: number;
+  shareRequests: number;
+  consentEvents: number;
+  /** "<version>:<flags>"; the version decides the retention terms. */
+  consent: string;
+  /** v3: approved stories are kept until withdrawn; v2: 30 days after submission. */
+  terms: "v2" | "v3";
+  /** When the retention job deletes it; null: never (approved under v3). */
+  expiresAt: number | null;
+  /** Its feedback from the last 30 days. */
+  feedbackCount: number;
+};
+
+/** Feedback as GET /api/admin/feedback lists it. */
+export type AdminFeedback = Feedback & {
+  /** null for demo stories and stories no longer in the system. */
+  storyTitle: string | null;
+};
+
+export type AdminEvent = {
+  id: number;
+  adminEmail: string;
+  action: "approve" | "reject" | "delete_story" | "delete_feedback";
+  targetType: "story" | "feedback";
+  targetId: string;
+  created: number;
+  /** false once the story or feedback is gone: 「（已刪除）」. */
+  targetExists: boolean;
+};
+
+export type AdminSummary = {
+  counts: { pending: number; approved: number; rejected: number; private: number };
+  expiring: number;
+  expiringDays: number;
+  metrics: WritingMetric[];
 };
 
 export type WritingMetric = {

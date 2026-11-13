@@ -158,7 +158,7 @@ const moderationSchema = z.object({
 
 /**
  * `id` from the URL path; `status` and the optional `statusAt` and
- * `consentEvents` (the story's values as the admin queue listed them) from the
+ * `consentEvents` (the story's values as the admin story list showed them) from the
  * JSON body. Any other body field is ignored.
  */
 export function parseModeration(id: unknown, b: unknown) {

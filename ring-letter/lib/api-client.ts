@@ -1,12 +1,14 @@
 // The only place the frontend talks to the API (#4 §4.5). Components call
 // these functions and never see the REST routes (#4 §5) behind them.
 import type {
-  Feedback,
+  AdminEvent,
+  AdminFeedback,
+  AdminStory,
+  AdminSummary,
   FeedbackKind,
   LetterType,
   ModerationAction,
   Story,
-  WritingMetric,
 } from "./stories";
 
 const FALLBACK = "服務暫時無法使用";
@@ -25,11 +27,15 @@ export type SubmitInput = {
   share: boolean;
 };
 
-export type AdminQueue = {
-  stories: Story[];
-  feedback: Feedback[];
-  metrics: WritingMetric[];
-};
+/** A refused request: the API's message, and its HTTP status (409: changed since listed). */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
@@ -38,9 +44,9 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     d = await r.json();
   } catch {
     // Not JSON (e.g. an edge error page): never hand undefined fields to the UI.
-    throw new Error(FALLBACK);
+    throw new ApiError(FALLBACK, r.status);
   }
-  if (!r.ok) throw new Error(d.error || FALLBACK);
+  if (!r.ok) throw new ApiError(d.error || FALLBACK, r.status);
   return d;
 }
 
@@ -144,13 +150,62 @@ export async function sendFeedback(story: string, kind: FeedbackKind, note = "")
   await post("/api/feedback", { story, kind, note });
 }
 
-export async function getAdminQueue() {
-  const d = await request<Partial<AdminQueue>>("/api/admin/queue");
-  return { stories: d.stories ?? [], feedback: d.feedback ?? [], metrics: d.metrics ?? [] };
+/** Story counts per status, stories expiring soon and the 30-day writing metrics. */
+export async function getAdminSummary() {
+  return request<AdminSummary>("/api/admin/summary");
+}
+
+/** One page of a list, and the cursor of the next (null at the end). */
+export type Page<K extends string, T> = { [key in K]: T[] } & { nextCursor: string | null };
+
+/** `query`: the URL's filters (/admin?status=…), passed through as they are. */
+function withCursor(query: URLSearchParams | Record<string, string>, cursor?: string | null) {
+  const q = new URLSearchParams(query);
+  if (cursor) q.set("cursor", cursor);
+  const s = q.toString();
+  return s ? "?" + s : "";
+}
+
+/** GET /api/admin/stories: status, reshare, consent, expiring, q, from, to, id; 50 a page. */
+export async function listAdminStories(
+  query: URLSearchParams | Record<string, string>,
+  cursor?: string | null,
+) {
+  return request<Page<"stories", AdminStory>>("/api/admin/stories" + withCursor(query, cursor));
+}
+
+/** One story as the admin list shows it, whatever its status; null if gone or expired. */
+export async function getAdminStory(id: string) {
+  const { stories } = await listAdminStories({ status: "all", id });
+  return stories.find((s) => s.id === id) ?? null;
+}
+
+/** GET /api/admin/feedback: `kind`, `story`; problem reports first. */
+export async function listAdminFeedback(
+  filter: { kind?: FeedbackKind; story?: string },
+  cursor?: string | null,
+) {
+  const query: Record<string, string> = {};
+  if (filter.kind) query.kind = filter.kind;
+  if (filter.story) query.story = filter.story;
+  return request<Page<"feedback", AdminFeedback>>(
+    "/api/admin/feedback" + withCursor(query, cursor),
+  );
+}
+
+export async function deleteFeedback(id: string) {
+  await del(`/api/admin/feedback/${segment(id)}`);
+}
+
+/** GET /api/admin/events: the operation log, optionally for one `admin`. */
+export async function listAdminEvents(admin: string, cursor?: string | null) {
+  return request<Page<"events", AdminEvent> & { admins: string[] }>(
+    "/api/admin/events" + withCursor(admin ? { admin } : {}, cursor),
+  );
 }
 
 /**
- * `listed`: the story's statusAt and consentEvents as the queue listed them,
+ * `listed`: the story's statusAt and consentEvents as the admin list showed them,
  * so the decision is refused (409) if the story changed since (e.g. the
  * author asked again).
  */

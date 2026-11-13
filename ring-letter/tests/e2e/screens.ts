@@ -131,16 +131,27 @@ export const SCREENS: Screen[] = [
   {
     name: "admin",
     admin: true,
-    open: (page) => route(page, "/admin"),
+    open: async (page) => {
+      // The operation log keeps a year of admin operations, including the
+      // smoke tests' own (kept by design after their stories are deleted):
+      // the baseline shows it empty.
+      await page.route("**/api/admin/events*", (r) =>
+        r.fulfill({ json: { events: [], admins: [], nextCursor: null } }),
+      );
+      await route(page, "/admin");
+    },
     ready: async (page) => {
       await expect(h1(page, "把關每一封來信")).toBeVisible();
       // The baseline is of an empty DB; leftover data (e.g. from an aborted
       // tests/api.mjs run) would change counts and lists.
       await expect(
-        page.getByText("尚無投稿，收到後會出現在這裡。"),
+        page.getByText("沒有符合條件的投稿。"),
         "本機 D1 有殘留資料：刪掉 .wrangler/state 後重跑 db:migrate:local",
       ).toBeVisible();
+      await expect(page.getByRole("button", { name: "等待審閱（0）" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "全部（0）" })).toBeVisible();
       await expect(page.getByText("尚無回饋。")).toBeVisible();
+      await expect(page.getByText("尚無操作紀錄。")).toBeVisible();
       await expect(page.getByRole("button", { name: "重新整理" })).toBeEnabled();
     },
   },

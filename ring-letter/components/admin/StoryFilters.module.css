@@ -1,0 +1,36 @@
+/* Layout only (#4 §5.2: V6 adds controls, V5 restyles them). */
+.filters {
+  margin: var(--space-6) 0;
+}
+/* `button` keeps this above `.chips button:hover` in any file order. */
+.filters button[aria-pressed="true"] {
+  background: var(--gold);
+  color: var(--bg);
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-6);
+}
+.consent select {
+  width: auto;
+  margin: 0 0 0 var(--space-2);
+}
+.search {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0 var(--space-3);
+  align-items: end;
+}
+.search button {
+  margin-bottom: 22px;
+}
+@media (max-width: 640px) {
+  .search {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .search .text {
+    grid-column: 1 / -1;
+  }
+}

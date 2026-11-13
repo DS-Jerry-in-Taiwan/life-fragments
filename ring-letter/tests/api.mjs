@@ -54,20 +54,24 @@ const sharing=(id,data,cookie,o={})=>call('PATCH','/api/me/stories/'+encodeURICo
 const shareOn=(id,cookie,o)=>sharing(id,{share:true,consent:CONSENT},cookie,o);
 const shareOff=(id,cookie,o)=>sharing(id,{share:false},cookie,o);
 const feedback=(data,cookie)=>call('POST','/api/feedback',{data,cookie});
-const adminGet=(admin=true,headers={})=>call('GET','/api/admin/queue',{admin,headers});
+const adminGet=(admin=true,headers={})=>call('GET','/api/admin/summary',{admin,headers});
 const moderate=(id,data,{cookie='',admin=false,source=origin}={})=>call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{data,cookie,admin,source});
 const batchModerate=(data,{admin=true,source=origin,headers={}}={})=>call('POST','/api/admin/moderation',{data,admin,source,headers});
 const deleteFeedback=(id,{admin=true,source=origin,headers={}}={})=>call('DELETE','/api/admin/feedback/'+encodeURIComponent(id),{admin,source,headers});
 const adminList=(path,params={},{admin=true,headers={}}={})=>call('GET','/api/admin/'+path+'?'+new URLSearchParams(params),{admin,headers});
+// Every page of an admin list (stories, feedback), following nextCursor.
+const adminAll=async(path,params={})=>{const key=path.split('?')[0];let rows=[],cursor;do{const r=await adminList(path,cursor?{...params,cursor}:params);assert.equal(r.status,200,JSON.stringify(r.data));rows.push(...r.data[key]);cursor=r.data.nextCursor;}while(cursor);return rows;};
+const adminStory=async(id)=>(await adminList('stories',{status:'all',id})).data.stories[0];
+const metrics=async()=>(await adminGet()).data.metrics;
 // Every admin_events row this run writes is removed at the end (rows above this id were there before).
 const firstEvent=sql('SELECT COALESCE(MAX(id),0) AS n FROM admin_events')[0].n;
 try{
 
-// The v1 action endpoints are gone (no compatibility layer).
+// The v1 action endpoints are gone (no compatibility layer), (the admin queue stays until the follow-up PR removes it).
 for(const [m,p] of [['GET','/api/letter'],['POST','/api/letter'],['GET','/api/admin'],['POST','/api/admin']])
  assert.equal((await call(m,p,{data:m==='POST'?{action:'session'}:undefined})).status,404,`${m} ${p}`);
 // Methods a route doesn't export → 405 from the framework.
-for(const [m,p] of [['POST','/api/stories'],['DELETE','/api/stories'],['GET','/api/session'],['PUT','/api/session'],['GET','/api/writing-attempts'],['GET','/api/me'],['POST','/api/me'],['PUT','/api/me/stories'],['GET','/api/me/stories/x'],['POST','/api/me/stories/x'],['GET','/api/feedback'],['POST','/api/admin/queue'],['GET','/api/admin/stories/x/moderation'],['GET','/api/me/stories/x/sharing'],['POST','/api/me/stories/x/sharing'],['PATCH','/api/me/stories/x'],['DELETE','/api/admin/stories/x/moderation'],['POST','/api/admin/summary'],['POST','/api/admin/stories'],['DELETE','/api/admin/stories'],['POST','/api/admin/feedback'],['GET','/api/admin/feedback/x'],['POST','/api/admin/feedback/x'],['GET','/api/admin/moderation'],['DELETE','/api/admin/moderation'],['POST','/api/admin/events']])
+for(const [m,p] of [['POST','/api/stories'],['DELETE','/api/stories'],['GET','/api/session'],['PUT','/api/session'],['GET','/api/writing-attempts'],['GET','/api/me'],['POST','/api/me'],['PUT','/api/me/stories'],['GET','/api/me/stories/x'],['POST','/api/me/stories/x'],['GET','/api/feedback'],['GET','/api/admin/stories/x/moderation'],['GET','/api/me/stories/x/sharing'],['POST','/api/me/stories/x/sharing'],['PATCH','/api/me/stories/x'],['DELETE','/api/admin/stories/x/moderation'],['POST','/api/admin/summary'],['POST','/api/admin/stories'],['DELETE','/api/admin/stories'],['POST','/api/admin/feedback'],['GET','/api/admin/feedback/x'],['POST','/api/admin/feedback/x'],['GET','/api/admin/moderation'],['DELETE','/api/admin/moderation'],['POST','/api/admin/events']])
  assert.equal((await call(m,p,{admin:true})).status,405,`${m} ${p}`);
 
 // Same-origin check on every POST and DELETE (missing Origin is rejected too).
@@ -148,7 +152,8 @@ assert.equal((await moderate(id,{id:'no-such-story',status:'approved'},{admin:tr
 assert.ok((await stories()).data.stories.some(x=>x.id===id));
 assert.equal((await feedback({story:id,kind:'resonate',note:'測試'},b.cookie)).status,200);
 assert.equal((await feedback({story:'demo-1',kind:'more',note:''},b.cookie)).status,200);
-assert.ok((await adminGet()).data.feedback.some(x=>x.story===id));
+assert.ok((await adminAll('feedback',{story:id})).length>0);
+assert.equal((await adminStory(id)).feedbackCount,1,'the admin card counts its feedback');
 const privateStory=await submit({...story,share:false},a.cookie);assert.equal(privateStory.status,200);assert.equal(privateStory.data.status,'private');
 assert.equal((await moderate(privateStory.data.id,{status:'approved'},{admin:true})).status,400);
 // New submissions carry the current consent version (V3-c), in the story and its submit event.
@@ -156,9 +161,9 @@ assert.deepEqual(sql(`SELECT id,consent FROM stories WHERE id IN (${q(id)},${q(p
 assert.deepEqual(sql(`SELECT DISTINCT action,consent_version AS version FROM consent_events WHERE story IN (${q(id)},${q(privateStory.data.id)})`),[{action:'submit',version:'v3-2026-11-12'}]);
 assert.deepEqual((await withdraw(id,a.cookie)).data,{ok:true});
 assert.ok(!(await stories()).data.stories.some(x=>x.id===id));
-assert.ok(!(await adminGet()).data.feedback.some(x=>x.story===id),'withdraw deletes the story\'s feedback');
+assert.equal((await adminAll('feedback',{story:id})).length,0,'withdraw deletes the story\'s feedback');
 assert.equal((await feedback({story:id,kind:'resonate',note:''},b.cookie)).status,404);
-const before=(await adminGet()).data.metrics;
+const before=await metrics();
 for(const type of ['past','present']){
  const attempt=crypto.randomUUID();
  assert.equal((await start({id:'not-a-uuid',letterType:type},a.cookie)).status,400);
@@ -169,7 +174,7 @@ for(const type of ['past','present']){
  const result=await submit(payload,a.cookie);assert.equal(result.status,200,JSON.stringify(result));
  assert.equal((await submit(payload,a.cookie)).status,409);
  const own=(await mine(a.cookie)).data.stories.find(x=>x.id===result.data.id);assert.equal(own.letterType,type);assert.equal(own.mood,payload.mood);assert.equal(own.reflection,payload.reflection);assert.ok(own.created);assert.ok(own.title);
- const metric=(await adminGet()).data.metrics.find(x=>x.letterType===type);const old=before.find(x=>x.letterType===type);assert.equal(metric.starts,(old?.starts||0)+1);assert.equal(metric.completions,(old?.completions||0)+1);
+ const metric=(await metrics()).find(x=>x.letterType===type);const old=before.find(x=>x.letterType===type);assert.equal(metric.starts,(old?.starts||0)+1);assert.equal(metric.completions,(old?.completions||0)+1);
 }
 // --- Sliding sessions (#4 §6.2): validity is last_seen within a year; every
 // request with a live cookie re-issues it (pages too, worker/index.ts), and
@@ -229,9 +234,10 @@ for(const type of ['past','present']){
  assert.equal(sql(`SELECT COUNT(*) AS n FROM feedback WHERE owner=${q(h)}`)[0].n,0,'admin delete takes the feedback with it');
 }
 
-// --- The admin queue lists every live approved story, however many newer
-// stories there are (approved v3 stories never expire, and the admin must be
-// able to find one to delete it for its author); other statuses are capped at 200.
+// --- No cap (V6-b removed the queue's 200): every live story is reachable by
+// paging, and an old approved one (approved v3 stories never expire, and the
+// admin must be able to find one to delete it for its author) is found behind
+// 210 newer ones, in its own status and in all.
 {
  const P='api-cap-', now=Date.now(), old=now-60*86400000;
  const cols='id,owner,title,body,era,source,status,consent,created,status_at,approved_at';
@@ -240,11 +246,13 @@ for(const type of ['past','present']){
  WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<210)
  INSERT INTO stories(${cols}) SELECT '${P}'||i,'cap-test','上限測試：較新的待審','測試內容','測試','recollection','pending','v3-2026-11-12:adult,privacy,share',${now}-i,${now}-i,NULL FROM n;`);
  try{
-  const listed=(await adminGet()).data.stories;
-  assert.ok(listed.some(x=>x.id===P+'old-approved'),'an old approved story stays in the admin queue behind 210 newer ones');
-  assert.equal(listed.filter(x=>x.status!=='approved').length,200,'other statuses capped at 200');
-  assert.ok(listed.some(x=>x.id===P+'1')&&!listed.some(x=>x.id===P+'210'),'the newest ones');
-  const created=listed.map(x=>x.created);assert.deepEqual(created,[...created].sort((x,y)=>y-x),'newest first');
+  const all=(await adminAll('stories',{status:'all',q:'上限測試'})).filter(x=>x.id.startsWith(P));
+  assert.equal(all.length,211,'all 211 reachable by paging, no 200 cap');
+  assert.equal(all.at(-1).id,P+'old-approved','the old approved story is listed last, behind 210 newer ones');
+  const created=all.map(x=>x.created);assert.deepEqual(created,[...created].sort((x,y)=>y-x),'newest first');
+  assert.equal((await adminAll('stories',{q:'上限測試'})).length,210,'pending (default): every one, no cap');
+  assert.ok((await adminAll('stories',{status:'approved'})).some(x=>x.id===P+'old-approved'),'approved: listed');
+  const s=(await adminGet()).data.counts;assert.ok(s.pending>=210&&s.approved>=1,'summary counts them');
  }finally{sql(del);}
 }
 
@@ -256,7 +264,7 @@ for(const type of ['past','present']){
  const events=(id)=>sql(`SELECT action,consent_version AS version FROM consent_events WHERE story=${q(id)} ORDER BY id`).map(e=>`${e.action}:${e.version}`);
  const left=async(id,cookie=c)=>(await mine(cookie)).data.stories.find(x=>x.id===id)?.shareRequestsLeft;
  const isPublic=async(id)=>(await stories()).data.stories.some(x=>x.id===id);
- const queued=async(id)=>(await adminGet()).data.stories.find(x=>x.id===id);
+ const queued=adminStory;
  const ok=(r,status,shareRequestsLeft)=>assert.deepEqual([r.status,r.data],[200,{ok:true,status,shareRequestsLeft}],JSON.stringify(r));
  const err=(r,status,error)=>assert.deepEqual([r.status,r.data],[status,{error}]);
  const NOT_SHARED='這篇目前沒有分享，不需要停止。', PENDING='這篇已在等待審閱。', PUBLIC='這篇已經公開分享，不需要再申請。';
@@ -283,7 +291,7 @@ for(const type of ['past','present']){
  let r=row(p);assert.equal(r.status,'pending');assert.equal(r.consent,V3+':adult,privacy,share');assert.ok(r.statusAt>=t1);assert.equal(r.approvedAt,null);
  assert.deepEqual(events(p),['submit:'+V3,'share:'+V3]);
  assert.equal(await left(p),2);
- {const q=await queued(p);assert.equal(q.shareRequests,1,'admin queue: share requests');assert.equal(q.consentEvents,2,'admin queue: consent history count');}
+ {const q=await queued(p);assert.equal(q.shareRequests,1,'admin list: share requests');assert.equal(q.consentEvents,2,'admin list: consent history count');}
  assert.ok(!(await isPublic(p)),'pending is not public');
  // pending: share → 409; another session cannot stop it; stop → private.
  err(await shareOn(p,c),409,PENDING);
@@ -358,17 +366,19 @@ for(const type of ['past','present']){
  // the rest get 409 (the writes are conditional on the story being unchanged since it was read).
  {
   const id=(await submit({...story,share:false},other)).data.id, before=events(id).length;
-  const rs=await Promise.all([shareOn(id,other),shareOn(id,other),shareOn(id,other),shareOff(id,other)]);
+  // Only share requests race here: with a stop-sharing request in the mix, share → stop → share is
+  // a valid serial order in which two share requests legitimately succeed.
+  const rs=await Promise.all([shareOn(id,other),shareOn(id,other),shareOn(id,other),shareOn(id,other)]);
   assert.ok(rs.every(r=>r.status===200||r.status===409),JSON.stringify(rs.map(r=>r.status)));
   assert.equal(rs.filter(r=>r.status===200&&r.data.status==='pending').length,1,'one share request wins');
   assert.equal(events(id).length,before+rs.filter(r=>r.status===200).length,'one event per applied change');
   assert.deepEqual((await withdraw(id,other)).data,{ok:true});
  }
- // Moderation with the statusAt the queue listed: refused (409) once the story changed since,
- // e.g. the author stopped sharing and asked again between loading the queue and deciding.
+ // Moderation with the statusAt the admin list showed: refused (409) once the story changed since,
+ // e.g. the author stopped sharing and asked again between loading the list and deciding.
  const STALE='這篇的狀態剛剛改變了，請重新整理後再審閱。';
  const listedAt=(await queued(v2p)).statusAt;
- assert.equal(typeof listedAt,'number','the queue lists statusAt');
+ assert.equal(typeof listedAt,'number','the admin list shows statusAt');
  ok(await shareOff(v2p,other),'private',2);
  err(await moderate(v2p,{status:'approved',statusAt:listedAt},{admin:true}),409,STALE);
  ok(await shareOn(v2p,other),'pending',1);
@@ -426,7 +436,7 @@ for(const type of ['past','present']){
   const s0=(await adminList('summary')).data;
   assert.deepEqual(Object.keys(s0.counts).sort(),['approved','pending','private','rejected']);
   assert.equal(s0.expiringDays,7);
-  assert.deepEqual(s0.metrics,(await adminGet()).data.metrics,'the same 30-day writing metrics as the queue');
+  assert.ok(Array.isArray(s0.metrics),'30-day writing metrics');
   insert([
    row('p1',M+' 待審','pending','v3s',now-HOUR),
    row('p2',M+' 重新申請','pending','v3s',now-HOUR-1),
@@ -468,7 +478,7 @@ for(const type of ['past','present']){
    assert.equal(byId.a2.expiresAt,now-25*DAY+30*DAY,'v2: 30 days after created');
    assert.equal(byId.r1.expiresAt,now-26*DAY+30*DAY,'v3 not approved: 30 days after the status change');
    assert.deepEqual([byId.a1.terms,byId.a2.terms,byId.l1.terms],['v3','v2','v2']);
-   assert.deepEqual([byId.p2.shareRequests,byId.p2.consentEvents,byId.p2.statusAt,byId.p2.consent],[1,2,now-HOUR-1,consentOf.v3s],'queue fields, consent string');
+   assert.deepEqual([byId.p2.shareRequests,byId.p2.consentEvents,byId.p2.statusAt,byId.p2.consent],[1,2,now-HOUR-1,consentOf.v3s],'card fields, consent string');
    for(const k of ['id','title','body','era','source','status','consent','created','letterType','mood','reflection','statusAt','shareRequests','consentEvents','terms','expiresAt'])assert.ok(k in byId.p1,k);
   }
 
@@ -657,8 +667,8 @@ assert.ok(!(await mine(b.cookie)).data.stories.some(x=>x.id===extra.data.id));
 const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(erased.setCookie,/^rl_session=;.*Max-Age=0/);
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
-assert.ok(!(await adminGet()).data.stories.some(x=>x.title===story.title));
-console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin queue keeps every approved story, durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin queue counts, concurrent changes, moderation refused when the story changed since the queue was loaded), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
+assert.equal((await adminAll('stories',{status:'all',q:story.title})).length,0);
+console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin story list pages through every story (no cap, old approved found), durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin list counts, concurrent changes, moderation refused when the story changed since it was listed), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
 }finally{
  // Runs even when a check fails, so a failed run leaves no admin_events behind (nothing else here empties the table, so ids are not reused).
  sql(`DELETE FROM admin_events WHERE id>${firstEvent}`);

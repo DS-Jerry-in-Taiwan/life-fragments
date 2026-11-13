@@ -119,9 +119,12 @@ test("我的片段: 在這台裝置登出 forgets this browser, the story stays"
 
   // The story is still on the server; remove it as admin (the fixture's
   // erase-all can't reach it any more).
-  const queue = await context.request.get(ORIGIN + "/api/admin/queue", { headers: adminHeaders() });
-  expect(queue.status()).toBe(200);
-  const kept = ((await queue.json()).stories as { id: string; title: string }[]).filter(
+  const found = await context.request.get(
+    `${ORIGIN}/api/admin/stories?status=all&q=${encodeURIComponent(title)}`,
+    { headers: adminHeaders() },
+  );
+  expect(found.status()).toBe(200);
+  const kept = ((await found.json()).stories as { id: string; title: string }[]).filter(
     (s) => s.title === title,
   );
   expect(kept, "登出後投稿仍在伺服器").toHaveLength(1);
@@ -294,9 +297,12 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
   expect(patches).toHaveLength(2);
 
   // Approved by the admin, then stopped by the author: off the public list at once.
-  const queue = await context.request.get(ORIGIN + "/api/admin/queue", { headers: adminHeaders() });
+  const found = await context.request.get(
+    `${ORIGIN}/api/admin/stories?status=all&id=${encodeURIComponent(id)}`,
+    { headers: adminHeaders() },
+  );
   const listed = (
-    (await queue.json()).stories as { id: string; statusAt: number; consentEvents: number }[]
+    (await found.json()).stories as { id: string; statusAt: number; consentEvents: number }[]
   ).find((s) => s.id === id);
   const approve = await context.request.post(
     `${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`,
@@ -341,4 +347,177 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
   await expect(limited).toBeDisabled();
   await expect(limited).toHaveAccessibleDescription(/這篇已申請分享 3 次，已達上限/);
   await expect(story.getByRole("button", { name: "撤回並刪除" })).toBeEnabled();
+});
+
+/**
+ * An anonymous author outside the browser (Node fetch with its own cookie):
+ * each session may submit 5 stories a day, so seeding takes several.
+ */
+async function author() {
+  const r = await fetch(ORIGIN + "/api/session", { method: "POST", headers: { Origin: ORIGIN } });
+  expect(r.status).toBe(200);
+  const cookie = r.headers.get("set-cookie")!.split(";")[0];
+  const call = (method: string, path: string, data?: object) =>
+    fetch(ORIGIN + path, {
+      method,
+      headers: { Origin: ORIGIN, Cookie: cookie, "Content-Type": "application/json" },
+      body: data && JSON.stringify(data),
+    });
+  return {
+    async submit(title: string) {
+      const r = await call("POST", "/api/me/stories", {
+        title,
+        body: "這是自動化瀏覽器測試留下的文字，用來驗證管理頁，測試結束會刪除。",
+        era: "測試日期",
+        source: "recollection",
+        adult: true,
+        privacy: true,
+        share: true,
+      });
+      expect(r.status, await r.clone().text()).toBe(200);
+      return ((await r.json()) as { id: string }).id;
+    },
+    async sharing(id: string, share: boolean) {
+      const r = await call(
+        "PATCH",
+        `/api/me/stories/${encodeURIComponent(id)}/sharing`,
+        share ? { share, consent: { adult: true, privacy: true, share: true } } : { share },
+      );
+      expect(r.status).toBe(200);
+    },
+    async feedback(story: string, note: string) {
+      const r = await call("POST", "/api/feedback", { story, kind: "comment", note });
+      expect(r.status).toBe(200);
+    },
+    erase: async () => expect((await call("DELETE", "/api/me")).status).toBe(200),
+  };
+}
+
+test("admin: filter → search → load more → 409 refreshes one card → delete", async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(120_000); // seeds 51 stories one request at a time
+  const tag = `e2e管理${Date.now()}`;
+  const authors = await Promise.all(Array.from({ length: 11 }, author));
+  try {
+    // 51 pending stories, one more than a page; the newest is the last submitted.
+    const ids: string[] = [];
+    for (const [i, a] of authors.entries())
+      for (let j = 0; j < (i < 10 ? 5 : 1); j++)
+        ids.push(await a.submit(`${tag} 第 ${String(ids.length + 1).padStart(2, "0")} 篇`));
+    const newestTitle = `${tag} 第 51 篇`;
+
+    await asAdmin(context);
+    await page.goto("/admin");
+    await hydrated(page);
+    const cards = page.getByRole("article").filter({ hasText: tag });
+    const search = page.getByRole("search", { name: "篩選投稿" });
+
+    // Filter: status chips go to the URL.
+    await search.getByRole("button", { name: /^全部/ }).click();
+    await expect(page).toHaveURL(/\/admin\?status=all$/);
+    await expect(search.getByRole("button", { name: /^全部/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await search.getByRole("button", { name: /^等待審閱/ }).click();
+    await expect(page).toHaveURL(/\/admin$/);
+
+    // Search: the first 50, newest first; 載入更多 brings the 51st.
+    await search.getByLabel(/標題或內文/).fill(tag);
+    await search.getByRole("button", { name: "搜尋" }).click();
+    await expect(page).toHaveURL(new RegExp(`\\?q=${encodeURIComponent(tag)}$`));
+    await expect(cards).toHaveCount(50);
+    await expect(cards.first().getByRole("heading")).toHaveText(newestTitle);
+    await expect(cards.first()).toContainText(ids[50]);
+    await expect(cards.first()).toContainText("剩 30 天");
+    await page.getByRole("button", { name: "載入更多" }).click();
+    await expect(cards).toHaveCount(51);
+    await expect(page.getByRole("button", { name: "載入更多" })).toHaveCount(0);
+
+    // The URL keeps the conditions across a reload.
+    await page.reload();
+    await hydrated(page);
+    await expect(cards).toHaveCount(50);
+    await expect(search.getByLabel(/標題或內文/)).toHaveValue(tag);
+    await page.getByRole("button", { name: "載入更多" }).click();
+    await expect(cards).toHaveCount(51);
+
+    // 409: the author stops sharing and asks again after the page listed it.
+    const newest = cards.filter({ has: page.getByRole("heading", { name: newestTitle }) });
+    await authors[10].sharing(ids[50], false);
+    await authors[10].sharing(ids[50], true);
+    await expect(newest).not.toContainText("重新申請分享");
+    await newest.getByRole("button", { name: "核准分享原文" }).click();
+    await expect(newest.getByText("這篇剛剛改變了，請再看一次。")).toBeVisible();
+    await expect(newest).toContainText("重新申請分享");
+    await expect(newest).toContainText("授權紀錄 3 筆");
+    await expect(cards, "沒有重新載入整個清單").toHaveCount(51);
+    await newest.getByRole("button", { name: "核准分享原文" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "已更新文章狀態。" })).toBeVisible();
+    await expect(newest.getByText("已匿名分享")).toBeVisible();
+    await expect(newest).not.toContainText("剩 30 天");
+    await expect(search.getByRole("button", { name: /^已匿名分享（\d+）/ })).toBeVisible();
+
+    // 看回饋（N） filters the feedback to that story; one is deleted after a confirm.
+    const note = `${tag} 的回饋`;
+    await authors[0].feedback(ids[50], note);
+    // Now approved, it left the pending list on the next load: list all (the search stays).
+    await search.getByRole("button", { name: /^全部/ }).click();
+    await expect(page).toHaveURL(new RegExp(`\\?status=all&q=${encodeURIComponent(tag)}$`));
+    await expect(cards).toHaveCount(50);
+    await newest.getByRole("button", { name: "看回饋（1）" }).click();
+    await expect(page.getByText(`只顯示《${newestTitle}》的回饋。`)).toBeVisible();
+    const item = page.getByRole("article").filter({ hasText: note });
+    await expect(item).toHaveCount(1);
+    await expect(item.getByRole("button", { name: `《${newestTitle}》` })).toBeVisible();
+    page.once("dialog", (d) => d.accept());
+    await item.getByRole("button", { name: "刪除這筆回饋" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "已刪除這筆回饋。" })).toBeVisible();
+    await expect(item).toHaveCount(0);
+    await expect(newest.getByRole("button", { name: /^看回饋/ })).toHaveCount(0);
+    await expect(page.getByRole("article").filter({ hasText: "刪除回饋" })).not.toHaveCount(0);
+
+    // Delete: confirm names the story; the notice quotes title and date.
+    const second = cards.filter({ has: page.getByRole("heading", { name: `${tag} 第 50 篇` }) });
+    let message = "";
+    page.once("dialog", (d) => {
+      message = d.message();
+      return d.accept();
+    });
+    await second.getByRole("button", { name: "永久刪除" }).click();
+    const date = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
+    await expect(
+      page.getByRole("status").filter({ hasText: `已刪除《${tag} 第 50 篇》（${date}）` }),
+    ).toBeVisible();
+    expect(message).toContain(`${tag} 第 50 篇`);
+    await expect(second).toHaveCount(0);
+    await expect(cards).toHaveCount(49);
+
+    // The operation log has both, the deleted story marked.
+    const log = page.getByRole("article").filter({ hasText: "dev-admin@localhost" });
+    await expect(
+      log.filter({ hasText: "永久刪除故事" }).filter({ hasText: ids[49] }),
+    ).toContainText("（已刪除）");
+    const approved = log.filter({ hasText: "核准分享" }).filter({ hasText: ids[50] });
+    await expect(approved).not.toContainText("（已刪除）");
+    // A live target goes to its card.
+    await approved.getByRole("button", { name: ids[50] }).click();
+    await expect(newest).toBeFocused();
+
+    // Back: the previous conditions come back (the search in pending, then none).
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/admin\\?q=${encodeURIComponent(tag)}$`));
+    await expect(search.getByRole("button", { name: /^等待審閱/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(search.getByLabel(/標題或內文/)).toHaveValue(tag);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(search.getByLabel(/標題或內文/)).toHaveValue("");
+  } finally {
+    for (const a of authors) await a.erase();
+  }
 });

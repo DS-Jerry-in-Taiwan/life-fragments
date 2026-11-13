@@ -1,0 +1,1 @@
+CREATE INDEX `feedback_story_idx` ON `feedback` (`story`);

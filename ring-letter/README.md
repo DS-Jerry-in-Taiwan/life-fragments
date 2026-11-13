@@ -37,7 +37,7 @@ npm run dev                # http://127.0.0.1:5173
 
 ## 瀏覽器測試與截圖基準
 
-`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
+`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
 
 截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
 
@@ -49,14 +49,14 @@ TEST_ORIGIN=http://127.0.0.1:5174 npm run test:e2e   # dev server 在別的 port
 npm run test:e2e:update                       # 畫面確定要改時，重新產生有差異的基準
 ```
 
-- 本機 D1 要是乾淨的（跟 `test:api` 一樣）：管理頁與公開信箱的截圖是空資料庫的樣子。有殘留資料就刪掉 `.wrangler/state` 再跑 `db:migrate:local`。
+- 本機 D1 要是乾淨的（跟 `test:api` 一樣）：管理頁與公開信箱的截圖是空資料庫的樣子。管理頁的操作紀錄會保留一年（smoke 測試自己的操作也會留下），截圖時把 `/api/admin/events` 換成空清單（`tests/e2e/screens.ts`）。有殘留資料就刪掉 `.wrangler/state` 再跑 `db:migrate:local`。
 - 字型從 Google Fonts 載入，需要連得到網路。Google 對 400／500／600 三個字重回傳同一批可變字型檔、每個檔宣告三次，比對哪一個會隨載入順序而變，造成字形有細微像素差；測試會把這段 CSS 改寫成每個檔一個 `font-weight: 400 600` 的 @font-face（見 `tests/e2e/fixtures.ts`），字檔本身不變。
 - 失敗時差異圖在 `test-results/`；CI 會把 `playwright-report/` 與 `test-results/` 上傳成 artifact。
 - 升級 `@playwright/test` 後，容器版本會跟著換，要重新產生全部基準（`npm run test:e2e -- --update-snapshots=all`）。
 
 ## 管理者
 
-管理介面在 `/admin`，API 在 `/api/admin/` 底下（`GET /api/admin/queue`、`POST /api/admin/stories/:id/moderation`，以及 V6-a 新增、管理介面之後會改用的 `GET /api/admin/summary`、`GET /api/admin/stories`（篩選、搜尋、分頁）、`GET /api/admin/feedback`、`DELETE /api/admin/feedback/:id`、`POST /api/admin/moderation`（批次不通過或刪除）、`GET /api/admin/events`（操作紀錄））。核准、不通過、刪除故事與刪除回饋都會記在 `admin_events`（操作者 email、動作、對象 id、時間，不含內容），保留一年。審閱清單上的「重新申請分享」表示作者在「我的片段」把這篇改為分享或再次申請（停止分享後再分享也一樣，一定要重新核准），下方的「授權紀錄 N 筆」是送出、改為分享、停止分享的次數。
+管理介面在 `/admin`，API 在 `/api/admin/` 底下（`GET /api/admin/summary`、`GET /api/admin/stories`（篩選、搜尋、分頁）、`POST /api/admin/stories/:id/moderation`、`GET /api/admin/feedback`、`DELETE /api/admin/feedback/:id`、`POST /api/admin/moderation`（批次不通過或刪除，前端 V6-c 才用）、`GET /api/admin/events`（操作紀錄））。頁面由上而下是摘要、篩選列、故事清單、回饋、操作紀錄。篩選條件寫在網址（例如 `/admin?status=approved&q=…`），重新整理、上一頁或分享連結都保留；搜尋框貼上故事 id 會改成精確查詢（狀態自動切到「全部」）。清單每次 50 篇，底部「載入更多」。每張卡片有故事 id、投稿日期、同意版本與「剩 N 天」（核准後永久保留的不顯示），代刪時用來核對來信。審閱遇到 409（列出之後作者又改了）會只重新抓那一篇並標示「這篇剛剛改變了，請再看一次」；永久刪除後顯示「已刪除《標題》（投稿日期）」，回信可引用。核准、不通過、刪除故事與刪除回饋都會記在 `admin_events`（操作者 email、動作、對象 id、時間，不含內容），保留一年。卡片上的「重新申請分享」表示作者在「我的片段」把這篇改為分享或再次申請（停止分享後再分享也一樣，一定要重新核准），下方的「授權紀錄 N 筆」是送出、改為分享、停止分享的次數。
 
 **正式環境**：用 Cloudflare Access 建立一個 self-hosted 應用程式，涵蓋 `/admin*` 與 `/api/admin*`（包含 `/api/admin/` 底下所有子路徑），只允許管理者的 email。Worker 會再驗證 Access 帶來的 `Cf-Access-Jwt-Assertion` JWT，需要這三個設定（任一缺少就拒絕所有管理請求）：
 
@@ -82,7 +82,7 @@ npx wrangler deploy --config dist/server/wrangler.json
 
 第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/queue`；部署後的 smoke test 會確認 `/api/admin/queue` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。
 
-頁尾與隱私說明公開的聯絡信箱 `ringletter@wetrytrysee.cc`（`lib/contact.ts`）用 Cloudflare Email Routing 轉寄給管理者，不公開管理者自己的信箱：在 `wetrytrysee.cc` 的 Email → Email Routing 建立這個自訂地址並指向已驗證的目的地信箱。作者遺失 cookie、換裝置或超過一年沒回來時，會寫信來請管理者代刪（#4 第 6.2 節）：在 `/admin` 依標題、部分內文或大約日期找到該篇，用「永久刪除」移除（連同回饋與同意紀錄），通常 7 天內回信告知。
+頁尾與隱私說明公開的聯絡信箱 `ringletter@wetrytrysee.cc`（`lib/contact.ts`）用 Cloudflare Email Routing 轉寄給管理者，不公開管理者自己的信箱：在 `wetrytrysee.cc` 的 Email → Email Routing 建立這個自訂地址並指向已驗證的目的地信箱。作者遺失 cookie、換裝置或超過一年沒回來時，會寫信來請管理者代刪（#4 第 6.2 節）：在 `/admin` 狀態選「全部」，用搜尋框（標題或部分內文）加投稿日期範圍找到該篇，用「永久刪除」移除（連同回饋與同意紀錄），通常 7 天內回信告知。
 
 ### Session 與資料保留
 
