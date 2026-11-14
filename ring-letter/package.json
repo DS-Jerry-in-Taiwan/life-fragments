@@ -15,6 +15,7 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "test:api": "node tests/api.mjs",
     "test:auth": "node --test tests/auth.test.mjs",
+    "test:turnstile": "node --test tests/turnstile.test.mjs",
     "test:e2e": "docker run --rm --platform linux/amd64 --network host --ipc host --user \"$(id -u):$(id -g)\" -e HOME=/tmp -e CI -e TEST_ORIGIN -e E2E_VISUAL=1 -v \"$(pwd)\":/work -w /work mcr.microsoft.com/playwright:v$(node -p \"require('@playwright/test/package.json').version\")-noble npx playwright test",
     "test:e2e:update": "npm run test:e2e -- --update-snapshots=changed",
     "test:retention": "node tests/retention.mjs"

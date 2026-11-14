@@ -2,7 +2,7 @@ import { completeAttempt, findAttempt } from "../../../../lib/server/db/attempts
 import { insertConsentEvent } from "../../../../lib/server/db/consent-events";
 import { AGE, db } from "../../../../lib/server/db/index";
 import { CONSENT_VERSION, insertStory, listOwnStories } from "../../../../lib/server/db/stories";
-import { guardRead, guardWrite, withBodyAndSession } from "../../../../lib/server/handler";
+import { guardRead, guardWrite, withBodyTurnstileAndSession } from "../../../../lib/server/handler";
 import { reply } from "../../../../lib/server/http";
 import { overDailyLimit } from "../../../../lib/server/rate-limit";
 import { currentSession } from "../../../../lib/server/session";
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 /** Submits a letter: pending when shared, private otherwise. */
 export async function POST(req: Request) {
   return guardWrite(req, () =>
-    withBodyAndSession(req, async (b, who) => {
+    withBodyTurnstileAndSession(req, "submit", async (b, who) => {
       const now = Date.now();
       const v = parseSubmit(b, now);
       if (!v.ok) return reply({ error: v.error }, 400);

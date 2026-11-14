@@ -7,5 +7,11 @@ declare namespace Cloudflare {
     ACCESS_AUD?: string;
     /** Comma-separated admin emails. Set as a secret, not in wrangler.jsonc. */
     ADMIN_EMAILS?: string;
+    /** Turnstile site key (public), a `vars` entry in wrangler.jsonc. Ignored in dev. */
+    TURNSTILE_SITE_KEY?: string;
+    /** Turnstile secret key. Set as a secret, not in wrangler.jsonc. Ignored in dev. */
+    TURNSTILE_SECRET_KEY?: string;
+    /** Hostname siteverify must report, a `vars` entry in wrangler.jsonc. Ignored in dev. */
+    TURNSTILE_HOSTNAME?: string;
   }
 }

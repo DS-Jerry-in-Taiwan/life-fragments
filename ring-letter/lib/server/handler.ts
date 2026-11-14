@@ -3,11 +3,15 @@ import { verifyAdmin } from "./auth";
 import { readJsonBody, reply } from "./http";
 import { sameOrigin } from "./same-origin";
 import { currentSession } from "./session";
+import { verifyTurnstile } from "./turnstile";
+import type { TurnstileAction } from "./turnstile-siteverify";
 import { jsonObject } from "./validation";
 
 // Guards shared by the route handlers under app/api/. Each route composes
 // them in the same order the v1 action dispatcher used, so status codes and
 // messages stay the same: origin, then body, then session or admin identity.
+// Submitting a letter or feedback adds Turnstile between body and session
+// (#4 §5.1), so a bot never reaches the DB.
 
 export const READ_FAILED = "暫時無法讀取資料，請稍後再試。";
 export const SAVE_FAILED = "這次沒有成功儲存，請保留文字並稍後重試。";
@@ -50,11 +54,46 @@ export async function withBodyAndSession(
   req: Request,
   run: (body: Record<string, unknown>, who: string) => Promise<Response>,
 ) {
+  return withBody(req, (body) => withSession(req, (who) => run(body, who)));
+}
+
+/** withBodyAndSession() with the Turnstile check (403/503) between the two. */
+export async function withBodyTurnstileAndSession(
+  req: Request,
+  action: TurnstileAction,
+  run: (body: Record<string, unknown>, who: string) => Promise<Response>,
+) {
+  return withBody(req, (body) =>
+    withTurnstile(req, action, () => withSession(req, (who) => run(body, who))),
+  );
+}
+
+/** Parses the JSON body as an object: 415 / 413 / 400. */
+export async function withBody(
+  req: Request,
+  run: (body: Record<string, unknown>) => Promise<Response>,
+) {
   const parsed = await readJsonBody(req, MAX_BODY);
   if (!parsed.ok) return parsed.response;
   const object = jsonObject.safeParse(parsed.body);
   if (!object.success) return reply({ error: "格式不正確" }, 400);
-  return withSession(req, (who) => run(object.data, who));
+  return run(object.data);
+}
+
+/**
+ * Requires a Turnstile token for `action` in `X-Turnstile-Token` (#4 §5.1).
+ * Refusals carry `code: "turnstile"` so the frontend can fetch a new token
+ * and retry once: 403 missing or failed, 503 siteverify unavailable or no
+ * secret configured (fail closed).
+ */
+export async function withTurnstile(
+  req: Request,
+  action: TurnstileAction,
+  run: () => Promise<Response>,
+) {
+  const result = await verifyTurnstile(req, action);
+  if (!result.ok) return reply({ error: result.error, code: "turnstile" }, result.status);
+  return run();
 }
 
 /** Requires a live anonymous session (401 otherwise). */
