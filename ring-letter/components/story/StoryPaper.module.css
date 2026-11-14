@@ -14,7 +14,11 @@
   border-bottom: 1px solid #34424a25;
   padding-bottom: var(--space-4);
   margin-bottom: var(--space-7);
-  color: #67716d;
+  color: #5a6460;
+}
+/* The gold ring (base.css) is 1.35:1 on the paper; the ink is 8.6:1. */
+.storyPaper :focus-visible {
+  outline-color: var(--paperink);
 }
 .storyPaper h2 {
   font-size: var(--heading-lg);
@@ -37,7 +41,7 @@
 }
 .demoNote {
   font-size: var(--text-xs);
-  color: #68766e;
+  color: #5a6460;
   border-top: 1px solid #34424a25;
   padding-top: 18px;
   margin: var(--space-5) 0 0;
@@ -54,7 +58,7 @@
     line-height: 2.15;
   }
   .top {
-    font-size: var(--text-3xs);
+    font-size: var(--text-xs);
     letter-spacing: 0.02em;
   }
 }
