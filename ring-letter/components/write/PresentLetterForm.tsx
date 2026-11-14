@@ -1,3 +1,4 @@
+import { BODY_COUNT_ID } from "./BodyCount";
 import type { Draft } from "./useDraft";
 
 /** Fields of the 當下信 form. */
@@ -5,11 +6,14 @@ export default function PresentLetterForm({
   body,
   onBodyChange,
   draft,
+  count,
 }: {
   body: string;
   onBodyChange: (body: string) => void;
   /** Restored values of the uncontrolled inputs (useDraft.ts). */
   draft?: Draft["fields"];
+  /** The live length of the body (BodyCount), shown under it. */
+  count: React.ReactNode;
 }) {
   return (
     <>
@@ -22,7 +26,9 @@ export default function PresentLetterForm({
         value={body}
         onChange={(e) => onBodyChange(e.target.value)}
         placeholder="今天一句話。想多說一點，也可以接著寫。"
+        aria-describedby={BODY_COUNT_ID}
       />
+      {count}
       <label htmlFor="mood">現在的感覺</label>
       <input
         id="mood"

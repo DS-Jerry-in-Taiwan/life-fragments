@@ -67,7 +67,7 @@ export function clearDraft(mode: LetterType) {
 }
 
 /** The saved inputs of a form (FormData), empty ones left out. */
-function draftFields(form: HTMLFormElement): Draft["fields"] {
+export function draftFields(form: HTMLFormElement): Draft["fields"] {
   const f = new FormData(form);
   const fields: Draft["fields"] = {};
   for (const name of DRAFT_FIELDS) {
