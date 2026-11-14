@@ -28,6 +28,7 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run test:api` | API 整合測試（需先另開 `npm run dev`） |
 | `npm run test:retention` | 資料保留政策測試（需先另開 `npm run dev`；會清掉本機 D1 幾乎所有資料，放在 `test:api` 之後跑） |
 | `npm run test:auth` | Access JWT 驗證的單元測試 |
+| `npm run test:turnstile` | Turnstile siteverify 檢查的單元測試（mock fetch） |
 | `npm run test:e2e` | Playwright smoke 與截圖比對（需先另開 `npm run dev`，並有 Docker） |
 | `npm run test:e2e:update` | 重新產生截圖基準 |
 
@@ -37,7 +38,7 @@ npm run dev                # http://127.0.0.1:5173
 
 ## 瀏覽器測試與截圖基準
 
-`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
+`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）、投稿與回饋的 Turnstile（用 `fixtures.ts` 假的 `api.js`：只在表單出現時載入、請求帶 token、被拒重取 token 重送一次、再失敗文字仍在表單上）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
 
 截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
 
@@ -68,9 +69,25 @@ npx wrangler secret put ACCESS_AUD           # Access 應用程式的 Audience (
 
 **開發環境**：沒有 Access。dev server 每次啟動會產生一個祕密（寫在 `.wrangler/dev-admin-token`），只有帶著它的請求才算管理者，所以就算透過 tunnel 或轉發把 dev server 開出去，別人也冒充不了。`tests/api.mjs` 會自動讀這個檔案。要在瀏覽器用 `/admin`：在 `.env.local` 設 `DEV_ADMIN_EMAIL=you@example.com`，重開 `npm run dev`，再打開終端機印出的「Dev admin sign-in」連結。
 
+## Turnstile（投稿與回饋）
+
+`POST /api/me/stories` 與 `POST /api/feedback` 需要 header `X-Turnstile-Token`（Cloudflare Turnstile，issue #4 第 5.1 節）；開始試寫、session、分享設定與刪除都不需要。前端 `components/common/Turnstile.tsx` 只在寫信表單或展開回饋框時載入 Turnstile 的 script，平常不顯示，送出時才取 token，被拒（403、`code: "turnstile"`）會重取 token 重送一次。後端 `lib/server/turnstile.ts` 向 siteverify 確認 `success`、`action`（`submit`／`feedback`）與 `hostname`；siteverify 連不上、逾時（5 秒）或缺 secret 一律回 503，不會略過驗證。
+
+**開發環境**：`npm run dev` 一律使用 Cloudflare 的測試金鑰（一律通過、不顯示），不讀 `wrangler.jsonc` 的設定，也不檢查 hostname 與 action（測試金鑰的回應不帶 action、hostname 是 `example.com`），所以本機與 CI 不需要額外設定；但 siteverify 仍是真的連到 `challenges.cloudflare.com`，`test:api` 用測試 token `XXXX.DUMMY.TOKEN.XXXX`。Playwright 測試用假的 `api.js`（`tests/e2e/fixtures.ts`），不連 Cloudflare。
+
+**正式環境**：在 Cloudflare dashboard → Turnstile 建立 widget（Hostname `ringletter.wetrytrysee.cc`、Managed），然後：
+
+```sh
+# wrangler.jsonc 的 vars：把 TURNSTILE_SITE_KEY 換成 widget 的 site key（公開）；
+# TURNSTILE_HOSTNAME 已是 ringletter.wetrytrysee.cc
+npx wrangler secret put TURNSTILE_SECRET_KEY   # widget 的 secret key，不進版控
+```
+
+`deploy.yml` 在套用遷移之前檢查：Worker 上沒有 `TURNSTILE_SECRET_KEY`，或 `wrangler.jsonc` 還是佔位字串 `REPLACE_WITH_TURNSTILE_SITE_KEY`，就中止部署（不然上線後所有投稿與回饋都會被拒）。
+
 ## 設定
 
-`wrangler.jsonc` 定義 Worker 名稱、D1 綁定 `DB`（正式資料庫 `ring-letter-db`，APAC）、自訂網域 `ringletter.wetrytrysee.cc`，以及每日的 Cron Trigger（`17 19 * * *`，台北 03:17，執行 `lib/server/retention.ts` 的資料保留政策；部署後在 Cloudflare 主控台的 Worker → Settings → Triggers 可以看到）。`workers_dev` 和 `preview_urls` 都關閉，因為 Access 只保護自訂網域，不能留其他入口。本機的 `--local` 一律使用 `.wrangler/state`，不會碰到正式資料庫。
+`wrangler.jsonc` 定義 Worker 名稱、D1 綁定 `DB`（正式資料庫 `ring-letter-db`，APAC）、自訂網域 `ringletter.wetrytrysee.cc`，Turnstile 的 `vars`（`TURNSTILE_SITE_KEY`、`TURNSTILE_HOSTNAME`，見上一節），以及每日的 Cron Trigger（`17 19 * * *`，台北 03:17，執行 `lib/server/retention.ts` 的資料保留政策；部署後在 Cloudflare 主控台的 Worker → Settings → Triggers 可以看到）。`workers_dev` 和 `preview_urls` 都關閉，因為 Access 只保護自訂網域，不能留其他入口。本機的 `--local` 一律使用 `.wrangler/state`，不會碰到正式資料庫。
 
 ## 部署（手動）
 
@@ -80,7 +97,7 @@ npm run build
 npx wrangler deploy --config dist/server/wrangler.json
 ```
 
-第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/summary`；部署後的 smoke test 會確認 `/api/admin/summary` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。
+第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/summary`；部署後的 smoke test 會確認 `/api/admin/summary` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。`TURNSTILE_SECRET_KEY` 也是 secret（見「Turnstile」一節），自動部署會先確認它存在。
 
 頁尾與隱私說明公開的聯絡信箱 `ringletter@wetrytrysee.cc`（`lib/contact.ts`）用 Cloudflare Email Routing 轉寄給管理者，不公開管理者自己的信箱：在 `wetrytrysee.cc` 的 Email → Email Routing 建立這個自訂地址並指向已驗證的目的地信箱。作者遺失 cookie、換裝置或超過一年沒回來時，會寫信來請管理者代刪（#4 第 6.2 節）：在 `/admin` 狀態選「全部」，用搜尋框（標題或部分內文）加投稿日期範圍找到該篇，用「永久刪除」移除（連同回饋與同意紀錄），通常 7 天內回信告知。
 
