@@ -192,6 +192,17 @@ test("fonts: Noto Serif TC comes from our own origin, never from Google Fonts", 
   expect(fonts.selfHosted.length, "Noto Serif TC 的 woff2 分片從本站載入").toBeGreaterThan(0);
 });
 
+test("home: the hero buttons are named without their decorative arrows", async ({ page }) => {
+  await page.goto("/");
+  await hydrated(page);
+  const hero = page.locator("section").filter({ has: page.getByRole("heading", { level: 1 }) });
+  await expect(hero.getByRole("button", { name: "先讀一封", exact: true })).toBeVisible();
+  await expect(hero.getByRole("button", { name: "我想寫一封", exact: true })).toBeVisible();
+  await expect(hero.getByText("↗")).toHaveCount(0);
+  await hero.getByRole("button", { name: "先讀一封", exact: true }).click();
+  await expect(page).toHaveURL(/\/read$/);
+});
+
 test("routes: nav buttons change the URL and the back button works", async ({ page }) => {
   await page.goto("/");
   await hydrated(page);
