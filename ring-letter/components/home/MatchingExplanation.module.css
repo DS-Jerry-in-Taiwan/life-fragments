@@ -11,6 +11,9 @@
   font-size: var(--text-lg);
   line-height: 2;
 }
+.entry {
+  margin-top: var(--space-8);
+}
 @media (max-width: 640px) {
   .matchingExplanation {
     padding-bottom: var(--space-8);

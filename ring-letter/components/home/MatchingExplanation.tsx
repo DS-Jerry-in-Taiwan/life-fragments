@@ -1,3 +1,4 @@
+import NavButton from "../shell/NavButton";
 import styles from "./MatchingExplanation.module.css";
 
 export default function MatchingExplanation() {
@@ -13,6 +14,11 @@ export default function MatchingExplanation() {
           如果目前沒有相似的信，我們會先告訴你，不會隨便拿一封不像的湊給你。
         </span>
       </p>
+      <div className={styles.entry}>
+        <NavButton to="/read" className="primary">
+          先讀一封 <span aria-hidden="true">→</span>
+        </NavButton>
+      </div>
     </section>
   );
 }
