@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { ConfirmProvider } from "../common/ConfirmDialog";
 import PrivacyDialog from "../privacy/PrivacyDialog";
 import { ShellContext } from "./ShellContext";
 import SiteFooter from "./SiteFooter";
@@ -22,13 +23,15 @@ export default function SiteShell({
   );
   return (
     <ShellContext.Provider value={shell}>
-      <div className={styles.sky}>
-        <div className={styles.stars} aria-hidden="true" />
-        <SiteHeader />
-        <main className={styles.main}>{children}</main>
-        <SiteFooter admin={admin} onOpenPrivacy={shell.openPrivacy} />
-        {privacy && <PrivacyDialog onClose={() => setPrivacy(false)} />}
-      </div>
+      <ConfirmProvider>
+        <div className={styles.sky}>
+          <div className={styles.stars} aria-hidden="true" />
+          <SiteHeader />
+          <main className={styles.main}>{children}</main>
+          <SiteFooter admin={admin} onOpenPrivacy={shell.openPrivacy} />
+          {privacy && <PrivacyDialog onClose={() => setPrivacy(false)} />}
+        </div>
+      </ConfirmProvider>
     </ShellContext.Provider>
   );
 }

@@ -16,6 +16,25 @@
   align-items: center;
   margin: 25px 0;
 }
+/* No approved story yet; same box as 我的片段's empty state. */
+.empty {
+  padding: 50px 25px 30px;
+  text-align: center;
+  border: 1px solid var(--line);
+  background: #ffffff03;
+}
+.empty > span {
+  font-size: 50px;
+  color: var(--gold);
+}
+.empty h2 {
+  font-size: var(--heading-md);
+  margin: 15px 0;
+}
+.empty p {
+  color: var(--muted);
+  font-size: var(--text-base);
+}
 @media (max-width: 640px) {
   .reading {
     padding-bottom: 45px;

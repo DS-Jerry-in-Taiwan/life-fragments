@@ -3,6 +3,7 @@ import * as api from "../../lib/api-client";
 import type { AdminFeedback, FeedbackKind } from "../../lib/stories";
 import type { Action } from "../../lib/use-action";
 import chips from "../common/Chips.module.css";
+import { useConfirm } from "../common/ConfirmDialog";
 import admin from "./AdminDashboard.module.css";
 import styles from "./FeedbackList.module.css";
 import filterStyles from "./StoryFilters.module.css";
@@ -45,6 +46,7 @@ export default function FeedbackList({
   onDeleted: (f: AdminFeedback) => void;
 }) {
   const [kind, setKind] = useState<FeedbackKind | "">("");
+  const confirm = useConfirm();
   const list = usePagedList<AdminFeedback>(
     `${kind}|${story?.id ?? ""}|${refreshKey}`,
     enabled,
@@ -54,8 +56,14 @@ export default function FeedbackList({
     },
     (e) => action.setError(e instanceof Error ? e.message : String(e)),
   );
-  function remove(f: AdminFeedback) {
-    if (!confirm(`刪除這筆${KIND_NAME[f.kind]}（${taipeiTime(f.created)}）？無法復原。`)) return;
+  async function remove(f: AdminFeedback) {
+    const ok = await confirm({
+      title: "刪除回饋",
+      message: `刪除這筆${KIND_NAME[f.kind]}（${taipeiTime(f.created)}）？無法復原。`,
+      confirmLabel: "確定刪除",
+      danger: true,
+    });
+    if (!ok) return;
     return action.run(async () => {
       try {
         await api.deleteFeedback(f.id);
@@ -96,14 +104,15 @@ export default function FeedbackList({
         <article className={styles.item} key={f.id}>
           <span>{KIND_NAME[f.kind]}</span>
           <small>
-            {f.story.startsWith("demo-") ? (
-              "示範故事"
-            ) : f.storyTitle !== null ? (
+            {f.storyTitle !== null ? (
               <button className={styles.title} onClick={() => onOpenStory(f.story)}>
                 《{f.storyTitle}》
               </button>
             ) : (
-              "文章已不在系統中"
+              // V5 removed the 3 demo stories; their feedback ("demo-…" ids)
+              // stays until it expires within 30 days and isn't reader demand
+              // for real stories.
+              f.story.startsWith("demo-") ? "已移除的示範故事" : "文章已不在系統中"
             )}{" "}
             · {taipeiTime(f.created)}
           </small>

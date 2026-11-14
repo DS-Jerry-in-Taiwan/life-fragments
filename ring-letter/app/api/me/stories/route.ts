@@ -26,7 +26,8 @@ export async function POST(req: Request) {
       const s = v.data;
       if (s.attempt !== null) {
         const row = await findAttempt(s.attempt, who, s.type, now - AGE);
-        if (!row) return reply({ error: "試寫階段已過期，請重新選擇寫法。" }, 400);
+        // code "attempt": the write form starts a new attempt and keeps the letter.
+        if (!row) return reply({ error: "試寫階段已過期，請重新選擇寫法。", code: "attempt" }, 400);
         if (row.completed !== null)
           return reply({ error: "這封信已送出，請到我的片段查看。" }, 409);
       }

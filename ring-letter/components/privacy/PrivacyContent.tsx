@@ -22,7 +22,7 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
           你送出的標題、文字、心情、回顧、時間標示、來源類型、分享同意（含之後的變更）與時間，以及自願送出的回饋。
         </span>
         <span className="sentence">
-          另記錄選擇的寫法、開始與完成時間，供團隊比較流程；未送出的文字不會保存。
+          另記錄選擇的寫法、開始與完成時間，供團隊比較流程；未送出的文字只暫存在你的瀏覽器分頁，不會傳到伺服器，送出或關閉分頁後清除。
         </span>
         <span className="sentence">管理者可閱讀這些資料。</span>
         <span className="sentence">未勾選分享的文字不會公開。</span>
@@ -79,7 +79,7 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
         <span className="sentence">
           沒有取得同意，不把投稿用於公開宣傳、其他產品或外部 AI 分析。
         </span>
-        <span className="sentence">示範故事明確標為 AI 虛構，不是真人投稿。</span>
+        <span className="sentence">「讀一封信」的範例信都標為虛構，不是真人投稿。</span>
       </p>
       <p>
         <span className="sentence">此處不是即時對話或緊急支援服務。</span>

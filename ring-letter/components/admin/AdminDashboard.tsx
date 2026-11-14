@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { AdminStory, AdminSummary, ModerationAction } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
+import { useConfirm } from "../common/ConfirmDialog";
 import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import { useShell } from "../shell/ShellContext";
@@ -55,6 +56,7 @@ function someTitles(stories: AdminStory[], n = 3) {
  */
 export default function AdminDashboard() {
   const { setAdmin: onAuthorized } = useShell();
+  const confirm = useConfirm();
   const router = useRouter();
   const filter = parseFilter(useSearchParams());
   const query = filterQuery(filter);
@@ -179,10 +181,15 @@ export default function AdminDashboard() {
     if (current) stories.replace(current);
   }
 
-  function moderate(s: AdminStory, status: ModerationAction) {
+  async function moderate(s: AdminStory, status: ModerationAction) {
     if (
       status === "delete" &&
-      !confirm(`永久刪除《${s.title}》（${taipeiDate(s.created)}）及其回饋與授權紀錄？無法復原。`)
+      !(await confirm({
+        title: "永久刪除",
+        message: `永久刪除《${s.title}》（${taipeiDate(s.created)}）及其回饋與授權紀錄？無法復原。`,
+        confirmLabel: "永久刪除",
+        danger: true,
+      }))
     )
       return;
     const started = query;
@@ -243,7 +250,7 @@ export default function AdminDashboard() {
    * statusAt / consentEvents for the next try); gone ones leave. A fetch that
    * fails keeps the card as it was, with a note.
    */
-  function moderateSelected(status: "rejected" | "delete") {
+  async function moderateSelected(status: "rejected" | "delete") {
     if (batching.current || listing) return;
     const targets = status === "delete" ? selected : selected.filter(canReject);
     if (targets.length === 0) return;
@@ -259,13 +266,20 @@ export default function AdminDashboard() {
           (targets.length < selected.length
             ? `\n（勾選的另外 ${selected.length - targets.length} 篇不是等待審閱或已匿名分享，不受影響。）`
             : "");
-    if (!confirm(question)) return;
+    const started = query;
+    const moved = () => currentQuery.current !== started;
+    const ok = await confirm({
+      title: status === "delete" ? "批次永久刪除" : "批次不通過或下架",
+      message: question,
+      confirmLabel: status === "delete" ? "永久刪除" : "不通過或下架",
+      danger: status === "delete",
+    });
+    // The filters changed (back / forward) while asking: that selection is gone.
+    if (!ok || moved() || batching.current) return;
     // Rejected stories are fetched again on a list that can show them (and
     // leave it if other filters, e.g. expiring, no longer match); any other
     // list drops them at once.
     const keepRejected = filter.status === "rejected" || filter.status === "all";
-    const started = query;
-    const moved = () => currentQuery.current !== started;
     batching.current = true;
     void action
       .run(async () => {
@@ -382,8 +396,7 @@ export default function AdminDashboard() {
           </SectionIntro>
           <SummaryBar summary={summary} />
           <p className="quiet">
-            投稿依送出時間由新到舊，每次載入 50
-            篇；回饋與試寫是事件筆數，不是獨立人數。示範故事回饋會標示，不當成真實內容需求證據。
+            投稿依送出時間由新到舊，每次載入 50 篇；回饋與試寫是事件筆數，不是獨立人數。
           </p>
           <button
             className="secondary"

@@ -1,10 +1,15 @@
+import type { Draft } from "./useDraft";
+
 /** Fields of the 當下信 form. */
 export default function PresentLetterForm({
   body,
   onBodyChange,
+  draft,
 }: {
   body: string;
   onBodyChange: (body: string) => void;
+  /** Restored values of the uncontrolled inputs (useDraft.ts). */
+  draft?: Draft["fields"];
 }) {
   return (
     <>
@@ -22,6 +27,7 @@ export default function PresentLetterForm({
       <input
         id="mood"
         name="mood"
+        defaultValue={draft?.mood}
         required
         maxLength={60}
         list="moods"

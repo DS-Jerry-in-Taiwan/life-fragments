@@ -11,8 +11,8 @@ import { parseAdminFeedbackQuery } from "../../../../lib/server/validation";
 /**
  * `{feedback, nextCursor}`: one page (50) of the last 30 days of feedback,
  * filtered by `kind` and `story`, problem reports first and then newest
- * first. Each row: id, story, kind, note, created, storyTitle (null for demo
- * stories and stories no longer live).
+ * first. Each row: id, story, kind, note, created, storyTitle (null for
+ * stories no longer live).
  */
 export async function GET(req: Request) {
   return guardRead(() =>

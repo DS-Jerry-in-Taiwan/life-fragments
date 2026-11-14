@@ -1,0 +1,50 @@
+/* Same box and backdrop as the privacy notice (privacy/Privacy.module.css). */
+.dialog {
+  width: 480px;
+  max-width: calc(100% - 2 * var(--space-6));
+  max-height: 85vh;
+  padding: 0;
+  overflow-y: auto;
+  background: #1b303d;
+  color: var(--ink);
+  border: 1px solid #63736f;
+}
+.dialog::backdrop {
+  background: #06131be6;
+  backdrop-filter: blur(7px);
+}
+.box {
+  padding: var(--space-8) var(--space-8) var(--space-6);
+}
+.box h2 {
+  font-size: var(--heading-xs);
+  margin-bottom: var(--space-3);
+}
+.box p {
+  font-size: var(--text-md);
+  color: #c1ccd0;
+  line-height: 2;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-3) var(--space-6);
+  margin-top: var(--space-6);
+}
+/* The text-link danger style, with a tap-sized target. */
+.actions :global(.danger) {
+  min-height: 45px;
+  padding: 10px var(--space-1);
+}
+@media (max-width: 640px) {
+  .dialog {
+    max-width: calc(100% - 2 * var(--space-3));
+  }
+  .box {
+    padding: 28px 22px 20px;
+  }
+}

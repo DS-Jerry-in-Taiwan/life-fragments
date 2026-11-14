@@ -1,6 +1,8 @@
 import {
   adminHeaders,
+  answer,
   asAdmin,
+  confirmDialog,
   expect,
   hydrated,
   ORIGIN,
@@ -78,8 +80,8 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   await expect(story.getByText("未公開保存")).toBeVisible();
   await expect(story.getByText("此刻心情：平靜")).toBeVisible();
 
-  page.once("dialog", (d) => d.accept());
   await story.getByRole("button", { name: "撤回並刪除" }).click();
+  await answer(page, "確定刪除");
   await expect(page.getByRole("status").filter({ hasText: "已刪除這段文字。" })).toBeVisible();
   await expect(story).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "還沒有留下的片段" })).toBeVisible();
@@ -126,16 +128,12 @@ test("我的片段: 在這台裝置登出 forgets this browser, the story stays"
   await expect(story).toBeVisible();
 
   // Cancelling the confirm changes nothing.
-  page.once("dialog", (d) => d.dismiss());
   await page.getByRole("button", { name: "在這台裝置登出" }).click();
+  await answer(page, "取消");
   await expect(story).toBeVisible();
 
-  let message = "";
-  page.once("dialog", (d) => {
-    message = d.message();
-    return d.accept();
-  });
   await page.getByRole("button", { name: "在這台裝置登出" }).click();
+  const message = await answer(page, "登出");
   await expect(page.getByRole("status").filter({ hasText: "已在這台裝置登出。" })).toBeVisible();
   expect(message).toContain("投稿會保留");
   expect(message).toContain("新的身分");
@@ -193,8 +191,9 @@ test("routes: nav buttons change the URL and the back button works", async ({ pa
   await expect(page.getByRole("heading", { name: "先讀一封，不必先寫" })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: /寫下你的/ })).toBeVisible();
-  await page.getByRole("contentinfo").getByRole("button", { name: "先前公開信箱" }).click();
+  await nav.getByRole("button", { name: "公開信箱" }).click();
   await expect(page).toHaveURL(/\/archive$/);
+  await expect(page.getByRole("heading", { level: 1, name: /有一段生活/ })).toBeVisible();
 });
 
 test("write: choosing a type sets ?mode=, and the link opens the form directly", async ({
@@ -249,6 +248,171 @@ test("write: one start per chooser click; a second letter after submit works", a
   await expect(page.getByLabel("剛剛發生了什麼？")).toBeVisible();
   expect(starts).toHaveLength(2);
   await fill("第二封");
+});
+
+// --- /write draft (V5-a, #4 §10 item 4): sessionStorage, per letter type, with its writing attempt.
+
+const DRAFT_KEYS = ["ring-letter:draft:past", "ring-letter:draft:present"];
+const storage = (page: import("@playwright/test").Page) =>
+  page.evaluate((keys) => {
+    const session = Object.fromEntries(keys.map((k) => [k, sessionStorage.getItem(k)]));
+    return { session, local: localStorage.length };
+  }, DRAFT_KEYS);
+
+test("write: the unsent letter survives a reload and other pages, under the same attempt", async ({
+  page,
+}) => {
+  const starts: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/writing-attempts") && r.method() === "POST") starts.push(r.url());
+  });
+  await page.goto("/write");
+  await hydrated(page);
+  await page.getByRole("button", { name: /有一段過去/ }).click();
+  const title = page.getByLabel("給這封信一個名字（選填）");
+  const era = page.getByLabel("這件事大約發生在什麼時候？");
+  const event = page.getByLabel("你想起的是哪一件事？");
+  const reflection = page.getByLabel(/現在回頭看/);
+  const adult = page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ });
+  await title.fill("草稿測試");
+  await era.fill("高中時");
+  await event.fill("一件想留下的小事。");
+  await reflection.fill("現在還不明白。");
+  await adult.check();
+  await page.waitForLoadState("networkidle");
+  expect(starts).toHaveLength(1);
+
+  const expectDraft = async () => {
+    await expect(title).toHaveValue("草稿測試");
+    await expect(era).toHaveValue("高中時");
+    await expect(event).toHaveValue("一件想留下的小事。");
+    await expect(reflection).toHaveValue("現在還不明白。");
+    await expect(adult, "同意不暫存").not.toBeChecked();
+  };
+  // Reload: the same letter, and no second start.
+  await page.reload();
+  await hydrated(page);
+  await expectDraft();
+  // Another page and back (nav, then the back button), and the chooser again.
+  const nav = page.getByRole("navigation", { name: "主要導覽" });
+  await nav.getByRole("button", { name: "我的片段" }).click();
+  await expect(page).toHaveURL(/\/mine$/);
+  await page.goBack();
+  await expectDraft();
+  await nav.getByRole("button", { name: "寫一封信" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
+  await page.getByRole("button", { name: /有一段過去/ }).click();
+  await expectDraft();
+  await page.waitForLoadState("networkidle");
+  expect(starts, "同一封信沿用同一個試寫紀錄").toHaveLength(1);
+
+  // Only the letter's fields, only in sessionStorage.
+  const saved = await storage(page);
+  expect(saved.local).toBe(0);
+  const draft = JSON.parse(saved.session["ring-letter:draft:past"]!);
+  expect(Object.keys(draft).sort()).toEqual(["attempt", "body", "fields", "source"]);
+  expect(draft.fields).toEqual({
+    title: "草稿測試",
+    era: "高中時",
+    event: "一件想留下的小事。",
+    reflection: "現在還不明白。",
+  });
+  expect(saved.session["ring-letter:draft:present"]).toBeNull();
+
+  // The other type has its own draft: the original-text body and the source survive too.
+  await page.goto("/write?mode=present");
+  await hydrated(page);
+  await page.getByLabel("剛剛發生了什麼？").fill("當下信的草稿。");
+  await page.getByLabel("現在的感覺").fill("平靜");
+  await page.goto("/write?mode=past");
+  await hydrated(page);
+  await expectDraft();
+  await page.getByLabel("你想怎麼寫？").selectOption("original");
+  await page.getByLabel("當時的原文").fill("貼上的原文。");
+  await page.reload();
+  await hydrated(page);
+  await expect(page.getByLabel("你想怎麼寫？")).toHaveValue("original");
+  await expect(page.getByLabel("當時的原文")).toHaveValue("貼上的原文。");
+  await page.goto("/write?mode=present");
+  await hydrated(page);
+  await expect(page.getByLabel("剛剛發生了什麼？")).toHaveValue("當下信的草稿。");
+  await expect(page.getByLabel("現在的感覺")).toHaveValue("平靜");
+
+  // Sent: that type's draft is gone; the next letter starts empty, with a new attempt.
+  await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
+  await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
+  await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+  await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
+  expect((await storage(page)).session["ring-letter:draft:present"]).toBeNull();
+  expect((await storage(page)).session["ring-letter:draft:past"]).not.toBeNull();
+  await page.reload();
+  await hydrated(page);
+  await expect(page.getByLabel("剛剛發生了什麼？")).toHaveValue("");
+  await expect(page.getByLabel("現在的感覺")).toHaveValue("");
+  await page.waitForLoadState("networkidle");
+  expect(starts, "原文那封沿用、當下信送出後重新開始").toHaveLength(3);
+});
+
+test("an open confirm answers no when back/forward changes only the query", async ({ page }) => {
+  await page.goto("/write");
+  await hydrated(page);
+  await page.getByRole("button", { name: /今天，/ }).click();
+  await expect(page).toHaveURL(/\/write\?mode=present$/);
+  await page.getByLabel("剛剛發生了什麼？").fill("按上一頁也不能清掉。");
+  await page.getByRole("button", { name: "← 重新選擇寫法" }).click();
+  await expect(confirmDialog(page)).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/write$/);
+  await expect(confirmDialog(page)).toHaveCount(0);
+  expect(
+    (await storage(page)).session["ring-letter:draft:present"],
+    "沒有確認就不清除草稿",
+  ).toContain("按上一頁也不能清掉。");
+});
+
+test("write: 重新選擇寫法 asks first; 取消, Esc and the backdrop keep the letter, confirming clears it", async ({
+  page,
+}) => {
+  const write = SCREENS.find((s) => s.name === "write-present")!;
+  await write.open(page);
+  await write.ready(page);
+  const body = page.getByLabel("剛剛發生了什麼？");
+  await body.fill("還不想丟掉的草稿。");
+  const back = page.getByRole("button", { name: "← 重新選擇寫法" });
+  const dialog = confirmDialog(page);
+
+  // The dialog: named by its title, described by the question, 取消 focused.
+  await back.click();
+  await expect(dialog).toHaveAccessibleName("重新選擇寫法");
+  await expect(dialog).toHaveAccessibleDescription("切換寫法會清除這份未送出的草稿，確定切換？");
+  await expect(dialog.getByRole("button", { name: "取消" })).toBeFocused();
+  await answer(page, "取消");
+  await expect(back, "焦點回到開啟的按鈕").toBeFocused();
+  await expect(body).toHaveValue("還不想丟掉的草稿。");
+
+  await back.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(back).toBeFocused();
+  await expect(body).toHaveValue("還不想丟掉的草稿。");
+
+  await back.click();
+  await expect(dialog).toBeVisible();
+  await page.mouse.click(3, 3); // the backdrop
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/write\?mode=present$/);
+  await expect(body).toHaveValue("還不想丟掉的草稿。");
+  expect((await storage(page)).session["ring-letter:draft:present"]).toContain(
+    "還不想丟掉的草稿。",
+  );
+
+  await back.click();
+  await answer(page, "清除並切換");
+  await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
+  expect((await storage(page)).session["ring-letter:draft:present"]).toBeNull();
+  await page.getByRole("button", { name: /今天，/ }).click();
+  await expect(body).toHaveValue("");
 });
 
 test("我的片段: 改為分享 → approved → 停止分享, and the share cap", async ({ page, context }) => {
@@ -347,16 +511,13 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
   await page.reload();
   await hydrated(page);
   await expect(story.getByText("已匿名分享")).toBeVisible();
-  page.once("dialog", (d) => d.dismiss());
   await story.getByRole("button", { name: "停止分享" }).click();
+  await answer(page, "取消");
   await noPendingRequests();
   expect(patches, "取消確認不送出").toHaveLength(2);
-  let message = "";
-  page.once("dialog", (d) => {
-    message = d.message();
-    return d.accept();
-  });
+  await expect(story.getByRole("button", { name: "停止分享" }), "焦點回到按鈕").toBeFocused();
   await story.getByRole("button", { name: "停止分享" }).click();
+  const message = await answer(page, "停止分享");
   await expect(
     page.getByRole("status").filter({ hasText: "已停止分享，這篇改為不公開保存。" }),
   ).toBeVisible();
@@ -425,6 +586,19 @@ async function author() {
     },
     erase: async () => expect((await call("DELETE", "/api/me")).status).toBe(200),
   };
+}
+
+/** One approved story in /archive, by an author outside the browser; `erase` removes it. */
+async function approvedStory(title = `e2e 公開信箱 ${Date.now()}`) {
+  const a = await author();
+  const id = await a.submit(title);
+  const r = await fetch(`${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`, {
+    method: "POST",
+    headers: { ...adminHeaders(), Origin: ORIGIN, "Content-Type": "application/json" },
+    body: JSON.stringify({ status: "approved" }),
+  });
+  expect(r.status).toBe(200);
+  return { id, title, erase: a.erase };
 }
 
 test("admin: filter → search → load more → 409 refreshes one card → delete", async ({
@@ -506,8 +680,8 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
     const item = page.getByRole("article").filter({ hasText: note });
     await expect(item).toHaveCount(1);
     await expect(item.getByRole("button", { name: `《${newestTitle}》` })).toBeVisible();
-    page.once("dialog", (d) => d.accept());
     await item.getByRole("button", { name: "刪除這筆回饋" }).click();
+    await answer(page, "確定刪除");
     await expect(page.getByRole("status").filter({ hasText: "已刪除這筆回饋。" })).toBeVisible();
     await expect(item).toHaveCount(0);
     await expect(newest.getByRole("button", { name: /^看回饋/ })).toHaveCount(0);
@@ -515,12 +689,8 @@ test("admin: filter → search → load more → 409 refreshes one card → dele
 
     // Delete: confirm names the story; the notice quotes title and date.
     const second = cards.filter({ has: page.getByRole("heading", { name: `${tag} 第 50 篇` }) });
-    let message = "";
-    page.once("dialog", (d) => {
-      message = d.message();
-      return d.accept();
-    });
     await second.getByRole("button", { name: "永久刪除" }).click();
+    const message = await answer(page, "永久刪除");
     const date = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
     await expect(
       page.getByRole("status").filter({ hasText: `已刪除《${tag} 第 50 篇》（${date}）` }),
@@ -647,12 +817,8 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await expect(reject).toHaveText("不通過或下架勾選的 3 篇");
     await owner(46).sharing(ids[46], false);
     await owner(46).sharing(ids[46], true);
-    let message = "";
-    page.once("dialog", (d) => {
-      message = d.message();
-      return d.accept();
-    });
     await reject.click();
+    let message = await answer(page, "不通過或下架");
     await expect(
       page
         .getByRole("status")
@@ -678,11 +844,8 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await tick(45).check();
     await moderate(ids[45], "delete");
     await expect(remove).toHaveText("永久刪除勾選的 4 篇");
-    page.once("dialog", (d) => {
-      message = d.message();
-      return d.accept();
-    });
     await remove.click();
+    message = await answer(page, "永久刪除");
     await expect(
       page.getByRole("status").filter({
         hasText: "已永久刪除 3 篇；1 篇未處理（1 篇已不存在），已從清單移除。",
@@ -704,8 +867,8 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
     await expect(cards).toHaveCount(45);
     await expect(count).toHaveText("已勾選 0 篇");
     for (const i of [44, 43]) await tick(i).check();
-    page.once("dialog", (d) => d.accept());
     await reject.click();
+    await answer(page, "不通過或下架");
     await expect(
       page.getByRole("status").filter({ hasText: "已不通過或下架 2 篇。" }),
     ).toBeVisible();
@@ -745,104 +908,125 @@ test("Turnstile: the script loads only with the write or feedback form", async (
   await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
   expect(loads, "首頁、試讀、公開信箱、寫法選擇不載入").toEqual([]);
 
-  // Opening the feedback box on /archive loads it.
-  await page.goto("/archive");
-  await hydrated(page);
-  await page.getByText("願意告訴我們讀起來如何嗎？").click();
-  await expect.poll(() => loads.length).toBe(1);
-  expect((await turnstileLog(page))?.rendered.map((r) => r.action)).toEqual(["feedback"]);
+  // Opening the feedback box under an /archive story loads it.
+  const story = await approvedStory();
+  try {
+    await page.goto("/archive");
+    await hydrated(page);
+    await page.getByText("願意告訴我們讀起來如何嗎？").click();
+    await expect.poll(() => loads.length).toBe(1);
+    expect((await turnstileLog(page))?.rendered.map((r) => r.action)).toEqual(["feedback"]);
+  } finally {
+    await story.erase();
+  }
 });
 
 test("feedback: sent with a token; one retry on a Turnstile refusal, then the error, the note kept", async ({
   page,
 }) => {
-  await page.goto("/archive");
-  await hydrated(page);
-  await expect(page.getByText("信箱剛剛開啟。先讀一段示範，感受這裡的節奏。")).toBeVisible();
-  await page.getByText("願意告訴我們讀起來如何嗎？").click();
-  await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
+  const story = await approvedStory();
+  try {
+    await page.goto("/archive");
+    await hydrated(page);
+    await expect(page.getByRole("heading", { name: story.title })).toBeVisible();
+    await page.getByText("願意告訴我們讀起來如何嗎？").click();
+    await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
 
-  // Accepted on the first try: the request carries the token.
-  const tokens: (string | undefined)[] = [];
-  page.on("request", (r) => {
-    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback")
-      tokens.push(r.headers()["x-turnstile-token"]);
-  });
-  await page.getByRole("button", { name: "有一點共鳴" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
-  ).toBeVisible();
-  expect(tokens).toEqual([TURNSTILE_TOKEN]);
+    // Accepted on the first try: the request carries the token.
+    const tokens: (string | undefined)[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback")
+        tokens.push(r.headers()["x-turnstile-token"]);
+    });
+    await page.getByRole("button", { name: "有一點共鳴" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+    ).toBeVisible();
+    expect(tokens).toEqual([TURNSTILE_TOKEN]);
 
-  // Refused once (e.g. the token expired): a new token, sent again, accepted.
-  let refusals = 1;
-  await page.route("**/api/feedback", (route) =>
-    refusals-- > 0
-      ? route.fulfill({
-          status: 403,
-          json: { error: "人機驗證沒有通過，請再試一次。", code: "turnstile" },
-        })
-      : route.continue(),
-  );
-  await page.getByRole("button", { name: "沒有特別感覺" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
-  ).toBeVisible();
-  expect(tokens).toHaveLength(3);
-  const afterRetry = (await turnstileLog(page))!;
-  expect(afterRetry.executed, "每次送出都取新 token").toBe(3);
+    // Refused once (e.g. the token expired): a new token, sent again, accepted.
+    let refusals = 1;
+    await page.route("**/api/feedback", (route) =>
+      refusals-- > 0
+        ? route.fulfill({
+            status: 403,
+            json: { error: "人機驗證沒有通過，請再試一次。", code: "turnstile" },
+          })
+        : route.continue(),
+    );
+    await page.getByRole("button", { name: "沒有特別感覺" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+    ).toBeVisible();
+    expect(tokens).toHaveLength(3);
+    const afterRetry = (await turnstileLog(page))!;
+    expect(afterRetry.executed, "每次送出都取新 token").toBe(3);
 
-  // Refused twice: the error shows and the note stays in the box.
-  refusals = 2;
-  const note = "這段回饋文字要留在表單上。";
-  await page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。").fill(note);
-  await page.getByRole("button", { name: "送出回饋" }).click();
-  await expect(page.getByRole("alert")).toContainText("人機驗證沒有通過，請再試一次。");
-  expect(tokens, "只重試一次").toHaveLength(5);
-  await expect(page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。")).toHaveValue(note);
-  const log = (await turnstileLog(page))!;
-  expect(log.executed).toBe(5);
-  expect(log.reset, "每個請求之後都 reset").toBeGreaterThanOrEqual(3);
+    // Refused twice: the error shows and the note stays in the box.
+    refusals = 2;
+    const note = "這段回饋文字要留在表單上。";
+    await page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。").fill(note);
+    await page.getByRole("button", { name: "送出回饋" }).click();
+    await expect(page.getByRole("alert")).toContainText("人機驗證沒有通過，請再試一次。");
+    expect(tokens, "只重試一次").toHaveLength(5);
+    await expect(page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。")).toHaveValue(note);
+    const log = (await turnstileLog(page))!;
+    expect(log.executed).toBe(5);
+    expect(log.reset, "每個請求之後都 reset").toBeGreaterThanOrEqual(3);
+  } finally {
+    await story.erase();
+  }
 });
 
 test("feedback: a challenge that never answers gives up after 30 s, the note kept", async ({
   page,
 }) => {
-  await page.clock.install();
-  await page.goto("/archive");
-  await hydrated(page);
-  await expect(page.getByText("信箱剛剛開啟。先讀一段示範，感受這裡的節奏。")).toBeVisible();
-  await page.getByText("願意告訴我們讀起來如何嗎？").click();
-  await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
-  let posts = 0;
-  page.on("request", (r) => {
-    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback") posts++;
-  });
+  const story = await approvedStory();
+  try {
+    await page.clock.install();
+    await page.goto("/archive");
+    await hydrated(page);
+    await expect(page.getByRole("heading", { name: story.title })).toBeVisible();
+    await page.getByText("願意告訴我們讀起來如何嗎？").click();
+    await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
+    let posts = 0;
+    page.on("request", (r) => {
+      if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback") posts++;
+    });
 
-  await page.evaluate(() => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = true));
-  const note = "卡住時這段文字也要留著。";
-  const box = page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。");
-  await box.fill(note);
-  await page.getByRole("button", { name: "送出回饋" }).click();
-  await expect.poll(async () => (await turnstileLog(page))?.executed).toBe(1);
-  // While it is pending the box can't be closed: that would hide a challenge.
-  await page.getByText("願意告訴我們讀起來如何嗎？").click();
-  await expect(box).toBeVisible();
-  await page.clock.runFor(29_000);
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  await page.clock.runFor(1_500);
-  await expect(page.getByRole("alert")).toContainText("人機驗證暫時無法載入，請保留文字並稍後重試。");
-  expect(posts, "沒有 token 就不送出").toBe(0);
-  await expect(box).toHaveValue(note);
+    await page.evaluate(
+      () => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = true),
+    );
+    const note = "卡住時這段文字也要留著。";
+    const box = page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。");
+    await box.fill(note);
+    await page.getByRole("button", { name: "送出回饋" }).click();
+    await expect.poll(async () => (await turnstileLog(page))?.executed).toBe(1);
+    // While it is pending the box can't be closed: that would hide a challenge.
+    await page.getByText("願意告訴我們讀起來如何嗎？").click();
+    await expect(box).toBeVisible();
+    await page.clock.runFor(29_000);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await page.clock.runFor(1_500);
+    await expect(page.getByRole("alert")).toContainText(
+      "人機驗證暫時無法載入，請保留文字並稍後重試。",
+    );
+    expect(posts, "沒有 token 就不送出").toBe(0);
+    await expect(box).toHaveValue(note);
 
-  // The next submit gets a token again.
-  await page.evaluate(() => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = false));
-  await page.getByRole("button", { name: "送出回饋" }).click();
-  await page.clock.runFor(100);
-  await expect(
-    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
-  ).toBeVisible();
-  expect(posts).toBe(1);
+    // The next submit gets a token again.
+    await page.evaluate(
+      () => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = false),
+    );
+    await page.getByRole("button", { name: "送出回饋" }).click();
+    await page.clock.runFor(100);
+    await expect(
+      page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+    ).toBeVisible();
+    expect(posts).toBe(1);
+  } finally {
+    await story.erase();
+  }
 });
 
 test("write: a Turnstile refusal after the retry keeps the letter in the form", async ({

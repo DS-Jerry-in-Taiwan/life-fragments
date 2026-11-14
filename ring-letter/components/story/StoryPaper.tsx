@@ -10,7 +10,7 @@ export default function StoryPaper({
   ...data
 }: {
   className?: string;
-  /** Top-left line, e.g. 示範故事 · AI 虛構創作. */
+  /** Top-left line, e.g. 真人投稿 · 經作者同意. */
   label: React.ReactNode;
   /** Top-right mark: ✦ or the scenario. */
   mark: React.ReactNode;
