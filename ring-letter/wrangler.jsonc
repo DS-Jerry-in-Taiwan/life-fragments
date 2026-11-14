@@ -18,7 +18,7 @@
   // feedback. The secret is TURNSTILE_SECRET_KEY (`wrangler secret put`,
   // never here). `npm run dev` ignores these and uses Cloudflare's test keys.
   "vars": {
-    "TURNSTILE_SITE_KEY": "REPLACE_WITH_TURNSTILE_SITE_KEY",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAF_NufYLGCNmsC1m",
     "TURNSTILE_HOSTNAME": "ringletter.wetrytrysee.cc"
   },
   "d1_databases": [
