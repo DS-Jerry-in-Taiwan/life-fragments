@@ -134,6 +134,18 @@ export default function WriteFlow() {
     source,
     body,
   );
+  // The guided questions unmount while 原文 is chosen and remount from
+  // `fields` when it isn't: keep what was typed in them, so the shown
+  // answers, the live count and the sent body stay the same text.
+  function changeSource(next: string) {
+    const kept: Draft["fields"] =
+      source === "recollection"
+        ? { ...typed }
+        : { ...typed, event: fields?.event, scene: fields?.scene, feeling: fields?.feeling };
+    setFields(kept);
+    setTyped(kept);
+    setSource(next);
+  }
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -269,7 +281,7 @@ export default function WriteFlow() {
             {mode === "past" ? (
               <PastLetterForm
                 source={source}
-                onSourceChange={setSource}
+                onSourceChange={changeSource}
                 body={body}
                 onBodyChange={setBody}
                 draft={fields}

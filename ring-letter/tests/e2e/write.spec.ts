@@ -292,6 +292,18 @@ test("live count: N／1,500 of the body as sent, in UTF-16 units like the server
   await page.getByLabel("那時候，你最在意或最不確定的是什麼？").fill("字".repeat(79));
   await expect(count).toHaveText("1,500／1,500");
 
+  // To 原文 and back: the guided answers come back as typed, with their count.
+  await event.fill("改過的一件事");
+  // 6 + 6 + 2 + 5 + 700 + 2 + 6 + 79
+  await expect(count).toHaveText("806／1,500");
+  await page.getByLabel("你想怎麼寫？").selectOption("original");
+  await expect(count).toHaveText("0／1,500");
+  await page.getByLabel("你想怎麼寫？").selectOption("recollection");
+  await expect(event).toHaveValue("改過的一件事");
+  await expect(count).toHaveText("806／1,500");
+  await event.fill("字".repeat(700));
+  await expect(count).toHaveText("1,500／1,500");
+
   // A reload brings the draft back with its count.
   await page.reload();
   await hydrated(page);
