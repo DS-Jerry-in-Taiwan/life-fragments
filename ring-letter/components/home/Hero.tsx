@@ -26,10 +26,10 @@ export default function Hero() {
         </div>
         <div className={styles.actions}>
           <NavButton to="/read" className="primary">
-            先讀一封 <span>↗</span>
+            先讀一封 <span aria-hidden="true">→</span>
           </NavButton>
           <NavButton to="/write" className="text-btn">
-            我想寫一封 <span>→</span>
+            我想寫一封 <span aria-hidden="true">→</span>
           </NavButton>
         </div>
         <p className="quiet">不必認識彼此，也不必立刻回應。</p>

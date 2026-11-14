@@ -40,15 +40,14 @@ export const SCREENS: Screen[] = [
     open: home,
     ready: async (page) => {
       await expect(h1(page, /寫下你的/)).toBeVisible();
-      await expect(page.getByRole("heading", { name: "先讀一封，不必先寫" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "這封信，會怎麼來到你面前？" })).toBeVisible();
     },
   },
   {
     name: "read",
-    // Via the home page, like the v1 baseline: home's own random letter uses
-    // the first value of the seeded Math.random sequence, so a direct
-    // goto("/read") would show a different letter. (Also covers client-side
-    // navigation; the routes smoke test covers loading /read directly.)
+    // Via the home page to cover client-side navigation (the routes smoke
+    // test covers loading /read directly). Home no longer embeds the reader,
+    // so /read's random letter is the first value of the seeded sequence.
     open: async (page) => {
       await home(page);
       await page

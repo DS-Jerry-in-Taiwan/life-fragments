@@ -2,7 +2,6 @@ import BottomNote from "../components/home/BottomNote";
 import Hero from "../components/home/Hero";
 import HowItWorks from "../components/home/HowItWorks";
 import MatchingExplanation from "../components/home/MatchingExplanation";
-import MatchExperience from "../components/reading/MatchExperience";
 
 export default function HomePage() {
   return (
@@ -11,7 +10,6 @@ export default function HomePage() {
       <BottomNote />
       <HowItWorks />
       <MatchingExplanation />
-      <MatchExperience />
     </>
   );
 }
