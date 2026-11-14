@@ -1,12 +1,9 @@
-import { logStoryDecision, logStoryDelete } from "../../../../../../lib/server/db/admin-events";
-import { deleteConsentEventsForStory } from "../../../../../../lib/server/db/consent-events";
-import { deleteFeedbackForStory } from "../../../../../../lib/server/db/feedback";
-import { AGE, db } from "../../../../../../lib/server/db/index";
-import { deleteStory, moderateStory, storyRevision } from "../../../../../../lib/server/db/stories";
+import { adminDeleteStory, decideStory } from "../../../../../../lib/server/db/stories";
 import {
   ADMIN_SAVE_FAILED,
   guardWrite,
   type IdContext,
+  MAX_MODERATION_BODY,
   withAdmin,
 } from "../../../../../../lib/server/handler";
 import { readJsonBody, reply } from "../../../../../../lib/server/http";
@@ -24,7 +21,7 @@ import { parseModeration } from "../../../../../../lib/server/validation";
  * deleted by the daily job) is treated as missing: 400, never 409.
  *
  * Every applied operation is logged in admin_events with the verified admin
- * email, in the same batch (lib/server/db/admin-events.ts): an approval or
+ * email, in the same batch (lib/server/db/stories.ts): an approval or
  * rejection that changes the status, or the delete of an existing story.
  * Repeating the current decision, and deleting a missing story, still answer
  * `{ok: true}` but log nothing.
@@ -34,35 +31,20 @@ export async function POST(req: Request, { params }: IdContext) {
     req,
     () =>
       withAdmin(req, async (email) => {
-        const parsed = await readJsonBody(req, 4000);
+        const parsed = await readJsonBody(req, MAX_MODERATION_BODY);
         if (!parsed.ok) return parsed.response;
         const v = parseModeration((await params).id, parsed.body);
         if (!v.ok) return reply({ error: v.error }, 400);
         const { id, status, statusAt, consentEvents } = v.data;
         const now = Date.now();
         if (status === "delete") {
-          await db().batch([
-            logStoryDelete(email, id, now),
-            deleteFeedbackForStory(id),
-            deleteConsentEventsForStory(id),
-            deleteStory(id),
-          ]);
+          await adminDeleteStory(email, id, now);
           return reply({ ok: true });
         }
-        const expected = { statusAt, consentEvents };
-        const [, decided] = await db().batch([
-          logStoryDecision(email, id, status, now, expected),
-          moderateStory(id, status, now, expected),
-        ]);
-        if (!decided.meta.changes) {
-          const current = await storyRevision(id, now - AGE);
-          const changed =
-            current &&
-            ((statusAt !== undefined && current.statusAt !== statusAt) ||
-              (consentEvents !== undefined && current.consentEvents !== consentEvents));
-          if (changed) return reply({ error: "這篇的狀態剛剛改變了，請重新整理後再審閱。" }, 409);
-          return reply({ error: "文章不存在，或作者未同意分享" }, 400);
-        }
+        const decided = await decideStory(email, id, status, now, { statusAt, consentEvents });
+        if (decided === "stale")
+          return reply({ error: "這篇的狀態剛剛改變了，請重新整理後再審閱。" }, 409);
+        if (decided === "refused") return reply({ error: "文章不存在，或作者未同意分享" }, 400);
         return reply({ ok: true });
       }),
     ADMIN_SAVE_FAILED,

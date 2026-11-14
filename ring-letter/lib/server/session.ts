@@ -45,7 +45,7 @@ export async function cookieSession(req: Request) {
 export async function currentSession(req: Request) {
   const hash = await cookieSession(req);
   if (!hash) return null;
-  return (await sessionExists(hash, Date.now() - SESSION_AGE)) ? hash : null;
+  return (await sessionExists(hash, Date.now())) ? hash : null;
 }
 
 /** Stores a new session and returns its Set-Cookie header value. */
@@ -66,7 +66,7 @@ export async function refreshSession(req: Request) {
   if (!token) return null;
   const hash = await sha256Hex(token);
   const now = Date.now();
-  const lastSeen = await sessionLastSeen(hash, now - SESSION_AGE);
+  const lastSeen = await sessionLastSeen(hash, now);
   if (lastSeen === null) return null;
   if (lastSeen < now - DAY) await touchSession(hash, now);
   return sessionCookie(req, token);

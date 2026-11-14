@@ -320,6 +320,21 @@ assert.equal(eventsFor([S.approved,OLD.permApproved]).length,2);
   assert.equal((await call('DELETE','/api/me',{cookie:g})).status,200);
 }
 
+// --- Sharing changes the daily limit still counts (V5-r: consent_events.owner) outlive a
+// withdrawn story until the first cron after that day; erase-all removes them at once (tests/api.mjs).
+{
+  const k=await session(), id=await submit(k,{share:false});
+  assert.equal((await sharing(id,k,true)).status,200);
+  assert.equal((await sharing(id,k,false)).status,200);
+  assert.equal((await call('DELETE','/api/me/stories/'+id,{cookie:k})).status,200);
+  assert.deepEqual(eventsFor([id]).map(e=>e.action).sort(),['share','unshare'],'withdraw keeps only the counted sharing changes');
+  await cron(Date.now());
+  assert.equal(eventsFor([id]).length,2,'kept while the daily limit counts them');
+  await cron(Date.now()+DAY+60000);
+  assert.equal(eventsFor([id]).length,0,'deleted by the first cron after that day');
+  assert.equal((await call('DELETE','/api/me',{cookie:k})).status,200);
+}
+
 // --- Every other delete path removes consent events with the story.
 const c=await session();
 const w=await submit(c), e1=await submit(c,{share:false});
@@ -337,4 +352,4 @@ sql(`DELETE FROM admin_events WHERE target_id IN ${inList([...moderated])}`);
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM admin_events WHERE target_id IN ${inList([...moderated])} OR admin_email='retention-test@example.test'`),0,'test admin events removed');
 assert.equal(sqlNum(`SELECT COUNT(*) AS n FROM stories WHERE title=${q(story.title)}`),0,'test stories removed');
 assert.equal(sqlNum('SELECT COUNT(*) AS n FROM consent_events WHERE story NOT IN (SELECT id FROM stories)'),0,'no orphaned consent events');
-console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin story list, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete; admin_events deleted a year after created, kept when their story is deleted (by retention or an admin)');
+console.log('PASS: retention — real submissions use the permanent (v3) consent version; old-version stories (approved included) hidden and deleted 30 days after created, a later approval/rejection never extends it; permanent-version approved stories never expire (public, feedback, my stories, admin story list, a year past their session), other permanent-version stories expire 30 days after status_at (rejection restarts it); author sharing changes: v3 approved → stop and v2 private → share (re-consented to v3) expire 30 days after the change, v2 approved → stop still 30 days after created; feedback/attempts deleted after 30 days with exact metrics; sessions deleted a year after last_seen; session creation purges nothing; consent events written on submit and deleted with their story on retention, withdraw, erase and admin delete (sharing changes still counted by the daily limit kept until the first cron after that day); admin_events deleted a year after created, kept when their story is deleted (by retention or an admin)');

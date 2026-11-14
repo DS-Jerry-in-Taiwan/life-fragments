@@ -1,6 +1,5 @@
 import { paginate, PAGE_SIZE } from "../../../../lib/server/cursor";
 import { listAdminFeedback } from "../../../../lib/server/db/feedback";
-import { AGE } from "../../../../lib/server/db/index";
 import { guardRead, withAdmin } from "../../../../lib/server/handler";
 import { reply } from "../../../../lib/server/http";
 import { parseAdminFeedbackQuery } from "../../../../lib/server/validation";
@@ -19,7 +18,7 @@ export async function GET(req: Request) {
     withAdmin(req, async () => {
       const v = parseAdminFeedbackQuery(new URL(req.url).searchParams);
       if (!v.ok) return reply({ error: v.error }, 400);
-      const { results } = await listAdminFeedback(v.data, Date.now() - AGE, PAGE_SIZE + 1);
+      const { results } = await listAdminFeedback(v.data, Date.now(), PAGE_SIZE + 1);
       const { page, nextCursor } = paginate(results, (f) => [
         f.kind === "report" ? 1 : 0,
         f.created,

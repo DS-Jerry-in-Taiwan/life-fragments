@@ -448,6 +448,32 @@ for(const type of ['past','present']){
  assert.equal(sql(`SELECT COUNT(*) AS n FROM consent_events WHERE story IN (${[p,j,fresh,v2p,v2a].map(q).join(',')})`)[0].n,0);
 }
 
+// --- The daily sharing limit counts per session (V5-r): withdrawing the stories whose
+// sharing changed does not reset it; erase-all removes the counted rows with the session.
+{
+ const c=(await session()).cookie, h=hashOf(c);
+ const LIMIT='今天已調整十次分享設定，明天再來。';
+ const changed=(r,status)=>assert.deepEqual([r.status,r.data.status],[200,status],JSON.stringify(r.data));
+ const s1=(await submit({...story,share:false},c)).data.id, s2=(await submit({...story,share:false},c)).data.id;
+ // 6 changes on s1 (its 3 share requests) and 4 on s2: the limit of 10.
+ for(let i=0;i<3;i++){changed(await shareOn(s1,c),'pending');changed(await shareOff(s1,c),'private');}
+ for(let i=0;i<2;i++){changed(await shareOn(s2,c),'pending');changed(await shareOff(s2,c),'private');}
+ assert.deepEqual((await withdraw(s1,c)).data,{ok:true});
+ assert.deepEqual((await withdraw(s2,c)).data,{ok:true});
+ assert.ok(!(await mine(c)).data.stories.some(x=>x.id===s1||x.id===s2),'withdrawn');
+ assert.equal(sql(`SELECT COUNT(*) AS n FROM consent_events WHERE story IN (${q(s1)},${q(s2)}) AND action='submit'`)[0].n,0,'withdraw deletes the rest of the history');
+ assert.equal(sql(`SELECT COUNT(*) AS n FROM consent_events WHERE owner=${q(h)}`)[0].n,10,'the counted sharing changes outlive the withdrawn stories');
+ // A new story's sharing change is still refused, both directions, and changes nothing.
+ const s3=(await submit({...story,share:false},c)).data.id, s4=(await submit(story,c)).data.id;
+ for(const r of [await shareOn(s3,c),await shareOff(s4,c)])assert.deepEqual([r.status,r.data],[429,{error:LIMIT}]);
+ assert.deepEqual(sql(`SELECT status FROM stories WHERE id IN (${q(s3)},${q(s4)}) ORDER BY status`).map(r=>r.status),['pending','private']);
+ assert.equal(sql(`SELECT COUNT(*) AS n FROM consent_events WHERE story IN (${q(s3)},${q(s4)})`)[0].n,2,'only their submit events');
+ // Another session is not affected.
+ {const o=(await session()).cookie, os=(await submit({...story,share:false},o)).data.id;changed(await shareOn(os,o),'pending');assert.equal((await erase(o)).status,200);}
+ assert.equal((await erase(c)).status,200);
+ assert.equal(sql(`SELECT COUNT(*) AS n FROM consent_events WHERE owner=${q(h)} OR story IN (${[s1,s2,s3,s4].map(q).join(',')})`)[0].n,0,'erase-all deletes every consent event of the session');
+}
+
 // --- V6-a admin API (#4 §5.2): summary, filtered/paged stories, feedback,
 // batch moderation and the admin operation log. Rows are inserted directly
 // (marked by unique random words in the title, which `q` then isolates from
@@ -705,7 +731,7 @@ const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
 assert.equal((await adminAll('stories',{status:'all',q:story.title})).length,0);
-console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, Turnstile on submit and feedback (after origin and body, before session and fields; none for session or writing attempts), session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin story list pages through every story (no cap, old approved found), the queue removed (404), durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin list counts, concurrent changes, moderation refused when the story changed since it was listed), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
+console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, Turnstile on submit and feedback (after origin and body, before session and fields; none for session or writing attempts), session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin story list pages through every story (no cap, old approved found), the queue removed (404), durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, daily cap per session surviving withdrawal and cleared by erase-all, old consent versions, admin list counts, concurrent changes, moderation refused when the story changed since it was listed), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
 }finally{
  // Runs even when a check fails, so a failed run leaves no admin_events behind (nothing else here empties the table, so ids are not reused).
  sql(`DELETE FROM admin_events WHERE id>${firstEvent}`);

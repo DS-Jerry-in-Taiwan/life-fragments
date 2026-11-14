@@ -1,7 +1,6 @@
 import { completeAttempt, findAttempt } from "../../../../lib/server/db/attempts";
-import { insertConsentEvent } from "../../../../lib/server/db/consent-events";
-import { AGE, db } from "../../../../lib/server/db/index";
-import { CONSENT_VERSION, insertStory, listOwnStories } from "../../../../lib/server/db/stories";
+import { db } from "../../../../lib/server/db/index";
+import { listOwnStories, submitStory } from "../../../../lib/server/db/stories";
 import { guardRead, guardWrite, withBodyTurnstileAndSession } from "../../../../lib/server/handler";
 import { reply } from "../../../../lib/server/http";
 import { overDailyLimit } from "../../../../lib/server/rate-limit";
@@ -12,7 +11,7 @@ import { parseSubmit } from "../../../../lib/server/validation";
 export async function GET(req: Request) {
   return guardRead(async () => {
     const who = await currentSession(req);
-    return reply({ stories: who ? await listOwnStories(who, Date.now() - AGE) : [] });
+    return reply({ stories: who ? await listOwnStories(who, Date.now()) : [] });
   });
 }
 
@@ -25,7 +24,7 @@ export async function POST(req: Request) {
       if (!v.ok) return reply({ error: v.error }, 400);
       const s = v.data;
       if (s.attempt !== null) {
-        const row = await findAttempt(s.attempt, who, s.type, now - AGE);
+        const row = await findAttempt(s.attempt, who, s.type, now);
         // code "attempt": the write form starts a new attempt and keeps the letter.
         if (!row) return reply({ error: "試寫階段已過期，請重新選擇寫法。", code: "attempt" }, 400);
         if (row.completed !== null)
@@ -35,27 +34,24 @@ export async function POST(req: Request) {
         return reply({ error: "今天已留下五篇，讓文字休息一下，明天再來。" }, 429);
 
       const id = crypto.randomUUID();
-      const status = s.share ? "pending" : "private";
-      const insert = insertStory({
+      const { status, statements } = submitStory({
         id,
         owner: who,
         title: s.title,
         body: s.body,
         era: s.era,
         source: s.source,
-        status,
-        consent: `${CONSENT_VERSION}:adult,privacy,${s.share ? "share" : "private"}`,
+        share: s.share,
         created: now,
         letterType: s.type,
         mood: s.mood,
         reflection: s.reflection,
         attempt: s.attempt,
       });
-      const consent = insertConsentEvent(id, "submit", CONSENT_VERSION, now);
       await db().batch(
         s.attempt !== null
-          ? [insert, consent, completeAttempt(s.attempt, who, now, s.share)]
-          : [insert, consent],
+          ? [...statements, completeAttempt(s.attempt, who, now, s.share)]
+          : statements,
       );
       return reply({ ok: true, id, status });
     }),

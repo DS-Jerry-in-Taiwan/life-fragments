@@ -14,7 +14,10 @@ export const writingAttempts=sqliteTable('writing_attempts',{id:text('id').prima
 // Append-only consent history (#4 §6.1); action is 'submit' | 'share' | 'unshare'. Same lifetime as
 // the story: deleted with it (withdraw, erase, admin delete, retention). Migration 0003 backfills one
 // 'submit' row per existing story.
-export const consentEvents=sqliteTable('consent_events',{id:integer('id').primaryKey(),story:text('story').notNull(),action:text('action').notNull(),consentVersion:text('consent_version').notNull(),created:integer('created').notNull()},(t)=>[index('consent_events_story_idx').on(t.story)]);
+// owner (migration 0006, V5-r): the session hash that made a 'share' / 'unshare' change, so the daily
+// sharing limit counts per session. Such a row outlives its story for the day it still counts
+// (withdraw, admin delete), and erase-all deletes every row of the owner. NULL for older rows.
+export const consentEvents=sqliteTable('consent_events',{id:integer('id').primaryKey(),story:text('story').notNull(),action:text('action').notNull(),consentVersion:text('consent_version').notNull(),created:integer('created').notNull(),owner:text('owner')},(t)=>[index('consent_events_story_idx').on(t.story),index('consent_events_owner_idx').on(t.owner,t.created)]);
 
 // Admin operation log (#4 §5.2): who approved, rejected or deleted what, and when. action is
 // 'approve' | 'reject' | 'delete_story' | 'delete_feedback', target_type 'story' | 'feedback'.

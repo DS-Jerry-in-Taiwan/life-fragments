@@ -1,11 +1,9 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import { MAX_SHARE_REQUESTS } from "../../lib/consent";
 import type { Story } from "../../lib/stories";
 import { AdultCheckbox, PrivacyCheckbox, ShareCheckbox } from "../write/ConsentFields";
 import styles from "./ShareToggle.module.css";
-
-/** Matches MAX_SHARE_REQUESTS in lib/server/db/consent-events.ts. */
-const MAX_SHARE_REQUESTS = 3;
 
 export type ShareConsent = { adult: boolean; privacy: boolean; share: boolean };
 

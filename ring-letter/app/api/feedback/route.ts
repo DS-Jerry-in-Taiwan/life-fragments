@@ -1,4 +1,3 @@
-import { AGE } from "../../../lib/server/db/index";
 import { insertFeedback } from "../../../lib/server/db/feedback";
 import { isApprovedStory } from "../../../lib/server/db/stories";
 import { guardWrite, withBodyTurnstileAndSession } from "../../../lib/server/handler";
@@ -13,7 +12,7 @@ export async function POST(req: Request) {
       if (!v.ok) return reply({ error: v.error }, 400);
       const { story, kind, note } = v.data;
       // Only a live approved story (the /archive demo stories are gone, V5-a).
-      if (!(await isApprovedStory(story, Date.now() - AGE)))
+      if (!(await isApprovedStory(story, Date.now())))
         return reply({ error: "這篇故事已不再提供。" }, 404);
       if (await overDailyLimit("feedback", who))
         return reply({ error: "今日回饋已足夠，謝謝你。" }, 429);

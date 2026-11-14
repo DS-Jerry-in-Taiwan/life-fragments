@@ -43,6 +43,13 @@
       "when": 1794577224590,
       "tag": "0005_illegal_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794659791079,
+      "tag": "0006_overjoyed_maverick",
+      "breakpoints": true
     }
   ]
 }

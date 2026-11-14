@@ -20,8 +20,14 @@ const BAD_ORIGIN = "來源驗證失敗";
 const SESSION_EXPIRED = "體驗工作階段已過期，請重新整理頁面。";
 const FORBIDDEN = "只有管理者可以使用。";
 
-/** Body limit for the public routes; admin moderation bodies use their own. */
+/** Body limit (characters) for the public routes. */
 export const MAX_BODY = 12000;
+
+/** Body limit for one admin decision, `{status, statusAt?, consentEvents?}`. */
+export const MAX_MODERATION_BODY = 4000;
+
+/** Body limit for a batch admin decision: up to 50 `{id, statusAt, consentEvents}` items. */
+export const MAX_BATCH_MODERATION_BODY = 12000;
 
 /** Read handlers: any failure becomes a 503 with the read message. */
 export async function guardRead(run: () => Promise<Response>) {

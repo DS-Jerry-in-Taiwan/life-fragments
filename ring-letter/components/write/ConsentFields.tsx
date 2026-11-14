@@ -2,7 +2,7 @@ import { CONTACT_EMAIL } from "../../lib/contact";
 import CheckboxField from "../common/CheckboxField";
 import styles from "./ConsentFields.module.css";
 
-// The current consent wording (CONSENT_VERSION in lib/server/db/stories.ts),
+// The current consent wording (CONSENT_VERSION in lib/consent.ts),
 // shared by the write form and 我的片段's 改為分享 (components/mine/ShareToggle.tsx).
 
 /** Share consent; optional when submitting, required when asking to share later. */

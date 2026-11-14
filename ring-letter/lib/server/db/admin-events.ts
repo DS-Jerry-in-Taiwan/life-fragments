@@ -1,5 +1,5 @@
-import { db, ITEM_IDS } from "./index";
-import { BATCH_REJECTABLE, LIVE, MODERATABLE } from "./stories";
+import { ADMIN_EVENT_AGE, ADMIN_EVENT_INSERT, AGE, db } from "./index";
+import { LIVE } from "./stories";
 
 // Admin operation log (#4 §5.2). One row per admin operation that changed
 // something: who (the email verifyAdmin() returned, never a request value),
@@ -13,59 +13,15 @@ import { BATCH_REJECTABLE, LIVE, MODERATABLE } from "./stories";
 
 export type AdminAction = "approve" | "reject" | "delete_story" | "delete_feedback";
 
-const INSERT = "INSERT INTO admin_events(admin_email,action,target_type,target_id,created)";
-
-/**
- * Logs a single-story decision; batch it right before moderateStory() with the
- * same arguments. Written only when the decision applies (MODERATABLE) and
- * changes the status: repeating the current decision changes nothing and is
- * not logged.
- */
-export function logStoryDecision(
-  email: string,
-  id: string,
-  status: "approved" | "rejected",
-  now: number,
-  expected: { statusAt?: number; consentEvents?: number } = {},
-) {
-  return db()
-    .prepare(
-      `${INSERT} SELECT ?6,CASE ?1 WHEN 'approved' THEN 'approve' ELSE 'reject' END,'story',?3,?2
-       WHERE EXISTS (SELECT 1 FROM stories WHERE ${MODERATABLE} AND status<>?1)`,
-    )
-    .bind(status, now, id, expected.statusAt ?? null, expected.consentEvents ?? null, email);
-}
-
-/** Logs a single-story delete, if the story exists; batch it before the deletes. */
-export function logStoryDelete(email: string, id: string, now: number) {
-  return db()
-    .prepare(
-      `${INSERT} SELECT ?1,'delete_story','story',?2,?3 WHERE EXISTS (SELECT 1 FROM stories WHERE id=?2)`,
-    )
-    .bind(email, id, now);
-}
-
-/** Logs each story a batch rejection changes; batch it right before rejectStories() with the same items. */
-export function logBatchRejections(email: string, items: string, now: number) {
-  return db()
-    .prepare(`${INSERT} SELECT ?3,'reject','story',id,?2 FROM stories WHERE ${BATCH_REJECTABLE}`)
-    .bind(items, now, email);
-}
-
-/** Logs each existing story among the batch items; batch it before the deletes. */
-export function logBatchDeletes(email: string, items: string, now: number) {
-  return db()
-    .prepare(
-      `${INSERT} SELECT ?2,'delete_story','story',id,?3 FROM stories WHERE id IN ${ITEM_IDS}`,
-    )
-    .bind(items, email, now);
-}
+// The story operations (approve, reject, delete_story) are logged by the
+// lifecycle functions in lib/server/db/stories.ts, next to the changes whose
+// conditions they repeat.
 
 /** Logs a feedback delete, if the row exists; batch it right before deleteFeedback(). */
 export function logFeedbackDelete(email: string, id: string, now: number) {
   return db()
     .prepare(
-      `${INSERT} SELECT ?1,'delete_feedback','feedback',?2,?3 WHERE EXISTS (SELECT 1 FROM feedback WHERE id=?2)`,
+      `${ADMIN_EVENT_INSERT} SELECT ?1,'delete_feedback','feedback',?2,?3 WHERE EXISTS (SELECT 1 FROM feedback WHERE id=?2)`,
     )
     .bind(email, id, now);
 }
@@ -80,12 +36,12 @@ export type AdminEventFilter = {
 /**
  * One page of the log, newest first (created, then id, descending), at most
  * `limit` rows. targetExists: the target is still a live story, or feedback
- * still within its 30 days (`cutoff` = now - AGE), so the admin page can
- * link to it or show「（已刪除）」.
+ * still within its 30 days, so the admin page can link to it or show
+ * 「（已刪除）」.
  */
-export function listAdminEvents(f: AdminEventFilter, cutoff: number, limit: number) {
+export function listAdminEvents(f: AdminEventFilter, now: number, limit: number) {
   const where: string[] = [];
-  const args: (string | number)[] = [cutoff, cutoff];
+  const args: (string | number)[] = [now, now];
   const add = (condition: string, ...values: (string | number)[]) => {
     where.push(condition);
     args.push(...values);
@@ -100,7 +56,7 @@ export function listAdminEvents(f: AdminEventFilter, cutoff: number, limit: numb
       `SELECT id,admin_email AS adminEmail,action,target_type AS targetType,target_id AS targetId,created,
          CASE target_type
            WHEN 'story' THEN EXISTS (SELECT 1 FROM stories WHERE id=admin_events.target_id AND ${LIVE})
-           ELSE EXISTS (SELECT 1 FROM feedback WHERE id=admin_events.target_id AND created>?)
+           ELSE EXISTS (SELECT 1 FROM feedback WHERE id=admin_events.target_id AND created>(?-${AGE}))
          END AS targetExists
        FROM admin_events ${where.length ? "WHERE " + where.join(" AND ") : ""}
        ORDER BY created DESC,id DESC LIMIT ?`,
@@ -116,7 +72,9 @@ export function listEventAdmins() {
     .all<{ email: string }>();
 }
 
-/** Retention: rows created before `before` (now - ADMIN_EVENT_AGE). */
-export function deleteAdminEventsBefore(before: number) {
-  return db().prepare("DELETE FROM admin_events WHERE created<?").bind(before);
+/** Retention: rows created more than ADMIN_EVENT_AGE before `now`. */
+export function deleteExpiredAdminEvents(now: number) {
+  return db()
+    .prepare("DELETE FROM admin_events WHERE created<?")
+    .bind(now - ADMIN_EVENT_AGE);
 }

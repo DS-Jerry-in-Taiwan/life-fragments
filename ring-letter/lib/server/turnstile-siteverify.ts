@@ -16,7 +16,10 @@ export const TURNSTILE_UNAVAILABLE = "人機驗證服務暫時無法使用，請
 export type TurnstileConfig = {
   /** Missing or empty: fail closed (503), never skip the check. */
   secret?: string;
-  /** Checked against siteverify's `hostname` when set (production only). */
+  /**
+   * Checked against siteverify's `hostname`. Required unless `testKeys`:
+   * missing or empty fails closed (503), like a missing secret.
+   */
   hostname?: string;
   /**
    * Cloudflare's test secret answers without `action` (and with hostname
@@ -54,6 +57,30 @@ export function productionTurnstileConfig(env: {
   };
 }
 
+/** The placeholder TURNSTILE_SITE_KEY in wrangler.jsonc before a real key is set. */
+export const SITE_KEY_PLACEHOLDER = "REPLACE_WITH_TURNSTILE_SITE_KEY";
+
+/**
+ * What would make production Turnstile fail, given the Worker's `vars` (as
+ * built into dist/server/wrangler.json): .github/workflows/deploy.yml refuses
+ * to deploy unless this is empty. (The secret is checked there separately:
+ * `wrangler secret list` shows its name only.)
+ */
+export function turnstileVarsProblems(vars: Record<string, unknown> | undefined): string[] {
+  const value = (name: string) => {
+    const v = vars?.[name];
+    return typeof v === "string" ? v.trim() : "";
+  };
+  const problems: string[] = [];
+  const siteKey = value("TURNSTILE_SITE_KEY");
+  if (!siteKey) problems.push("wrangler.jsonc vars lack TURNSTILE_SITE_KEY");
+  else if (siteKey === SITE_KEY_PLACEHOLDER)
+    problems.push("wrangler.jsonc still has the placeholder TURNSTILE_SITE_KEY");
+  if (!value("TURNSTILE_HOSTNAME"))
+    problems.push("wrangler.jsonc vars lack a non-empty TURNSTILE_HOSTNAME");
+  return problems;
+}
+
 const refused = (status: 403 | 503, error: string): TurnstileResult => ({
   ok: false,
   status,
@@ -61,9 +88,10 @@ const refused = (status: 403 | 503, error: string): TurnstileResult => ({
 });
 
 /**
- * Asks siteverify about one token. Passes only when `success` is true, the
- * action is the expected one and (when configured) the hostname matches.
- * Unreachable, timed out or malformed answers are 503, like a missing secret.
+ * Asks siteverify about one token. Passes only when `success` is true and
+ * the action and hostname are the expected ones (neither is checked with the
+ * test keys). Unreachable, timed out or malformed answers are 503, like a
+ * missing secret or hostname.
  */
 export async function checkTurnstile(
   token: string | null,
@@ -74,7 +102,8 @@ export async function checkTurnstile(
 ): Promise<TurnstileResult> {
   const response = token?.trim();
   if (!response) return refused(403, TURNSTILE_MISSING);
-  if (!config.secret) return refused(503, TURNSTILE_UNAVAILABLE);
+  if (!config.secret || (!config.testKeys && !config.hostname))
+    return refused(503, TURNSTILE_UNAVAILABLE);
 
   const form = new URLSearchParams({
     secret: config.secret,
@@ -117,7 +146,7 @@ export async function checkTurnstile(
   }
   if (!config.testKeys && o.action !== action) return refused(403, TURNSTILE_FAILED);
   if (
-    config.hostname &&
+    !config.testKeys &&
     (typeof o.hostname !== "string" || o.hostname.toLowerCase() !== config.hostname)
   )
     return refused(403, TURNSTILE_FAILED);
