@@ -109,7 +109,10 @@ export default function FeedbackList({
                 《{f.storyTitle}》
               </button>
             ) : (
-              "文章已不在系統中"
+              // V5 removed the 3 demo stories; their feedback ("demo-…" ids)
+              // stays until it expires within 30 days and isn't reader demand
+              // for real stories.
+              f.story.startsWith("demo-") ? "已移除的示範故事" : "文章已不在系統中"
             )}{" "}
             · {taipeiTime(f.created)}
           </small>
