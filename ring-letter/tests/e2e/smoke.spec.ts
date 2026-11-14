@@ -242,6 +242,20 @@ test("read: 再讀一封 and a scenario bring the new letter into view and focus
   ).toBe(true);
 });
 
+test("read: without JavaScript, a line asks to enable it; with it, the line is absent", async ({
+  page,
+}) => {
+  const notice = "請啟用 JavaScript 以閱讀範例信。";
+  // Playwright's javaScriptEnabled: false keeps the parser's scripting flag
+  // on, so <noscript> stays raw text there; check the server HTML instead.
+  const html = await (await page.request.get("/read")).text();
+  expect(html).toMatch(new RegExp(`<noscript><p[^>]*>${notice}</p></noscript>`));
+  await page.goto("/read");
+  await hydrated(page);
+  await expect(page.locator("article[data-letter-id]")).toHaveCount(1);
+  await expect(page.getByText(notice)).toHaveCount(0);
+});
+
 test("read: 有回應到我 toggles on and off", async ({ page }) => {
   await page.goto("/read");
   await hydrated(page);

@@ -60,7 +60,11 @@ export default function MatchExperience() {
       </div>
       <ScenarioFilter scenario={scenario} filter={filter} />
       {!mounted ? (
-        <div className={styles.letterPlaceholder} aria-hidden="true" />
+        <div className={styles.letterPlaceholder}>
+          <noscript>
+            <p className="quiet">請啟用 JavaScript 以閱讀範例信。</p>
+          </noscript>
+        </div>
       ) : (
         letter && (
           <MatchedLetter
