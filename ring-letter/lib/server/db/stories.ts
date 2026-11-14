@@ -7,7 +7,7 @@ import {
   MAX_SHARE_REQUESTS,
   PERMANENT_CONSENT_VERSIONS,
 } from "../../consent";
-import { insertConsentEvent } from "./consent-events";
+import { insertConsentEvent, keptForLimit } from "./consent-events";
 import { ADMIN_EVENT_INSERT, AGE, DAY, db, ITEM_IDS } from "./index";
 
 // Stories and their whole lifecycle (#4 §5.2, §6, §6.1): the retention rule
@@ -192,6 +192,12 @@ function scopeCondition(scope: DeleteScope, now: number): [string, (string | num
  * the stories, in this order (the first two select the stories that are about
  * to go). Put all three in one batch, after the admin_events row that records
  * the delete, if any. The last statement returns the deleted ids.
+ *
+ * Sharing changes still counted by the session's daily limit (consent-events.ts
+ * KEEP_FOR_LIMIT) stay behind until the retention job removes them, so
+ * withdrawing a story does not reset the limit. Erase-all removes them too,
+ * with every other consent event the session wrote: the session is deleted in
+ * the same batch, so nothing is left to count against.
  */
 export function deleteStoryRows(scope: DeleteScope, now: number) {
   const [where, args] = scopeCondition(scope, now);
@@ -202,7 +208,13 @@ export function deleteStoryRows(scope: DeleteScope, now: number) {
     d
       .prepare(`DELETE FROM feedback WHERE story IN ${stories}${erase ? " OR owner=?1" : ""}`)
       .bind(...args),
-    d.prepare(`DELETE FROM consent_events WHERE story IN ${stories}`).bind(...args),
+    erase
+      ? d.prepare(`DELETE FROM consent_events WHERE story IN ${stories} OR owner=?1`).bind(...args)
+      : d
+          .prepare(
+            `DELETE FROM consent_events WHERE story IN ${stories} AND NOT ${keptForLimit(`?${args.length + 1}`)}`,
+          )
+          .bind(...args, now),
     d.prepare(`DELETE FROM stories WHERE ${where} RETURNING id`).bind(...args),
   ];
 }
@@ -475,7 +487,8 @@ export type SharingResult =
  *   the public list); the consent version is kept.
  * `overLimit` (the daily limit) is asked only once the change is otherwise
  * allowed. A change sets status_at, clears approved_at and writes a 'share'
- * or 'unshare' consent event.
+ * or 'unshare' consent event with the owner, which the daily limit counts
+ * (consent-events.ts countSharingChangesInLastDay()).
  *
  * One batch: the event, written only if the story is unchanged since it was
  * read (status, status time and event count) and, for a share request, it
@@ -509,8 +522,8 @@ export async function changeSharing(
   const [, update] = await d.batch([
     d
       .prepare(
-        `INSERT INTO consent_events(story,action,consent_version,created)
-         SELECT ?1,?6,?7,?8 WHERE ${unchangedSinceRead(0)}${underCap}`,
+        `INSERT INTO consent_events(story,owner,action,consent_version,created)
+         SELECT ?1,?2,?6,?7,?8 WHERE ${unchangedSinceRead(0)}${underCap}`,
       )
       .bind(...snapshot, share ? "share" : "unshare", version, now),
     d

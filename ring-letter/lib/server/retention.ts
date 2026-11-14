@@ -1,4 +1,5 @@
 import { deleteExpiredAdminEvents } from "./db/admin-events";
+import { deleteOrphanedConsentEvents } from "./db/consent-events";
 import { AGE, db, SESSION_AGE } from "./db/index";
 import { deleteStoryRows } from "./db/stories";
 
@@ -14,6 +15,9 @@ import { deleteStoryRows } from "./db/stories";
 //     status 30 days after its last status change (status_at);
 //   - any other version (the old "30 days" terms, submissions before V3-c):
 //     every status, approved included, 30 days after `created`;
+// - consent_events left behind by a deleted story: the sharing changes the
+//   daily limit still counts (consent-events.ts keptForLimit(), less than a
+//   day old) stay until the first run after that day; any other is deleted;
 // - feedback, writing_attempts: 30 days after `created`. The admin metrics
 //   only ever cover the last 30 days, so nothing visible is lost;
 // - sessions: one year after their last visit (last_seen, or created for rows
@@ -54,8 +58,7 @@ export async function runRetention(now: number): Promise<RetentionResult> {
     adminEvents,
   ] = await d.batch([
     ...deleteStoryRows({ kind: "expired" }, now),
-    // Every event whose story is gone: anything a past delete path missed.
-    d.prepare("DELETE FROM consent_events WHERE story NOT IN (SELECT id FROM stories)"),
+    deleteOrphanedConsentEvents(now),
     // Same version rule as the 0003 backfill.
     d.prepare(
       `INSERT INTO consent_events (story, action, consent_version, created)
