@@ -1,6 +1,13 @@
 .era {
   font-size: var(--text-sm);
-  color: #7c897f;
+  /*
+   * A muted shade of the surrounding text, so one rule fits both places it
+   * is used: on the dark cards (我的片段, admin; text --ink) this is
+   * #9da097, on the archive's letter paper (text --paperink) #5a6460 —
+   * both at least 4.5:1 on their background (#4 V5-c1 我的片段 1).
+   */
+  color: #9da097;
+  color: color-mix(in srgb, currentColor 37%, #71786e);
   overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
