@@ -1,5 +1,10 @@
 import { moderateStories } from "../../../../lib/server/db/stories";
-import { ADMIN_SAVE_FAILED, guardWrite, withAdmin } from "../../../../lib/server/handler";
+import {
+  ADMIN_SAVE_FAILED,
+  guardWrite,
+  MAX_BATCH_MODERATION_BODY,
+  withAdmin,
+} from "../../../../lib/server/handler";
 import { readJsonBody, reply } from "../../../../lib/server/http";
 import { parseBatchModeration } from "../../../../lib/server/validation";
 
@@ -27,7 +32,7 @@ export async function POST(req: Request) {
     req,
     () =>
       withAdmin(req, async (email) => {
-        const parsed = await readJsonBody(req, 12000);
+        const parsed = await readJsonBody(req, MAX_BATCH_MODERATION_BODY);
         if (!parsed.ok) return parsed.response;
         const v = parseBatchModeration(parsed.body);
         if (!v.ok) return reply({ error: v.error }, 400);

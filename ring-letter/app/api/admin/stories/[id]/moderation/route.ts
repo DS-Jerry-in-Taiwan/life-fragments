@@ -3,6 +3,7 @@ import {
   ADMIN_SAVE_FAILED,
   guardWrite,
   type IdContext,
+  MAX_MODERATION_BODY,
   withAdmin,
 } from "../../../../../../lib/server/handler";
 import { readJsonBody, reply } from "../../../../../../lib/server/http";
@@ -30,7 +31,7 @@ export async function POST(req: Request, { params }: IdContext) {
     req,
     () =>
       withAdmin(req, async (email) => {
-        const parsed = await readJsonBody(req, 4000);
+        const parsed = await readJsonBody(req, MAX_MODERATION_BODY);
         if (!parsed.ok) return parsed.response;
         const v = parseModeration((await params).id, parsed.body);
         if (!v.ok) return reply({ error: v.error }, 400);
