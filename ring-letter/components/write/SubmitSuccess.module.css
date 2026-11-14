@@ -12,6 +12,10 @@
   font-size: var(--heading-md);
   margin: 15px 0;
 }
+.success h2:focus {
+  /* Focused from script, as the start of the new screen. */
+  outline: none;
+}
 .success p {
   color: var(--muted);
   font-size: var(--text-base);

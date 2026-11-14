@@ -4,38 +4,58 @@
   gap: var(--space-5);
   margin: var(--space-8) 0;
 }
-.options button {
-  background: #172437;
-  color: #ede8dd;
-  text-align: left;
-  padding: var(--space-7);
-  border: 1px solid #556176;
-  border-radius: 12px;
-}
-.options button:hover {
-  border-color: #dcc69b;
-}
-.options > button {
+/* The site's box (WriteFlow's form, the notices): hairline border, 3px corners, gold on hover. */
+.card {
+  position: relative;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-7);
+  background: #ffffff04;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
 }
-.options h2 {
+.card:hover,
+.card:has(button:focus-visible) {
+  border-color: var(--gold);
+}
+.card h2 {
   line-height: 1.6;
+  margin: 0 0 var(--space-3);
 }
-.options p {
+.card p {
   line-height: 1.9;
-  color: #bfc7d4;
+  color: var(--muted);
+  flex: 1;
 }
-.options strong {
-  color: #e1ca9d;
+.card button {
+  color: var(--gold);
+  font-weight: 700;
+  text-align: left;
+  padding: var(--space-2) 0;
+}
+/* The whole card picks it, as when the card was the button. */
+.card button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.card:has(button:disabled) {
+  opacity: 0.45;
+}
+.card button:disabled {
+  opacity: 1;
 }
 @media (max-width: 640px) {
   .options {
     grid-template-columns: 1fr;
   }
-  .options button {
+  .card {
     padding: var(--space-6);
   }
-  .options h2 {
+  .card h2 {
     font-size: var(--heading-sm);
   }
 }

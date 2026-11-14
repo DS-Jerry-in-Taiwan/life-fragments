@@ -1,15 +1,4 @@
-/* The notice box: PrivacyDialog, and app/privacy/page.tsx (.modal.page). */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  background: #06131be6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-  backdrop-filter: blur(7px);
-}
+/* The notice box: PrivacyDialog (.modal.dialog), and app/privacy/page.tsx (.modal.page). */
 .modal {
   position: relative;
   width: 650px;
@@ -33,6 +22,16 @@
   color: #c1ccd0;
   line-height: 2;
 }
+/* A native <dialog> in the top layer, centred by the UA's margin: auto. */
+.modal.dialog {
+  position: fixed;
+  max-width: calc(100% - 2 * var(--space-6));
+  color: var(--ink);
+}
+.dialog::backdrop {
+  background: #06131be6;
+  backdrop-filter: blur(7px);
+}
 .close {
   position: absolute;
   top: 7px;
@@ -43,8 +42,8 @@
   margin-top: 15px;
 }
 @media (max-width: 640px) {
-  .backdrop {
-    padding: var(--space-3);
+  .modal.dialog {
+    max-width: calc(100% - 2 * var(--space-3));
   }
   .modal {
     padding: 35px 22px;

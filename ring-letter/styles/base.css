@@ -100,7 +100,8 @@ select {
   width: 100%;
   background: #10222b;
   color: var(--ink);
-  border: 1px solid #8b9d9f44;
+  /* ≥ 3:1 against the field (4.0) and the lightest sky beside it (#1d3440, 3.2): WCAG 1.4.11, V5-c4. */
+  border: 1px solid #8b9d9fc4;
   border-radius: var(--radius-sm);
   padding: 13px 15px;
   min-height: 48px;
@@ -111,9 +112,19 @@ textarea {
   resize: vertical;
   line-height: 1.9;
 }
+/* ≥ 4.5:1 on the field's #10222b (V5-c4). */
 input::placeholder,
 textarea::placeholder {
-  color: #73858f;
+  color: #7f919b;
+}
+/*
+ * While a modal <dialog> is open (ConfirmDialog, PrivacyDialog) the page
+ * under it doesn't scroll. (No scrollbar-gutter: with Playwright's hidden
+ * scrollbars it would reserve an empty strip; under the blurred backdrop a
+ * classic scrollbar's width of shift doesn't show.)
+ */
+:root:has(dialog:modal) {
+  overflow: hidden;
 }
 @media (prefers-reduced-motion: reduce) {
   * {
