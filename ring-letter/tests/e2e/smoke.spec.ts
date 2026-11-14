@@ -813,6 +813,7 @@ test("write: a Turnstile refusal after the retry keeps the letter in the form", 
   await write.ready(page);
   const text = "這封信因為人機驗證失敗沒有送出，文字要留著。";
   await page.getByLabel("剛剛發生了什麼？").fill(text);
+  await page.getByLabel("現在的感覺").fill("平靜");
   await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
   await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
   let posts = 0;
