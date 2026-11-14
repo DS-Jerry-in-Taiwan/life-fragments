@@ -69,6 +69,16 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   // A route change answers no.
   const pathname = usePathname();
   useEffect(() => () => settle(false), [pathname, settle]);
+  // So does back/forward that only changes the query (/write?mode=…, the
+  // /admin filters). The modal blocks in-page links, so history is the only
+  // other way the page under the dialog can change. A popstate listener
+  // rather than useSearchParams(), which would need a Suspense boundary
+  // around the whole shell.
+  useEffect(() => {
+    const no = () => settle(false);
+    window.addEventListener("popstate", no);
+    return () => window.removeEventListener("popstate", no);
+  }, [settle]);
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}

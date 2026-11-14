@@ -353,6 +353,23 @@ test("write: the unsent letter survives a reload and other pages, under the same
   expect(starts, "原文那封沿用、當下信送出後重新開始").toHaveLength(3);
 });
 
+test("an open confirm answers no when back/forward changes only the query", async ({ page }) => {
+  await page.goto("/write");
+  await hydrated(page);
+  await page.getByRole("button", { name: /今天，/ }).click();
+  await expect(page).toHaveURL(/\/write\?mode=present$/);
+  await page.getByLabel("剛剛發生了什麼？").fill("按上一頁也不能清掉。");
+  await page.getByRole("button", { name: "← 重新選擇寫法" }).click();
+  await expect(confirmDialog(page)).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/write$/);
+  await expect(confirmDialog(page)).toHaveCount(0);
+  expect(
+    (await storage(page)).session["ring-letter:draft:present"],
+    "沒有確認就不清除草稿",
+  ).toContain("按上一頁也不能清掉。");
+});
+
 test("write: 重新選擇寫法 asks first; 取消, Esc and the backdrop keep the letter, confirming clears it", async ({
   page,
 }) => {
