@@ -229,6 +229,17 @@ test("read: 再讀一封 and a scenario bring the new letter into view and focus
   await expect(letter).toBeFocused();
   await expect(letter).toBeInViewport();
   await expectTopInView();
+
+  // From the keyboard, the focused letter shows a visible ring.
+  await page.getByRole("button", { name: "再讀一封" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(letter).toBeFocused();
+  expect(
+    await letter.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return el.matches(":focus-visible") && s.outlineStyle !== "none" && s.outlineWidth !== "0px";
+    }),
+  ).toBe(true);
 });
 
 test("read: 有回應到我 toggles on and off", async ({ page }) => {

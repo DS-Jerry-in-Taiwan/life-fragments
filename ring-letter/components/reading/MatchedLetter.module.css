@@ -1,9 +1,14 @@
 .matchedLetter {
   animation: letter-arrive var(--duration-letter) ease-out;
 }
-/* Focus is moved here after 再讀一封 / a scenario change; it is not a control. */
+/* Focus is moved here after 再讀一封 / a scenario change. Keyboard users get
+   the site's gold ring, drawn outside the paper on the night sky. */
 .matchedLetter:focus {
   outline: none;
+}
+.matchedLetter:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 5px;
 }
 @keyframes letter-arrive {
   from {
