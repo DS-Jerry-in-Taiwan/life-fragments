@@ -127,12 +127,57 @@ async function stableFonts(context: BrowserContext) {
   });
 }
 
+/** Cloudflare's dummy token; the dev server's Turnstile test secret accepts it. */
+export const TURNSTILE_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
+export const TURNSTILE_SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js**";
+
+/**
+ * A stand-in for Cloudflare's Turnstile script (components/common/Turnstile.tsx
+ * loads it on the write and feedback forms): render / execute / reset /
+ * remove, with execute() answering the dummy token, as the test site key
+ * would, but without depending on challenges.cloudflare.com or drawing
+ * anything. `window.__turnstile` records the calls for the tests.
+ */
+const FAKE_TURNSTILE = `(() => {
+  const widgets = new Map();
+  const log = (window.__turnstile = { rendered: [], executed: 0, reset: 0, removed: 0 });
+  let n = 0;
+  window.turnstile = {
+    render(el, options) {
+      const id = "fake-" + ++n;
+      widgets.set(id, options);
+      const { callback, ...rest } = options;
+      log.rendered.push(Object.fromEntries(Object.entries(rest).filter(([, v]) => typeof v !== "function")));
+      return id;
+    },
+    execute(id) {
+      log.executed++;
+      const options = widgets.get(id);
+      setTimeout(() => options && options.callback(${JSON.stringify(TURNSTILE_TOKEN)}), 0);
+    },
+    reset() { log.reset++; },
+    remove(id) { log.removed++; widgets.delete(id); },
+  };
+})();`;
+
+export type TurnstileLog = {
+  rendered: Record<string, string>[];
+  executed: number;
+  reset: number;
+  removed: number;
+};
+export const turnstileLog = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __turnstile?: TurnstileLog }).__turnstile ?? null);
+
 export const test = base.extend<{ seededRandom: void }>({
   // components/reading/MatchExperience.tsx picks letters with Math.random(); make
   // the sequence fixed (mulberry32, seed 1) so the same letter shows each run.
   seededRandom: [
     async ({ context }, use) => {
       await stableFonts(context);
+      await context.route(TURNSTILE_SCRIPT, (route) =>
+        route.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_TURNSTILE }),
+      );
       await context.addInitScript(() => {
         let a = 1;
         Math.random = () => {

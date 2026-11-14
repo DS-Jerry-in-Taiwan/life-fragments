@@ -14,6 +14,7 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
         <span className="sentence">
           閱讀不用註冊；投稿與回饋使用隨機的瀏覽器識別 Cookie，不要求姓名、電子郵件或 LINE 帳號。
         </span>
+        <span className="sentence">送出時使用 Cloudflare Turnstile 確認不是自動程式。</span>
       </p>
       <h3>什麼會被保存？</h3>
       <p>

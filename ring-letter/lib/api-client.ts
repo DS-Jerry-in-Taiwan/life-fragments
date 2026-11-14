@@ -27,11 +27,15 @@ export type SubmitInput = {
   share: boolean;
 };
 
-/** A refused request: the API's message, and its HTTP status (409: changed since listed). */
+/**
+ * A refused request: the API's message, its HTTP status (409: changed since
+ * listed) and its `code` when it has one ("turnstile": the human check).
+ */
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -39,25 +43,43 @@ export class ApiError extends Error {
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
-  let d: T & { error?: string };
+  let d: T & { error?: string; code?: string };
   try {
     d = await r.json();
   } catch {
     // Not JSON (e.g. an edge error page): never hand undefined fields to the UI.
     throw new ApiError(FALLBACK, r.status);
   }
-  if (!r.ok) throw new ApiError(d.error || FALLBACK, r.status);
+  if (!r.ok) throw new ApiError(d.error || FALLBACK, r.status, d.code);
   return d;
 }
 
 /** POST with a JSON body, or with no body when `data` is omitted. */
-function post<T = { ok: true }>(url: string, data?: object) {
-  if (data === undefined) return request<T>(url, { method: "POST" });
+function post<T = { ok: true }>(url: string, data?: object, headers: Record<string, string> = {}) {
+  if (data === undefined) return request<T>(url, { method: "POST", headers });
   return request<T>(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(data),
   });
+}
+
+/** Fetches a fresh one-time Turnstile token (components/common/Turnstile.tsx getToken). */
+export type TurnstileToken = () => Promise<string>;
+
+/**
+ * POST with a Turnstile token in `X-Turnstile-Token` (#4 §5.1). A 403 with
+ * `code: "turnstile"` (token failed, expired or already used) is retried
+ * once with a new token; any other failure, or a second refusal, is thrown.
+ */
+async function postWithTurnstile(url: string, data: object, token: TurnstileToken) {
+  const send = async () => post(url, data, { "X-Turnstile-Token": await token() });
+  try {
+    return await send();
+  } catch (e) {
+    if (!(e instanceof ApiError && e.status === 403 && e.code === "turnstile")) throw e;
+  }
+  return send();
 }
 
 /**
@@ -108,9 +130,9 @@ export async function startWriting(letterType: LetterType) {
   return id;
 }
 
-export async function submitLetter(input: SubmitInput) {
+export async function submitLetter(input: SubmitInput, token: TurnstileToken) {
   await ensureSession();
-  await post("/api/me/stories", input);
+  await postWithTurnstile("/api/me/stories", input, token);
 }
 
 export async function withdrawStory(id: string) {
@@ -145,9 +167,14 @@ export async function logout() {
   sessionPromise = null;
 }
 
-export async function sendFeedback(story: string, kind: FeedbackKind, note = "") {
+export async function sendFeedback(
+  story: string,
+  kind: FeedbackKind,
+  note: string,
+  token: TurnstileToken,
+) {
   await ensureSession();
-  await post("/api/feedback", { story, kind, note });
+  await postWithTurnstile("/api/feedback", { story, kind, note }, token);
 }
 
 /** Story counts per status, stories expiring soon and the 30-day writing metrics. */
