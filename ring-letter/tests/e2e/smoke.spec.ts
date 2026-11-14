@@ -179,6 +179,91 @@ test("all 7 routes load directly", async ({ page, context }) => {
   }
 });
 
+test("read: one h1, the scenario buttons are a named group", async ({ page }) => {
+  await page.goto("/read");
+  await hydrated(page);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("先讀一封，不必先寫");
+  await page.getByText("想讀特定情境？（選填）").click();
+  const group = page.getByRole("group", { name: "選擇信件情境" });
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("button", { name: "隨機遇見" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("read: 再讀一封 and a scenario bring the new letter into view and focus it", async ({
+  page,
+}) => {
+  await page.goto("/read");
+  await hydrated(page);
+  const letter = page.locator("article[data-letter-id]");
+  // Its top, not just some part of it (the buttons below it are always in view).
+  const expectTopInView = () =>
+    expect
+      .poll(() =>
+        letter.evaluate((el) => {
+          const top = el.getBoundingClientRect().top;
+          return top >= -1 && top < innerHeight / 2;
+        }),
+      )
+      .toBe(true);
+  await expect(letter).toHaveCount(1);
+  // Opening the page does not move focus to the letter.
+  await expect(letter).not.toBeFocused();
+  const first = await letter.getAttribute("data-letter-id");
+  await page.getByRole("button", { name: "再讀一封" }).click();
+  await expect(letter).not.toHaveAttribute("data-letter-id", first!);
+  await expect(letter).toBeFocused();
+  await expect(letter).toBeInViewport();
+  await expectTopInView();
+
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.getByText("想讀特定情境？（選填）").click();
+  await page
+    .getByRole("group", { name: "選擇信件情境" })
+    .getByRole("button", { name: "家人關係" })
+    .click();
+  await expect(letter).toHaveAttribute("data-scenario", "家人關係");
+  await expect(letter).toBeFocused();
+  await expect(letter).toBeInViewport();
+  await expectTopInView();
+});
+
+test("read: 有回應到我 toggles on and off", async ({ page }) => {
+  await page.goto("/read");
+  await hydrated(page);
+  const resonate = page.getByRole("button", { name: "有回應到我" });
+  const note = page.getByRole("status").filter({ hasText: "謝謝你停下來讀這封信" });
+  await expect(resonate).toHaveAttribute("aria-pressed", "false");
+  await resonate.click();
+  await expect(resonate).toHaveAttribute("aria-pressed", "true");
+  await expect(note).toBeVisible();
+  await resonate.click();
+  await expect(resonate).toHaveAttribute("aria-pressed", "false");
+  await expect(note).toHaveCount(0);
+});
+
+test("read: the focus ring on the letter paper is the ink colour, not gold", async ({ page }) => {
+  await page.goto("/read");
+  await hydrated(page);
+  const letter = page.locator("article[data-letter-id]");
+  // Reach 有回應到我 by keyboard, so :focus-visible applies.
+  await page.getByRole("button", { name: "再讀一封" }).focus();
+  await page.keyboard.press("Shift+Tab");
+  const resonate = letter.getByRole("button", { name: "有回應到我" });
+  await expect(resonate).toBeFocused();
+  const { focusVisible, outline, ink } = await resonate.evaluate((el) => ({
+    focusVisible: el.matches(":focus-visible"),
+    outline: getComputedStyle(el).outlineColor,
+    ink: getComputedStyle(el.closest("article")!).color,
+  }));
+  expect(focusVisible).toBe(true);
+  expect(ink).toBe("rgb(51, 66, 73)"); // --paperink #334249
+  expect(outline).toBe(ink);
+});
+
 test("fonts: Noto Serif TC comes from our own origin, never from Google Fonts", async ({
   page,
   context,
