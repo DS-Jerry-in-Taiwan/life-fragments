@@ -1,11 +1,12 @@
-import { db } from "./index";
+import { AGE, DAY, db } from "./index";
 
 export type AttemptRow = { id: string; completed: number | null };
 
-export async function countAttemptsSince(owner: string, since: number) {
+/** Attempts the owner started in the day before `now`, for the daily limit. */
+export async function countAttemptsInLastDay(owner: string, now: number) {
   const row = await db()
     .prepare("SELECT COUNT(*) AS n FROM writing_attempts WHERE owner=? AND created>?")
-    .bind(owner, since)
+    .bind(owner, now - DAY)
     .first<{ n: number }>();
   return row?.n ?? 0;
 }
@@ -23,12 +24,13 @@ export async function insertAttempt(
     .run();
 }
 
-export function findAttempt(id: string, owner: string, letterType: string, since: number) {
+/** The owner's attempt of this letter type, if started within the last 30 days (AGE). */
+export function findAttempt(id: string, owner: string, letterType: string, now: number) {
   return db()
     .prepare(
       "SELECT id,completed FROM writing_attempts WHERE id=? AND owner=? AND letter_type=? AND created>?",
     )
-    .bind(id, owner, letterType, since)
+    .bind(id, owner, letterType, now - AGE)
     .first<AttemptRow>();
 }
 
@@ -42,11 +44,11 @@ export function deleteAttemptsByOwner(owner: string) {
   return db().prepare("DELETE FROM writing_attempts WHERE owner=?").bind(owner);
 }
 
-/** Starts / completions / shares per letter type, for the admin dashboard. */
-export function attemptMetrics(since: number) {
+/** Starts / completions / shares per letter type over the last 30 days, for the admin dashboard. */
+export function attemptMetrics(now: number) {
   return db()
     .prepare(
       "SELECT letter_type AS letterType, COUNT(*) AS starts, SUM(CASE WHEN completed IS NOT NULL THEN 1 ELSE 0 END) AS completions, SUM(shared) AS shares FROM writing_attempts WHERE created>? GROUP BY letter_type",
     )
-    .bind(since);
+    .bind(now - AGE);
 }

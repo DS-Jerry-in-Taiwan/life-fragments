@@ -1,9 +1,7 @@
 import { deleteAttemptsByOwner } from "../../../lib/server/db/attempts";
-import { deleteConsentEventsByOwner } from "../../../lib/server/db/consent-events";
-import { deleteFeedbackByOrForOwner } from "../../../lib/server/db/feedback";
 import { db } from "../../../lib/server/db/index";
 import { deleteSession } from "../../../lib/server/db/sessions";
-import { deleteStoriesByOwner } from "../../../lib/server/db/stories";
+import { deleteStoryRows } from "../../../lib/server/db/stories";
 import { guardWrite, withSession } from "../../../lib/server/handler";
 import { reply } from "../../../lib/server/http";
 import { CLEAR_SESSION_COOKIE } from "../../../lib/server/session";
@@ -13,10 +11,7 @@ export async function DELETE(req: Request) {
   return guardWrite(req, () =>
     withSession(req, async (who) => {
       await db().batch([
-        // Feedback and consent events select the owner's stories: delete them first.
-        deleteFeedbackByOrForOwner(who),
-        deleteConsentEventsByOwner(who),
-        deleteStoriesByOwner(who),
+        ...deleteStoryRows({ kind: "erase", owner: who }, Date.now()),
         deleteAttemptsByOwner(who),
         deleteSession(who),
       ]);

@@ -1,5 +1,5 @@
 import { attemptMetrics } from "../../../../lib/server/db/attempts";
-import { AGE, db } from "../../../../lib/server/db/index";
+import { db } from "../../../../lib/server/db/index";
 import {
   type AdminStoryStatus,
   countExpiringStories,
@@ -25,9 +25,9 @@ export async function GET(req: Request) {
     withAdmin(req, async () => {
       const now = Date.now();
       const [byStatus, expiring, metrics] = await db().batch([
-        countStoriesByStatus(now - AGE),
+        countStoriesByStatus(now),
         countExpiringStories(now, EXPIRING_DAYS),
-        attemptMetrics(now - AGE),
+        attemptMetrics(now),
       ]);
       const counts: Record<AdminStoryStatus, number> = {
         pending: 0,

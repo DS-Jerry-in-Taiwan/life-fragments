@@ -1,4 +1,4 @@
-import { db, ITEM_IDS } from "./index";
+import { AGE, DAY, db } from "./index";
 import { LIVE } from "./stories";
 
 export type FeedbackInsert = {
@@ -10,10 +10,11 @@ export type FeedbackInsert = {
   created: number;
 };
 
-export async function countFeedbackSince(owner: string, since: number) {
+/** Feedback the owner wrote in the day before `now`, for the daily limit. */
+export async function countFeedbackInLastDay(owner: string, now: number) {
   const row = await db()
     .prepare("SELECT COUNT(*) AS n FROM feedback WHERE owner=? AND created>?")
-    .bind(owner, since)
+    .bind(owner, now - DAY)
     .first<{ n: number }>();
   return row?.n ?? 0;
 }
@@ -25,27 +26,10 @@ export async function insertFeedback(f: FeedbackInsert) {
     .run();
 }
 
-export function deleteFeedbackForStory(story: string) {
-  return db().prepare("DELETE FROM feedback WHERE story=?").bind(story);
-}
-
-/** Feedback on the stories among the batch items `items` (admin batch delete). */
-export function deleteFeedbackForStories(items: string) {
-  return db().prepare(`DELETE FROM feedback WHERE story IN ${ITEM_IDS}`).bind(items);
-}
-
-/** One feedback row (admin delete); batch it right after logFeedbackDelete(). */
+/** One feedback row (admin delete); batch it right after logFeedbackDelete(). Feedback on a
+ * deleted story goes with it (lib/server/db/stories.ts deleteStoryRows()). */
 export function deleteFeedback(id: string) {
   return db().prepare("DELETE FROM feedback WHERE id=?").bind(id);
-}
-
-/** Feedback the owner wrote, and feedback left on the owner's stories. */
-export function deleteFeedbackByOrForOwner(owner: string) {
-  return db()
-    .prepare(
-      "DELETE FROM feedback WHERE story IN (SELECT id FROM stories WHERE owner=?) OR owner=?",
-    )
-    .bind(owner, owner);
 }
 
 /** GET /api/admin/feedback filters (lib/server/validation.ts parseAdminFeedbackQuery()). */
@@ -57,15 +41,15 @@ export type AdminFeedbackFilter = {
 };
 
 /**
- * One page of feedback from the last 30 days (`cutoff` = now - AGE), problem
+ * One page of feedback from the last 30 days (AGE before `now`), problem
  * reports first, then newest first (created, then id, descending), at most
  * `limit` rows. Each row carries its story's title (storyTitle), NULL when
  * the story is no longer live (withdrawn, deleted or expired, or one of the
  * removed /archive demo stories, ids "demo-…").
  */
-export function listAdminFeedback(f: AdminFeedbackFilter, cutoff: number, limit: number) {
-  const where = ["f.created>?"];
-  const args: (string | number)[] = [cutoff, cutoff];
+export function listAdminFeedback(f: AdminFeedbackFilter, now: number, limit: number) {
+  const where = [`f.created>(?-${AGE})`];
+  const args: (string | number)[] = [now, now];
   const add = (condition: string, ...values: (string | number)[]) => {
     where.push(condition);
     args.push(...values);

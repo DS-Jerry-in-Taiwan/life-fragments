@@ -1,6 +1,5 @@
 import { paginate, PAGE_SIZE } from "../../../../lib/server/cursor";
 import { listAdminEvents, listEventAdmins } from "../../../../lib/server/db/admin-events";
-import { AGE } from "../../../../lib/server/db/index";
 import { guardRead, withAdmin } from "../../../../lib/server/handler";
 import { reply } from "../../../../lib/server/http";
 import { parseAdminEventQuery } from "../../../../lib/server/validation";
@@ -20,7 +19,7 @@ export async function GET(req: Request) {
       const v = parseAdminEventQuery(new URL(req.url).searchParams);
       if (!v.ok) return reply({ error: v.error }, 400);
       const [{ results }, admins] = await Promise.all([
-        listAdminEvents(v.data, Date.now() - AGE, PAGE_SIZE + 1),
+        listAdminEvents(v.data, Date.now(), PAGE_SIZE + 1),
         listEventAdmins(),
       ]);
       const { page, nextCursor } = paginate(results, (e) => [e.created, e.id]);

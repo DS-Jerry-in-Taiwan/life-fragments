@@ -1,14 +1,14 @@
-import { deleteAdminEventsBefore } from "./db/admin-events";
-import { ADMIN_EVENT_AGE, AGE, db, SESSION_AGE } from "./db/index";
-import { EXPIRED_STORY } from "./db/stories";
+import { deleteExpiredAdminEvents } from "./db/admin-events";
+import { AGE, db, SESSION_AGE } from "./db/index";
+import { deleteStoryRows } from "./db/stories";
 
 // Data retention (#4 §6), run once a day by the Cron Trigger in
 // wrangler.jsonc (worker/index.ts `scheduled`). Nothing else deletes expired
 // rows: reads only hide them (lib/server/db/stories.ts LIVE).
 //
-// - stories, keyed on their consent version (lib/server/db/stories.ts
-//   EXPIRED_STORY, the same rule the reads use), together with their feedback
-//   and consent_events:
+// - stories, keyed on their consent version (lib/server/db/stories.ts, the
+//   same rule the reads use), together with their feedback and consent_events
+//   (deleteStoryRows(), as every other delete):
 //   - consent version in PERMANENT_CONSENT_VERSIONS (every submission since
 //     V3-c): approved stories are never deleted automatically, any other
 //     status 30 days after its last status change (status_at);
@@ -44,6 +44,7 @@ export async function runRetention(now: number): Promise<RetentionResult> {
   const d = db();
   const [
     storyFeedback,
+    storyEvents,
     stories,
     consentEvents,
     backfilled,
@@ -52,15 +53,8 @@ export async function runRetention(now: number): Promise<RetentionResult> {
     sessions,
     adminEvents,
   ] = await d.batch([
-    // Feedback first: the subquery needs the stories that are about to go.
-    d
-      .prepare(
-        `DELETE FROM feedback WHERE story IN (SELECT id FROM stories WHERE ${EXPIRED_STORY})`,
-      )
-      .bind(cutoff),
-    d.prepare(`DELETE FROM stories WHERE ${EXPIRED_STORY}`).bind(cutoff),
-    // Every event whose story is gone: this run's deletions plus anything
-    // a past delete path missed.
+    ...deleteStoryRows({ kind: "expired" }, now),
+    // Every event whose story is gone: anything a past delete path missed.
     d.prepare("DELETE FROM consent_events WHERE story NOT IN (SELECT id FROM stories)"),
     // Same version rule as the 0003 backfill.
     d.prepare(
@@ -75,12 +69,12 @@ export async function runRetention(now: number): Promise<RetentionResult> {
     d.prepare("DELETE FROM feedback WHERE created<?").bind(cutoff),
     d.prepare("DELETE FROM writing_attempts WHERE created<?").bind(cutoff),
     d.prepare("DELETE FROM sessions WHERE COALESCE(last_seen,created)<?").bind(now - SESSION_AGE),
-    deleteAdminEventsBefore(now - ADMIN_EVENT_AGE),
+    deleteExpiredAdminEvents(now),
   ]);
   return {
     stories: stories.meta.changes,
     feedback: storyFeedback.meta.changes + feedback.meta.changes,
-    consentEvents: consentEvents.meta.changes,
+    consentEvents: storyEvents.meta.changes + consentEvents.meta.changes,
     backfilledEvents: backfilled.meta.changes,
     writingAttempts: writingAttempts.meta.changes,
     sessions: sessions.meta.changes,
