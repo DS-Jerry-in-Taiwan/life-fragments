@@ -805,6 +805,43 @@ test("feedback: sent with a token; one retry on a Turnstile refusal, then the er
   expect(log.reset, "每個請求之後都 reset").toBeGreaterThanOrEqual(3);
 });
 
+test("feedback: a challenge that never answers gives up after 30 s, the note kept", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/archive");
+  await hydrated(page);
+  await expect(page.getByText("信箱剛剛開啟。先讀一段示範，感受這裡的節奏。")).toBeVisible();
+  await page.getByText("願意告訴我們讀起來如何嗎？").click();
+  await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
+  let posts = 0;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback") posts++;
+  });
+
+  await page.evaluate(() => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = true));
+  const note = "卡住時這段文字也要留著。";
+  const box = page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。");
+  await box.fill(note);
+  await page.getByRole("button", { name: "送出回饋" }).click();
+  await expect.poll(async () => (await turnstileLog(page))?.executed).toBe(1);
+  await page.clock.runFor(29_000);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.clock.runFor(1_500);
+  await expect(page.getByRole("alert")).toContainText("人機驗證暫時無法載入，請保留文字並稍後重試。");
+  expect(posts, "沒有 token 就不送出").toBe(0);
+  await expect(box).toHaveValue(note);
+
+  // The next submit gets a token again.
+  await page.evaluate(() => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = false));
+  await page.getByRole("button", { name: "送出回饋" }).click();
+  await page.clock.runFor(100);
+  await expect(
+    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+  ).toBeVisible();
+  expect(posts).toBe(1);
+});
+
 test("write: a Turnstile refusal after the retry keeps the letter in the form", async ({
   page,
 }) => {

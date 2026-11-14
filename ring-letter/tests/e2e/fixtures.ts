@@ -152,6 +152,7 @@ const FAKE_TURNSTILE = `(() => {
     },
     execute(id) {
       log.executed++;
+      if (window.__turnstileStall) return; // a challenge that never answers
       const options = widgets.get(id);
       setTimeout(() => options && options.callback(${JSON.stringify(TURNSTILE_TOKEN)}), 0);
     },

@@ -13,6 +13,12 @@ const UNAVAILABLE = "人機驗證暫時無法載入，請保留文字並稍後�
 const FAILED = "人機驗證沒有通過，請再試一次。";
 /** A stalled api.js fires neither load nor error; give up so the form isn't stuck. */
 const SCRIPT_TIMEOUT_MS = 15000;
+/**
+ * A challenge that stalls without calling any callback must not leave the
+ * form busy. The deadline pauses while the visitor is shown an interactive
+ * challenge (Turnstile's own timeout-callback covers that) and restarts after.
+ */
+const TOKEN_TIMEOUT_MS = 30000;
 
 type RenderOptions = {
   sitekey: string;
@@ -24,6 +30,8 @@ type RenderOptions = {
   "error-callback": () => boolean;
   "expired-callback": () => void;
   "timeout-callback": () => void;
+  "before-interactive-callback": () => void;
+  "after-interactive-callback": () => void;
 };
 type TurnstileApi = {
   render: (el: HTMLElement, options: RenderOptions) => string | undefined;
@@ -86,8 +94,29 @@ export default function Turnstile({
   const widget = useRef<Promise<{ api: TurnstileApi; id: string }> | null>(null);
   const pending = useRef<Pending | null>(null);
   const used = useRef(false);
+  const deadline = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopDeadline = () => {
+    if (deadline.current) clearTimeout(deadline.current);
+    deadline.current = null;
+  };
+  const startDeadline = (api: TurnstileApi, id: string) => {
+    stopDeadline();
+    deadline.current = setTimeout(() => {
+      deadline.current = null;
+      if (!pending.current) return;
+      settle(new Error(UNAVAILABLE));
+      try {
+        api.reset(id);
+        used.current = false;
+      } catch {
+        // the widget is gone; the next getToken() mounts a new one
+      }
+    }, TOKEN_TIMEOUT_MS);
+  };
 
   const settle = (outcome: string | Error) => {
+    stopDeadline();
     const p = pending.current;
     pending.current = null;
     if (!p) return;
@@ -113,6 +142,11 @@ export default function Turnstile({
         },
         "expired-callback": () => settle(new Error(FAILED)),
         "timeout-callback": () => settle(new Error(FAILED)),
+        "before-interactive-callback": () => stopDeadline(),
+        "after-interactive-callback": () => {
+          // only fires after render() returned, so `id` is set
+          if (pending.current && id) startDeadline(api, id);
+        },
       });
       if (!id) throw new Error(UNAVAILABLE);
       return { api, id };
@@ -142,6 +176,7 @@ export default function Turnstile({
       settle(new Error(FAILED));
       return new Promise<string>((resolve, reject) => {
         pending.current = { resolve, reject };
+        startDeadline(api, id);
         api.execute(id);
       });
     },
