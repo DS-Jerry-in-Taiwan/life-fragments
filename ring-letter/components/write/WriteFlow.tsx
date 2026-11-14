@@ -51,7 +51,10 @@ export default function WriteFlow() {
     // The uncontrolled inputs as typed so far, for the live body count.
     [typed, setTyped] = useState<Draft["fields"]>({}),
     [saved, setSaved] = useState(false),
-    [shownMode, setShownMode] = useState(mode);
+    [shownMode, setShownMode] = useState(mode),
+    // Bumped on every refused submit, so a repeated identical error is
+    // scrolled back into view too.
+    [failures, setFailures] = useState(0);
   /** Puts a type's saved letter (or an empty one) into the form; its attempt too, if any. */
   function restore(next: LetterType | "") {
     const draft = next ? readDraft(next) : null;
@@ -111,7 +114,7 @@ export default function WriteFlow() {
   // button can be at the bottom edge).
   useEffect(() => {
     if (error) formError.current?.scrollIntoView({ block: "nearest" });
-  }, [error]);
+  }, [error, failures]);
   // Arrived at /write?mode=… without one (direct link, reload, back /
   // forward): the draft's attempt, or record one now, once; if that fails the
   // chooser stays, with the error.
@@ -139,10 +142,12 @@ export default function WriteFlow() {
     const text = letterBody(mode as LetterType, source, body, val);
     if (!text) {
       setError("至少留下一件事、一個畫面或一點感受。");
+      setFailures((n) => n + 1);
       return;
     }
     if (text.length > MAX_BODY) {
       setError("這封信的正文合計超過 1,500 字，請稍微縮短後再送出。");
+      setFailures((n) => n + 1);
       return;
     }
     return action.run(async () => {

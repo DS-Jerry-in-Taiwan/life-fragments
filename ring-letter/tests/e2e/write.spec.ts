@@ -107,6 +107,13 @@ test.describe("phone 390px", () => {
       const [button, message] = [await submitButton(page).boundingBox(), await alert.boundingBox()];
       expect(message!.y - (button!.y + button!.height), "緊接在送出按鈕下方").toBeLessThan(40);
       expect(message!.y).toBeGreaterThan(button!.y);
+
+      // The same error again, after scrolling away: back on screen.
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      await expect(alert).not.toBeInViewport();
+      await submitButton(page).evaluate((b: HTMLElement) => b.click());
+      await expect(alert).toHaveText(c.message);
+      await expect(alert, "同樣的錯誤再出現一次也捲回來").toBeInViewport();
     });
   }
 
