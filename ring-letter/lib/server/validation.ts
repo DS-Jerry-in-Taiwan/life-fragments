@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CONSENT_TERMS } from "../consent";
 import { decodeCursor } from "./cursor";
 import type { AdminEventFilter } from "./db/admin-events";
 import type { AdminFeedbackFilter } from "./db/feedback";
@@ -246,7 +247,7 @@ const adminStoriesSchema = z
   .object({
     status: z.enum(["pending", "approved", "rejected", "private", "all"]).default("pending"),
     reshare: z.literal("1").optional(),
-    consent: z.enum(["v2", "v3"]).optional(),
+    consent: z.enum(CONSENT_TERMS).optional(),
     expiring: z
       .string()
       .regex(/^\d{1,3}$/)

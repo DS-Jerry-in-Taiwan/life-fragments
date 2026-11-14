@@ -1,3 +1,4 @@
+import { MAX_SHARE_REQUESTS } from "../../consent";
 import { db, ITEM_IDS } from "./index";
 
 // Append-only consent history (#4 §6.1). Rows share the story's lifetime:
@@ -32,14 +33,6 @@ export function deleteConsentEventsByOwner(owner: string) {
     .prepare("DELETE FROM consent_events WHERE story IN (SELECT id FROM stories WHERE owner=?)")
     .bind(owner);
 }
-
-/**
- * Each story may ask to be shared again at most this many times after
- * submission (#4 §6.1): counted as its 'share' events, whether it was
- * private, taken down or rejected before. Stop sharing and withdraw stay
- * available once it is used up.
- */
-export const MAX_SHARE_REQUESTS = 3;
 
 /**
  * What an author's sharing change read before writing: the story's status,

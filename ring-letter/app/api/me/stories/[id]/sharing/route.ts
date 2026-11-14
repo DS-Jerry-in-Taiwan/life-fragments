@@ -1,13 +1,12 @@
 import {
-  insertSharingEvent,
-  MAX_SHARE_REQUESTS,
-} from "../../../../../../lib/server/db/consent-events";
-import { AGE, db } from "../../../../../../lib/server/db/index";
-import {
   CONSENT_VERSION,
-  findOwnStoryForSharing,
-  setSharing,
-} from "../../../../../../lib/server/db/stories";
+  consentString,
+  consentVersionOf,
+  MAX_SHARE_REQUESTS,
+} from "../../../../../../lib/consent";
+import { insertSharingEvent } from "../../../../../../lib/server/db/consent-events";
+import { AGE, db } from "../../../../../../lib/server/db/index";
+import { findOwnStoryForSharing, setSharing } from "../../../../../../lib/server/db/stories";
 import {
   guardWrite,
   type IdContext,
@@ -20,12 +19,6 @@ import { parseSharing, parseStoryId } from "../../../../../../lib/server/validat
 /** Which statuses each direction may start from (#4 §6.1). */
 const SHARE_FROM = ["private", "rejected"];
 const STOP_FROM = ["pending", "approved"];
-
-/** Consent wording version of a stored consent string (the whole string without a ':'). */
-function versionOf(consent: string) {
-  const i = consent.indexOf(":");
-  return i < 0 ? consent : consent.slice(0, i);
-}
 
 /**
  * The author changes a story's sharing (#4 §6.1); the text is never touched.
@@ -73,18 +66,11 @@ export async function PATCH(req: Request, { params }: IdContext) {
       if (await overDailyLimit("sharing", who, now))
         return reply({ error: "今天已調整十次分享設定，明天再來。" }, 429);
 
-      const version = share ? CONSENT_VERSION : versionOf(story.consent);
+      const version = share ? CONSENT_VERSION : consentVersionOf(story.consent);
       const to = share ? "pending" : "private";
       const [, update] = await db().batch([
         insertSharingEvent(id, who, story, share ? "share" : "unshare", version, now),
-        setSharing(
-          id,
-          who,
-          story,
-          to,
-          `${version}:adult,privacy,${share ? "share" : "private"}`,
-          now,
-        ),
+        setSharing(id, who, story, to, consentString(version, share), now),
       ]);
       if (!update.meta.changes)
         return reply({ error: "這篇的狀態剛剛改變了，請重新整理後再試。" }, 409);

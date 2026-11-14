@@ -1,7 +1,8 @@
 import { completeAttempt, findAttempt } from "../../../../lib/server/db/attempts";
 import { insertConsentEvent } from "../../../../lib/server/db/consent-events";
 import { AGE, db } from "../../../../lib/server/db/index";
-import { CONSENT_VERSION, insertStory, listOwnStories } from "../../../../lib/server/db/stories";
+import { CONSENT_VERSION, consentString } from "../../../../lib/consent";
+import { insertStory, listOwnStories } from "../../../../lib/server/db/stories";
 import { guardRead, guardWrite, withBodyTurnstileAndSession } from "../../../../lib/server/handler";
 import { reply } from "../../../../lib/server/http";
 import { overDailyLimit } from "../../../../lib/server/rate-limit";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
         era: s.era,
         source: s.source,
         status,
-        consent: `${CONSENT_VERSION}:adult,privacy,${s.share ? "share" : "private"}`,
+        consent: consentString(CONSENT_VERSION, s.share),
         created: now,
         letterType: s.type,
         mood: s.mood,

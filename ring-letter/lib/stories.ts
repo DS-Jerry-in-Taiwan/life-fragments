@@ -1,3 +1,5 @@
+import type { ConsentTerms } from "./consent";
+
 export type LetterType = "past" | "present";
 
 export type Story = {
@@ -40,7 +42,7 @@ export type AdminStory = Story & {
   /** "<version>:<flags>"; the version decides the retention terms. */
   consent: string;
   /** v3: approved stories are kept until withdrawn; v2: 30 days after submission. */
-  terms: "v2" | "v3";
+  terms: ConsentTerms;
   /** When the retention job deletes it; null: never (approved under v3). */
   expiresAt: number | null;
   /** Its feedback from the last 30 days. */

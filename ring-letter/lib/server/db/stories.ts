@@ -1,27 +1,11 @@
-import { MAX_SHARE_REQUESTS, type SharingSnapshot, unchangedSinceRead } from "./consent-events";
+import {
+  CONSENT_TERMS,
+  type ConsentTerms,
+  MAX_SHARE_REQUESTS,
+  PERMANENT_CONSENT_VERSIONS,
+} from "../../consent";
+import { type SharingSnapshot, unchangedSinceRead } from "./consent-events";
 import { AGE, DAY, db, ITEM_IDS } from "./index";
-
-/**
- * Consent wording version stored with every new story (and its consent_events
- * rows). Bump it whenever the consent text in components/write/ConsentFields.tsx
- * changes, and add the new version to PERMANENT_CONSENT_VERSIONS when its
- * wording still promises keeping approved stories until withdrawn.
- * v3-2026-11-12 (V3-c): approved public stories kept until withdrawn or
- * deleted by an admin, other statuses 30 days after their last status change.
- */
-export const CONSENT_VERSION = "v3-2026-11-12";
-
-/**
- * Consent versions whose wording allows keeping an approved story until it is
- * withdrawn or deleted by an admin (#4 §6). V3-c switched CONSENT_VERSION to
- * the first of them together with the sliding one-year sessions, 「在這台裝置
- * 登出」 and the contact address for admin-assisted deletion, so authors can
- * actually withdraw. Stories under any other version (v2-2026-11-05 and
- * earlier, legacy or empty) keep the terms they were submitted under: 30 days
- * from `created`, whatever their status. Existing consent strings are never
- * rewritten.
- */
-export const PERMANENT_CONSENT_VERSIONS = ["v3-2026-11-12"] as const;
 
 /** SQL: the story's consent version, the prefix of `consent` before ':' ('' without one). */
 const VERSION = "substr(consent,1,instr(consent,':')-1)";
@@ -58,8 +42,9 @@ const SHARE_REQUESTS =
 /** SQL: the story's consent events, all actions (the admin sends it back with a decision). */
 const CONSENT_EVENTS = "(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id)";
 
-/** SQL: 'v3' for a consent version that keeps approved stories (PERMANENT), 'v2' for every other (30 days). */
-const TERMS = `(CASE WHEN ${PERMANENT} THEN 'v3' ELSE 'v2' END)`;
+/** SQL: the story's terms (lib/consent.ts CONSENT_TERMS): 'v3' for a PERMANENT version, 'v2' for every other. */
+const [V2_TERMS, V3_TERMS] = CONSENT_TERMS;
+const TERMS = `(CASE WHEN ${PERMANENT} THEN '${V3_TERMS}' ELSE '${V2_TERMS}' END)`;
 
 export type StoryInsert = {
   id: string;
@@ -265,7 +250,7 @@ export type AdminStoryFilter = {
   /** Only stories that asked to be shared again after submission. */
   reshare: boolean;
   /** v3: a PERMANENT_CONSENT_VERSIONS version; v2: any other (old, legacy or empty). */
-  consent?: "v2" | "v3";
+  consent?: ConsentTerms;
   /** Deleted by retention within this many days. */
   expiring?: number;
   /** Title or body contains this text (taken literally, ASCII case-insensitive). */
@@ -296,7 +281,7 @@ export function listAdminStories(f: AdminStoryFilter, now: number, limit: number
   };
   if (f.status !== "all") add("status=?", f.status);
   if (f.reshare) where.push(`${SHARE_REQUESTS}>0`);
-  if (f.consent) where.push(f.consent === "v3" ? PERMANENT : `NOT ${PERMANENT}`);
+  if (f.consent) where.push(f.consent === V3_TERMS ? PERMANENT : `NOT ${PERMANENT}`);
   if (f.expiring !== undefined) add(`${EXPIRES_FROM}<=?`, now - AGE + f.expiring * DAY);
   if (f.q !== undefined) {
     // instr(), not LIKE: D1 refuses LIKE patterns over 50 bytes (17 CJK
