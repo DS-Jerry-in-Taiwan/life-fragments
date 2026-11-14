@@ -65,10 +65,12 @@
 .text-btn span {
   margin-left: 10px;
 }
+/* Destructive actions, as an underlined link; min-height keeps it a tap-sized target. */
 .danger {
   color: #e8ada5;
   font-size: var(--text-sm);
   text-decoration: underline;
+  min-height: 45px;
 }
 .quiet {
   font-size: var(--text-sm);

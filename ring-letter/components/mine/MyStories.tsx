@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import { CONTACT_EMAIL, CONTACT_MAILTO } from "../../lib/contact";
 import type { Story } from "../../lib/stories";
@@ -30,14 +30,37 @@ export default function MyStories() {
   const { busy, setNotice } = action;
   const confirm = useConfirm();
   const [mine, setMine] = useState<Story[]>([]);
+  // Until the first load finishes, show neither the list nor the empty state.
+  const [loaded, setLoaded] = useState(false);
   // Sharing changes report a failure next to the story (the open form or
   // button) instead of the banner at the top, and hand focus to the story's
   // new sharing control on success.
   const [sharingError, setSharingError] = useState<{ id: string; error: string } | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  // Withdraw, logout and erase-all report at the top of the page, often far
+  // above the button that was pressed, and the button itself may be gone:
+  // once idle, bring the result (notice or error) into view and focus it, so
+  // focus doesn't fall back to the page body.
+  const result = useRef<HTMLDivElement>(null);
+  const reveal = useRef(false);
+  useEffect(() => {
+    if (!reveal.current || busy) return;
+    reveal.current = false;
+    const el = result.current;
+    if (!el) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+  }, [busy]);
   const load = async () => setMine(await api.listMyStories());
   useEffect(() => {
-    action.run(load);
+    action.run(async () => {
+      try {
+        await load();
+      } finally {
+        setLoaded(true);
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   async function withdraw(id: string) {
@@ -49,6 +72,7 @@ export default function MyStories() {
     });
     if (!ok) return;
     setSharingError(null);
+    reveal.current = true;
     return action.run(async () => {
       await api.withdrawStory(id);
       await load();
@@ -90,6 +114,7 @@ export default function MyStories() {
       danger: true,
     });
     if (!ok) return;
+    reveal.current = true;
     return action.run(async () => {
       await api.eraseMyData();
       forgetDrafts();
@@ -105,6 +130,7 @@ export default function MyStories() {
       confirmLabel: "登出",
     });
     if (!ok) return;
+    reveal.current = true;
     return action.run(async () => {
       await api.logout();
       forgetDrafts();
@@ -114,7 +140,9 @@ export default function MyStories() {
   }
   return (
     <>
-      <StatusMessage action={action} />
+      <div ref={result} tabIndex={-1} className={styles.result}>
+        <StatusMessage action={action} />
+      </div>
       <section className={styles.collection}>
         <SectionIntro eyebrow="只屬於這個瀏覽器的信匣" title="我的片段">
           <span className="sentence">投稿存在伺服器；此瀏覽器的 Cookie 是你的存取憑證。</span>
@@ -124,10 +152,16 @@ export default function MyStories() {
             <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a> 請管理者代刪。
           </span>
         </SectionIntro>
-        {busy && <p role="status">正在處理…</p>}
-        {!busy && !mine.length && (
+        {/* Always present (a live region announces changes, not insertions),
+            and out of the flow: 正在處理… mustn't push the list down. */}
+        <div className={styles.busyRow}>
+          <p role="status" className={styles.busy}>
+            {busy ? "正在處理…" : ""}
+          </p>
+        </div>
+        {loaded && !mine.length && (
           <div className={styles.empty}>
-            <span>☾</span>
+            <span aria-hidden="true">☾</span>
             <h2>還沒有留下的片段</h2>
             <p>有些話，可以從今天開始保存。</p>
             <NavButton to="/write" className="secondary">

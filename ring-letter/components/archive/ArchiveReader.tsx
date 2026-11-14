@@ -83,7 +83,7 @@ export default function ArchiveReader() {
         {current && (
           <>
             <StoryPaper label="真人投稿 · 經作者同意" mark="✦">
-              <StoryMeta story={current} />
+              <StoryMeta story={current} onPaper />
               <h2>{current.title}</h2>
               <div className={paper.body}>{current.body}</div>
               <StoryExtra story={current} />
