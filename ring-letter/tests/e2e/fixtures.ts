@@ -39,6 +39,22 @@ export async function eraseSession(context: BrowserContext) {
   expect(r.status(), "清除測試資料失敗").toBe(200);
 }
 
+/** The open ConfirmDialog (components/common/ConfirmDialog.tsx). */
+export const confirmDialog = (page: Page) => page.getByRole("dialog");
+
+/**
+ * Answers the open ConfirmDialog with one of its buttons (取消 or the
+ * confirm verb) and waits for it to close; returns the dialog's text.
+ */
+export async function answer(page: Page, button: string) {
+  const dialog = confirmDialog(page);
+  await expect(dialog).toBeVisible();
+  const text = await dialog.innerText();
+  await dialog.getByRole("button", { name: button, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  return text;
+}
+
 /** Wait until React has hydrated, so clicks on buttons actually do something. */
 export async function hydrated(page: Page) {
   await page.waitForFunction(() => {

@@ -5,6 +5,7 @@ import styles from "./SiteHeader.module.css";
 
 const NAV = [
   ["/read", "讀一封信"],
+  ["/archive", "公開信箱"],
   ["/write", "寫一封信"],
   ["/mine", "我的片段"],
 ] as const;

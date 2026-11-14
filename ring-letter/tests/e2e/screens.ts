@@ -14,6 +14,8 @@ export type Screen = {
   admin?: boolean;
   /** Writes to the DB (session + writing attempt); cleaned up by the fixture. */
   writes?: boolean;
+  /** Shoot the viewport only (a modal centred in it), not the full page. */
+  viewport?: boolean;
   open: (page: Page) => Promise<void>;
   ready: (page: Page) => Promise<void>;
 };
@@ -105,9 +107,26 @@ export const SCREENS: Screen[] = [
     open: (page) => route(page, "/archive"),
     ready: async (page) => {
       await expect(h1(page, /有一段生活/)).toBeVisible();
-      // Fresh DB: no approved stories, so the first hardcoded demo shows.
-      await expect(page.getByText("信箱剛剛開啟。先讀一段示範，感受這裡的節奏。")).toBeVisible();
-      await expect(page.getByRole("heading", { name: "那天，我提早一站下車" })).toBeVisible();
+      // Fresh DB: no approved stories, so the empty state shows (V5-a: no demo stories).
+      await expect(page.getByRole("heading", { name: "信箱還在等第一封信" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "讀一封範例信 →" })).toBeVisible();
+    },
+  },
+  {
+    // ConfirmDialog (V5-a), over the form it was asked from.
+    name: "confirm",
+    writes: true,
+    viewport: true,
+    open: async (page) => {
+      await chooser(page);
+      await page.getByRole("button", { name: /有一段過去/ }).click();
+      await expect(h1(page, "回想一段經歷")).toBeVisible();
+      await page.getByRole("button", { name: "← 重新選擇寫法" }).click();
+    },
+    ready: async (page) => {
+      const dialog = page.getByRole("dialog", { name: "重新選擇寫法" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("button", { name: "取消" })).toBeFocused();
     },
   },
   {

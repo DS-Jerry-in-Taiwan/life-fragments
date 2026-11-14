@@ -17,7 +17,6 @@ export default function SiteFooter({
       </span>
       <div>
         <NavButton to="/mine">先前投稿與撤回</NavButton>
-        <NavButton to="/archive">先前公開信箱</NavButton>
         <button onClick={onOpenPrivacy}>先前投稿資料說明</button>
         <a href={CONTACT_MAILTO}>聯絡：{CONTACT_EMAIL}</a>
         {admin ? (

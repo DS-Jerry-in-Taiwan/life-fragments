@@ -112,7 +112,7 @@ INSERT INTO stories(id,owner,title,body,era,source,status,consent,created,status
  ${row(OLD.v2Flip,'pending',V2+':adult,privacy,share',t0-40*DAY,t0-40*DAY,null)},
  ${row(OLD.legacyApproved,'approved','legacy',t0-31*DAY,t0-31*DAY,t0-31*DAY)};
 INSERT INTO consent_events(story,action,consent_version,created) VALUES ${ev(OLD.permApproved,V3,t0-400*DAY)},${ev(OLD.permPrivate,V3,t0-40*DAY)},${ev(OLD.permFlip,V3,t0-400*DAY)},${ev(OLD.v2Approved,V2,t0-40*DAY)},${ev(OLD.v2Flip,V2,t0-40*DAY)},${ev(OLD.legacyApproved,'legacy',t0-31*DAY)};
-INSERT INTO feedback(id,owner,story,kind,note,created) VALUES (${q(OLD.feedback)},${q(mOwner)},'demo-1','resonate','',${t0-40*DAY});
+INSERT INTO feedback(id,owner,story,kind,note,created) VALUES (${q(OLD.feedback)},${q(mOwner)},${q(P+'gone')},'resonate','',${t0-40*DAY});
 INSERT INTO sessions(hash,created,last_seen) VALUES (${q(OLD.sessionSeen)},${t0-400*DAY},${t0-40*DAY}),(${q(OLD.sessionStale)},${t0-400*DAY},${t0-366*DAY}),(${q(OLD.sessionNull)},${t0-366*DAY},NULL);`);
 const oldSessions=[OLD.sessionSeen,OLD.sessionStale,OLD.sessionNull];
 const sessionsLeft=(hashes)=>sql(`SELECT hash FROM sessions WHERE hash IN ${inList(hashes)}`).map(r=>r.hash).sort();
@@ -203,7 +203,6 @@ assert.equal((await call('POST','/api/writing-attempts',{cookie:a,data:{id:attem
 assert.equal((await feedback(S.approved,b)).status,200);
 assert.equal((await feedback(S.flip,b)).status,200);
 assert.equal((await feedback(V2S.approved,b)).status,200);
-assert.equal((await feedback('demo-2',b)).status,200);
 const beforeReject=Date.now();
 await moderate(S.flip,'rejected');
 await moderate(V2S.flip,'rejected');
@@ -255,7 +254,6 @@ assert.deepEqual(Object.keys(rows).sort(),[S.approved,S.flip].sort(),'v3: privat
 assert.equal(eventsFor(all).length,2,'consent events go with their stories');
 assert.equal(feedbackOn([S.approved,S.flip]),2,'feedback on surviving stories is younger than 30 days');
 assert.ok((await publicIds()).includes(S.approved),'the v3 approved story is still public');
-assert.ok(has('feedback','story','demo-2'),'feedback younger than 30 days kept');
 assert.ok(!has('writing_attempts','id',attempt),'writing attempt deleted 30 days after created');
 assert.ok(has('writing_attempts','id',attempt2),'a newer attempt kept');
 const remaining=sqlNum("SELECT COUNT(*) AS n FROM writing_attempts WHERE letter_type='present'");
@@ -270,7 +268,6 @@ assert.ok(storyRows([OLD.permApproved])[OLD.permApproved],'permanent approved st
 
 // --- Cron 30 days after everything: feedback and attempts go; v3 approved stories and sessions stay.
 await cron(afterReject+AGE+1000);
-assert.ok(!has('feedback','story','demo-2'),'feedback deleted 30 days after created');
 assert.equal(feedbackOn([S.approved]),0,'feedback on a kept story too');
 assert.ok(!has('writing_attempts','id',attempt2));
 assert.deepEqual(Object.keys(storyRows(all)),[S.approved],'v3 rejected story deleted 30 days after the rejection; the approved one kept');

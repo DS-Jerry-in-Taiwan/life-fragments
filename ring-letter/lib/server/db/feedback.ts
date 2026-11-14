@@ -60,8 +60,8 @@ export type AdminFeedbackFilter = {
  * One page of feedback from the last 30 days (`cutoff` = now - AGE), problem
  * reports first, then newest first (created, then id, descending), at most
  * `limit` rows. Each row carries its story's title (storyTitle), NULL when
- * the story is not a live story: a demo story (id "demo-…", never in the
- * table) or one already gone.
+ * the story is no longer live (withdrawn, deleted or expired, or one of the
+ * removed /archive demo stories, ids "demo-…").
  */
 export function listAdminFeedback(f: AdminFeedbackFilter, cutoff: number, limit: number) {
   const where = ["f.created>?"];

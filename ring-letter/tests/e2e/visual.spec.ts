@@ -19,7 +19,7 @@ for (const [label, viewport] of Object.entries(WIDTHS)) {
         await screen.ready(page);
         await settle(page);
         await expect(page).toHaveScreenshot(`${screen.name}-${viewport.width}.png`, {
-          fullPage: true,
+          fullPage: !screen.viewport,
         });
       });
     }

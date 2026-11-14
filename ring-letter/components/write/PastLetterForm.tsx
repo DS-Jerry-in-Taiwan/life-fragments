@@ -1,14 +1,19 @@
+import type { Draft } from "./useDraft";
+
 /** Fields of the 回憶信 form; `source` picks guided questions or pasted original text. */
 export default function PastLetterForm({
   source,
   onSourceChange,
   body,
   onBodyChange,
+  draft,
 }: {
   source: string;
   onSourceChange: (source: string) => void;
   body: string;
   onBodyChange: (body: string) => void;
+  /** Restored values of the uncontrolled inputs (useDraft.ts). */
+  draft?: Draft["fields"];
 }) {
   return (
     <>
@@ -16,6 +21,7 @@ export default function PastLetterForm({
       <input
         id="era"
         name="era"
+        defaultValue={draft?.era}
         required
         maxLength={40}
         placeholder="例如：高中時／約三年前／記不清了"
@@ -34,16 +40,18 @@ export default function PastLetterForm({
           <label htmlFor="event">你想起的是哪一件事？</label>
           <textarea
             name="event"
+            defaultValue={draft?.event}
             id="event"
             maxLength={700}
             rows={3}
             placeholder="從一件小事開始也可以。"
           />
           <label htmlFor="scene">如果只留下一個畫面，你會寫下哪個瞬間？</label>
-          <textarea name="scene" id="scene" maxLength={700} rows={3} />
+          <textarea name="scene" id="scene" defaultValue={draft?.scene} maxLength={700} rows={3} />
           <label htmlFor="feeling">那時候，你最在意或最不確定的是什麼？</label>
           <textarea
             name="feeling"
+            defaultValue={draft?.feeling}
             id="feeling"
             maxLength={700}
             rows={3}
@@ -66,6 +74,7 @@ export default function PastLetterForm({
       <label htmlFor="reflection">現在回頭看，有什麼跟當時想的不一樣？（選填）</label>
       <textarea
         name="reflection"
+        defaultValue={draft?.reflection}
         id="reflection"
         maxLength={800}
         rows={3}

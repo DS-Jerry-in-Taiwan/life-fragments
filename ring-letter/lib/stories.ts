@@ -49,7 +49,7 @@ export type AdminStory = Story & {
 
 /** Feedback as GET /api/admin/feedback lists it. */
 export type AdminFeedback = Feedback & {
-  /** null for demo stories and stories no longer in the system. */
+  /** null for stories no longer in the system. */
   storyTitle: string | null;
 };
 
@@ -92,9 +92,7 @@ export function formatStoryMeta(s: Story) {
   const date = s.created
     ? new Date(s.created).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
     : "";
-  return s.source === "demo"
-    ? s.era
-    : s.letterType === "present"
-      ? `當下信 · ${date} 記錄`
-      : `${s.letterType === "past" ? "回憶信" : "早期投稿"} · 事件：${s.era} · ${s.source === "original" ? "當時原文／" + date + " 收錄" : date + " 回憶書寫"}`;
+  return s.letterType === "present"
+    ? `當下信 · ${date} 記錄`
+    : `${s.letterType === "past" ? "回憶信" : "早期投稿"} · 事件：${s.era} · ${s.source === "original" ? "當時原文／" + date + " 收錄" : date + " 回憶書寫"}`;
 }

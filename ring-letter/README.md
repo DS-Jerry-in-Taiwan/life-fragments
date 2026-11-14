@@ -38,7 +38,7 @@ npm run dev                # http://127.0.0.1:5173
 
 ## 瀏覽器測試與截圖基準
 
-`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）、投稿與回饋的 Turnstile（用 `fixtures.ts` 假的 `api.js`：只在表單出現時載入、請求帶 token、被拒重取 token 重送一次、再失敗文字仍在表單上）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
+`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）、`ConfirmDialog`（取消、Esc、點背景都不做事）、`/write` 草稿（重新整理與換頁後還原、送出或切換寫法後清除）、投稿與回饋的 Turnstile（用 `fixtures.ts` 假的 `api.js`：只在表單出現時載入、請求帶 token、被拒重取 token 重送一次、再失敗文字仍在表單上）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
 
 截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
 
@@ -50,7 +50,7 @@ TEST_ORIGIN=http://127.0.0.1:5174 npm run test:e2e   # dev server 在別的 port
 npm run test:e2e:update                       # 畫面確定要改時，重新產生有差異的基準
 ```
 
-- 本機 D1 要是乾淨的（跟 `test:api` 一樣）：管理頁與公開信箱的截圖是空資料庫的樣子。管理頁的操作紀錄會保留一年（smoke 測試自己的操作也會留下），截圖時把 `/api/admin/events` 換成空清單（`tests/e2e/screens.ts`）。有殘留資料就刪掉 `.wrangler/state` 再跑 `db:migrate:local`。
+- 本機 D1 要是乾淨的（跟 `test:api` 一樣）：管理頁與公開信箱的截圖是空資料庫的樣子（公開信箱是空狀態；回饋測試會自己種一篇已核准的故事，結束後刪除）。管理頁的操作紀錄會保留一年（smoke 測試自己的操作也會留下），截圖時把 `/api/admin/events` 換成空清單（`tests/e2e/screens.ts`）。有殘留資料就刪掉 `.wrangler/state` 再跑 `db:migrate:local`。
 - 字型從 Google Fonts 載入，需要連得到網路。Google 對 400／500／600 三個字重回傳同一批可變字型檔、每個檔宣告三次，比對哪一個會隨載入順序而變，造成字形有細微像素差；測試會把這段 CSS 改寫成每個檔一個 `font-weight: 400 600` 的 @font-face（見 `tests/e2e/fixtures.ts`），字檔本身不變。
 - 失敗時差異圖在 `test-results/`；CI 會把 `playwright-report/` 與 `test-results/` 上傳成 artifact。
 - 升級 `@playwright/test` 後，容器版本會跟著換，要重新產生全部基準（`npm run test:e2e -- --update-snapshots=all`）。

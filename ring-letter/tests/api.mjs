@@ -154,7 +154,6 @@ const story={title:'自動測試文章，結束即刪除',body:'這是一篇測�
   for(const cookie of [a.cookie,'']){
    assert.deepEqual(only(await submit(story,cookie,{turnstile})),MISSING);
    assert.deepEqual(only(await submit({...story,adult:false},cookie,{turnstile})),MISSING,'before field validation');
-   assert.deepEqual(only(await feedback({story:'demo-1',kind:'resonate',note:''},cookie,{turnstile})),MISSING);
    assert.deepEqual(only(await feedback({story:'no-such-story',kind:'resonate',note:''},cookie,{turnstile})),MISSING,'before the story lookup');
   }
  }
@@ -185,7 +184,8 @@ assert.deepEqual((await moderate('no-such-story',{status:'approved'},{admin:true
 assert.equal((await moderate(id,{id:'no-such-story',status:'approved'},{admin:true})).status,200);
 assert.ok((await stories()).data.stories.some(x=>x.id===id));
 assert.equal((await feedback({story:id,kind:'resonate',note:'測試'},b.cookie)).status,200);
-assert.equal((await feedback({story:'demo-1',kind:'more',note:''},b.cookie)).status,200);
+// The /archive demo stories are gone (V5-a): their ids are unknown stories now.
+assert.deepEqual((await feedback({story:'demo-1',kind:'more',note:''},b.cookie)).data,{error:'這篇故事已不再提供。'});
 assert.ok((await adminAll('feedback',{story:id})).length>0);
 assert.equal((await adminStory(id)).feedbackCount,1,'the admin card counts its feedback');
 const privateStory=await submit({...story,share:false},a.cookie);assert.equal(privateStory.status,200);assert.equal(privateStory.data.status,'private');
@@ -203,7 +203,9 @@ for(const type of ['past','present']){
  assert.equal((await start({id:'not-a-uuid',letterType:type},a.cookie)).status,400);
  assert.equal((await start({id:attempt,letterType:type},a.cookie)).status,200);
  const payload={...story,title:'',body:'今天有點累',letterType:type,attempt,mood:type==='present'?'疲倦':'',reflection:type==='past'?'現在還不明白':'',share:false};
- assert.equal((await submit(payload,b.cookie)).status,400);
+ // Another session's attempt (or one that is gone): 400 with code "attempt", so the write form starts a new one and keeps the letter.
+ assert.deepEqual((await submit(payload,b.cookie)).data,{error:'試寫階段已過期，請重新選擇寫法。',code:'attempt'});
+ assert.equal((await submit({...payload,attempt:crypto.randomUUID()},a.cookie)).data.code,'attempt');
  if(type==='present')assert.equal((await submit({...payload,mood:''},a.cookie)).status,400);
  const result=await submit(payload,a.cookie);assert.equal(result.status,200,JSON.stringify(result));
  assert.equal((await submit(payload,a.cookie)).status,409);
@@ -563,7 +565,8 @@ for(const type of ['past','present']){
   fb=(await session()).cookie;
   // Inserted directly with distinct times, so the expected order does not depend on request timing.
   sql(`INSERT INTO feedback(id,owner,story,kind,note,created) VALUES (${q(P+'fa-1')},'v6-test',${q(P+'a1')},'resonate',${q('共鳴 '+tag)},${now-3000}),(${q(P+'fa-2')},'v6-test',${q(P+'a1')},'report',${q('回報 '+tag)},${now-2000}),(${q(P+'fa-3')},'v6-test',${q(P+'a1')},'comment',${q('留言 '+tag)},${now-1000})`);
-  assert.equal((await feedback({story:'demo-1',kind:'report',note:'示範 '+tag},fb)).status,200);
+  // Feedback whose story is gone (here never existed, like the removed demo-… ones) stays listed, without a title.
+  sql(`INSERT INTO feedback(id,owner,story,kind,note,created) VALUES (${q(P+'fa-gone')},'v6-test',${q(P+'gone')},'report',${q('不在 '+tag)},${now-500})`);
   {
    const r=await adminList('feedback',{story:P+'a1'});
    assert.deepEqual(r.data.feedback.map(f=>f.kind),['report','comment','resonate'],'reports first, then newest first');
@@ -572,8 +575,8 @@ for(const type of ['past','present']){
    assert.equal(r.data.nextCursor,null);
    assert.deepEqual((await adminList('feedback',{story:P+'a1',kind:'report'})).data.feedback.map(f=>f.note),['回報 '+tag]);
    assert.deepEqual((await adminList('feedback',{story:P+'a1',kind:'all'})).data.feedback.length,3);
-   const demo=(await adminList('feedback',{story:'demo-1',kind:'report'})).data.feedback.find(f=>f.note==='示範 '+tag);
-   assert.equal(demo.storyTitle,null,'demo stories have no title (the UI labels them 示範故事)');
+   const gone=(await adminList('feedback',{story:P+'gone',kind:'report'})).data.feedback;
+   assert.deepEqual(gone.map(f=>[f.note,f.storyTitle]),[['不在 '+tag,null]],'a story no longer live has no title (the UI says 文章已不在系統中)');
    assert.ok((await adminList('feedback')).data.feedback.length>=4);
    for(const params of [{kind:'spam'},{story:'x'.repeat(201)}])assert.deepEqual((await adminList('feedback',params)).data,{error:BAD});
    assert.deepEqual((await adminList('feedback',{cursor:cursorOf([2,1,'x'])})).data,{error:BAD_CURSOR});
