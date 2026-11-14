@@ -4,8 +4,10 @@ import {
   asAdmin,
   confirmDialog,
   expect,
+  fontRequests,
   hydrated,
   ORIGIN,
+  settle,
   test,
   TURNSTILE_TOKEN,
   turnstileLog,
@@ -175,6 +177,19 @@ test("all 7 routes load directly", async ({ page, context }) => {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: heading }).first()).toBeVisible();
   }
+});
+
+test("fonts: Noto Serif TC comes from our own origin, never from Google Fonts", async ({
+  page,
+  context,
+}) => {
+  const fonts = fontRequests(context);
+  for (const path of ["/", "/read", "/write?mode=past", "/archive", "/privacy"]) {
+    await page.goto(path);
+    await settle(page);
+  }
+  expect(fonts.google, "不應向 Google Fonts 發出請求").toEqual([]);
+  expect(fonts.selfHosted.length, "Noto Serif TC 的 woff2 分片從本站載入").toBeGreaterThan(0);
 });
 
 test("routes: nav buttons change the URL and the back button works", async ({ page }) => {

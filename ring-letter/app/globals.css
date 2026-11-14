@@ -1,6 +1,11 @@
 /* The only global CSS (#4 §4.6.2); everything else is a CSS Module next to its component. */
 /* @import must precede every other rule, so the web font comes first. */
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600&display=swap");
+/* Self-hosted Noto Serif TC (@fontsource, #4 §10 item 6): one @font-face per
+   unicode-range slice, so the browser fetches only the slices a page uses.
+   Weight 400 only: every serif element (h1–h3, story text) is set to 400.
+   Add a weight's CSS here before giving serif text a heavier weight, or the
+   browser fakes the bold. See also woff2Only in vite.config.ts. */
+@import "@fontsource/noto-serif-tc/400.css";
 @import "../styles/tokens.css";
 @import "../styles/base.css";
 @import "../styles/utilities.css";

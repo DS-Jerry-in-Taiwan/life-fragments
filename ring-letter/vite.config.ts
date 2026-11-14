@@ -88,6 +88,32 @@ function devAdminIdentity(): Plugin {
   };
 }
 
+/**
+ * Self-hosted Noto Serif TC (@fontsource, imported at the top of
+ * app/globals.css). Each unicode-range slice must stay its own file: the
+ * browser then downloads only the slices a page's characters fall in.
+ * - Never inline a font as a data: URI (Vite inlines assets under 4 KB),
+ *   which would put those slices in the global CSS of every page.
+ * - Drop the .woff fallback after each .woff2: every browser we support
+ *   reads woff2, and it would double the deployed font files.
+ */
+const keepFontFiles = (file: string) => (/\.woff2?$/.test(file) ? false : undefined);
+// `Once` rather than an AtRule visitor: it runs after postcss-import has
+// inlined the @fontsource CSS but before Vite rewrites (and emits) the urls.
+type FontFaceRoot = {
+  walkAtRules: (name: string, fn: (rule: { walkDecls: (prop: string, fn: (decl: { value: string }) => void) => void }) => void) => void;
+};
+const woff2Only = {
+  postcssPlugin: "woff2-only",
+  Once(root: FontFaceRoot) {
+    root.walkAtRules("font-face", (rule) =>
+      rule.walkDecls("src", (decl) => {
+        decl.value = decl.value.replace(/,\s*url\([^)]*\.woff\)\s*format\(["']woff["']\)/g, "");
+      }),
+    );
+  },
+};
+
 // Bindings (D1 `DB`) come from wrangler.jsonc. Local dev and `npm start`
 // share the Miniflare state in .wrangler/state.
 export default defineConfig({
@@ -99,4 +125,6 @@ export default defineConfig({
       inspectorPort: false,
     }),
   ],
+  css: { postcss: { plugins: [woff2Only] } },
+  build: { assetsInlineLimit: keepFontFiles },
 });
