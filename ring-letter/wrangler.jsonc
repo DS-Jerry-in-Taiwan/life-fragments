@@ -14,6 +14,13 @@
   "routes": [{ "pattern": "ringletter.wetrytrysee.cc", "custom_domain": true }],
   // Daily data retention (lib/server/retention.ts), 19:17 UTC = 03:17 Asia/Taipei.
   "triggers": { "crons": ["17 19 * * *"] },
+  // Turnstile (lib/server/turnstile.ts, #4 §5.1) on submitting a letter or
+  // feedback. The secret is TURNSTILE_SECRET_KEY (`wrangler secret put`,
+  // never here). `npm run dev` ignores these and uses Cloudflare's test keys.
+  "vars": {
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAF_NufYLGCNmsC1m",
+    "TURNSTILE_HOSTNAME": "ringletter.wetrytrysee.cc"
+  },
   "d1_databases": [
     {
       "binding": "DB",

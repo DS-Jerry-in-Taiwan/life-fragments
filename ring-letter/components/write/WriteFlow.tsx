@@ -6,6 +6,7 @@ import type { LetterType } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
+import Turnstile, { type TurnstileHandle } from "../common/Turnstile";
 import { useShell } from "../shell/ShellContext";
 import ConsentFields from "./ConsentFields";
 import ModeChooser from "./ModeChooser";
@@ -42,6 +43,7 @@ export default function WriteFlow() {
     router.push(next ? `/write?mode=${next}` : "/write", { scroll: false });
   // Only the latest `start` may set the attempt (a slow one can't overwrite a newer one).
   const latest = useRef(0);
+  const turnstile = useRef<TurnstileHandle>(null);
   async function begin(next: LetterType) {
     const n = ++latest.current;
     const id = await api.startWriting(next);
@@ -91,19 +93,27 @@ export default function WriteFlow() {
       return;
     }
     return action.run(async () => {
-      await api.submitLetter({
-        title: val("title"),
-        body: text,
-        era: mode === "present" ? "今天" : val("era"),
-        source: mode === "present" ? "present" : source,
-        letterType: mode as LetterType,
-        attempt: attempt!.id,
-        mood: val("mood"),
-        reflection: val("reflection"),
-        adult: f.get("adult") === "on",
-        privacy: f.get("privacy") === "on",
-        share: f.get("share") === "on",
-      });
+      try {
+        await api.submitLetter(
+          {
+            title: val("title"),
+            body: text,
+            era: mode === "present" ? "今天" : val("era"),
+            source: mode === "present" ? "present" : source,
+            letterType: mode as LetterType,
+            attempt: attempt!.id,
+            mood: val("mood"),
+            reflection: val("reflection"),
+            adult: f.get("adult") === "on",
+            privacy: f.get("privacy") === "on",
+            share: f.get("share") === "on",
+          },
+          () => turnstile.current!.getToken(),
+        );
+      } finally {
+        // A token is good for one request, whatever the answer was.
+        turnstile.current?.reset();
+      }
       setSaved(true);
       // That attempt is completed; the next letter needs a new one.
       setAttempt(null);
@@ -166,6 +176,7 @@ export default function WriteFlow() {
               <PresentLetterForm body={body} onBodyChange={setBody} />
             )}
             <ConsentFields onOpenPrivacy={openPrivacy} />
+            <Turnstile action="submit" ref={turnstile} />
             <button className={`primary ${styles.submit}`} disabled={busy}>
               {busy ? "正在儲存…" : "留下這封信 ↗"}
             </button>

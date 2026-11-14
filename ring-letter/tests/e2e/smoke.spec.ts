@@ -1,4 +1,14 @@
-import { adminHeaders, asAdmin, expect, hydrated, ORIGIN, test, WIDTHS } from "./fixtures";
+import {
+  adminHeaders,
+  asAdmin,
+  expect,
+  hydrated,
+  ORIGIN,
+  test,
+  TURNSTILE_TOKEN,
+  turnstileLog,
+  WIDTHS,
+} from "./fixtures";
 import { SCREENS } from "./screens";
 
 // Functional smoke (issue #4, section 7). Each test gets a fresh browser
@@ -36,11 +46,29 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   await page.getByLabel("現在的感覺").fill("平靜");
   await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
   await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
+  const posted = page.waitForRequest(
+    (r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/me/stories",
+  );
   await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+  expect((await posted).headers()["x-turnstile-token"], "投稿帶 Turnstile token").toBe(
+    TURNSTILE_TOKEN,
+  );
   await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
   await expect(
     page.getByText("這台裝置會記得你一年，共用裝置請記得到「我的片段」登出。"),
   ).toBeVisible();
+  const turnstile = await turnstileLog(page);
+  expect(turnstile?.rendered).toEqual([
+    {
+      sitekey: "1x00000000000000000000AA",
+      action: "submit",
+      execution: "execute",
+      appearance: "interaction-only",
+      language: "zh-tw",
+    },
+  ]);
+  expect(turnstile?.executed, "送出時才取 token").toBe(1);
+  expect(turnstile?.reset, "用過就 reset").toBeGreaterThanOrEqual(1);
 
   await page.getByRole("button", { name: "查看我的片段 →" }).click();
   const story = page
@@ -68,7 +96,7 @@ test("我的片段: 在這台裝置登出 forgets this browser, the story stays"
   const sameOrigin = { headers: { Origin: ORIGIN } };
   expect((await context.request.post(ORIGIN + "/api/session", sameOrigin)).status()).toBe(200);
   const submitted = await context.request.post(ORIGIN + "/api/me/stories", {
-    ...sameOrigin,
+    headers: { ...sameOrigin.headers, "X-Turnstile-Token": TURNSTILE_TOKEN },
     data: {
       title,
       body: "這是自動化瀏覽器測試留下的文字，用來驗證登出，測試結束會刪除。",
@@ -228,7 +256,7 @@ test("我的片段: 改為分享 → approved → 停止分享, and the share ca
   const sameOrigin = { headers: { Origin: ORIGIN } };
   expect((await context.request.post(ORIGIN + "/api/session", sameOrigin)).status()).toBe(200);
   const submitted = await context.request.post(ORIGIN + "/api/me/stories", {
-    ...sameOrigin,
+    headers: { ...sameOrigin.headers, "X-Turnstile-Token": TURNSTILE_TOKEN },
     data: {
       title,
       body: "這是自動化瀏覽器測試留下的文字，用來驗證分享設定，測試結束會刪除。",
@@ -360,7 +388,13 @@ async function author() {
   const call = (method: string, path: string, data?: object) =>
     fetch(ORIGIN + path, {
       method,
-      headers: { Origin: ORIGIN, Cookie: cookie, "Content-Type": "application/json" },
+      headers: {
+        Origin: ORIGIN,
+        Cookie: cookie,
+        "Content-Type": "application/json",
+        // Only submit and feedback check it (#4 §5.1); the others ignore it.
+        "X-Turnstile-Token": TURNSTILE_TOKEN,
+      },
       body: data && JSON.stringify(data),
     });
   return {
@@ -695,4 +729,146 @@ test("admin: batch 不通過或下架 and 永久刪除, with per-story results",
   } finally {
     for (const a of authors) await a.erase();
   }
+});
+
+// --- Turnstile (#4 §5.1): the fake api.js from fixtures.ts stands in for Cloudflare's.
+
+test("Turnstile: the script loads only with the write or feedback form", async ({ page }) => {
+  const loads: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().startsWith("https://challenges.cloudflare.com/")) loads.push(page.url());
+  });
+  for (const path of ["/", "/read", "/archive", "/mine", "/privacy", "/write"]) {
+    await page.goto(path);
+    await hydrated(page);
+  }
+  await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
+  expect(loads, "首頁、試讀、公開信箱、寫法選擇不載入").toEqual([]);
+
+  // Opening the feedback box on /archive loads it.
+  await page.goto("/archive");
+  await hydrated(page);
+  await page.getByText("願意告訴我們讀起來如何嗎？").click();
+  await expect.poll(() => loads.length).toBe(1);
+  expect((await turnstileLog(page))?.rendered.map((r) => r.action)).toEqual(["feedback"]);
+});
+
+test("feedback: sent with a token; one retry on a Turnstile refusal, then the error, the note kept", async ({
+  page,
+}) => {
+  await page.goto("/archive");
+  await hydrated(page);
+  await expect(page.getByText("信箱剛剛開啟。先讀一段示範，感受這裡的節奏。")).toBeVisible();
+  await page.getByText("願意告訴我們讀起來如何嗎？").click();
+  await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
+
+  // Accepted on the first try: the request carries the token.
+  const tokens: (string | undefined)[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback")
+      tokens.push(r.headers()["x-turnstile-token"]);
+  });
+  await page.getByRole("button", { name: "有一點共鳴" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+  ).toBeVisible();
+  expect(tokens).toEqual([TURNSTILE_TOKEN]);
+
+  // Refused once (e.g. the token expired): a new token, sent again, accepted.
+  let refusals = 1;
+  await page.route("**/api/feedback", (route) =>
+    refusals-- > 0
+      ? route.fulfill({
+          status: 403,
+          json: { error: "人機驗證沒有通過，請再試一次。", code: "turnstile" },
+        })
+      : route.continue(),
+  );
+  await page.getByRole("button", { name: "沒有特別感覺" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+  ).toBeVisible();
+  expect(tokens).toHaveLength(3);
+  const afterRetry = (await turnstileLog(page))!;
+  expect(afterRetry.executed, "每次送出都取新 token").toBe(3);
+
+  // Refused twice: the error shows and the note stays in the box.
+  refusals = 2;
+  const note = "這段回饋文字要留在表單上。";
+  await page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。").fill(note);
+  await page.getByRole("button", { name: "送出回饋" }).click();
+  await expect(page.getByRole("alert")).toContainText("人機驗證沒有通過，請再試一次。");
+  expect(tokens, "只重試一次").toHaveLength(5);
+  await expect(page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。")).toHaveValue(note);
+  const log = (await turnstileLog(page))!;
+  expect(log.executed).toBe(5);
+  expect(log.reset, "每個請求之後都 reset").toBeGreaterThanOrEqual(3);
+});
+
+test("feedback: a challenge that never answers gives up after 30 s, the note kept", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/archive");
+  await hydrated(page);
+  await expect(page.getByText("信箱剛剛開啟。先讀一段示範，感受這裡的節奏。")).toBeVisible();
+  await page.getByText("願意告訴我們讀起來如何嗎？").click();
+  await page.getByRole("checkbox", { name: /同意保存本次回饋/ }).check();
+  let posts = 0;
+  page.on("request", (r) => {
+    if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback") posts++;
+  });
+
+  await page.evaluate(() => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = true));
+  const note = "卡住時這段文字也要留著。";
+  const box = page.getByLabel("有沒有哪個細節留下印象？也可以說哪裡不適合。");
+  await box.fill(note);
+  await page.getByRole("button", { name: "送出回饋" }).click();
+  await expect.poll(async () => (await turnstileLog(page))?.executed).toBe(1);
+  // While it is pending the box can't be closed: that would hide a challenge.
+  await page.getByText("願意告訴我們讀起來如何嗎？").click();
+  await expect(box).toBeVisible();
+  await page.clock.runFor(29_000);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.clock.runFor(1_500);
+  await expect(page.getByRole("alert")).toContainText("人機驗證暫時無法載入，請保留文字並稍後重試。");
+  expect(posts, "沒有 token 就不送出").toBe(0);
+  await expect(box).toHaveValue(note);
+
+  // The next submit gets a token again.
+  await page.evaluate(() => ((window as unknown as { __turnstileStall: boolean }).__turnstileStall = false));
+  await page.getByRole("button", { name: "送出回饋" }).click();
+  await page.clock.runFor(100);
+  await expect(
+    page.getByRole("status").filter({ hasText: "謝謝，你的回饋已保存。" }),
+  ).toBeVisible();
+  expect(posts).toBe(1);
+});
+
+test("write: a Turnstile refusal after the retry keeps the letter in the form", async ({
+  page,
+}) => {
+  const write = SCREENS.find((s) => s.name === "write-present")!;
+  await write.open(page);
+  await write.ready(page);
+  const text = "這封信因為人機驗證失敗沒有送出，文字要留著。";
+  await page.getByLabel("剛剛發生了什麼？").fill(text);
+  await page.getByLabel("現在的感覺").fill("平靜");
+  await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
+  await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
+  let posts = 0;
+  await page.route("**/api/me/stories", (route) =>
+    route.request().method() === "POST"
+      ? (posts++,
+        route.fulfill({
+          status: 403,
+          json: { error: "人機驗證沒有通過，請再試一次。", code: "turnstile" },
+        }))
+      : route.continue(),
+  );
+  await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+  await expect(page.getByRole("alert")).toContainText("人機驗證沒有通過，請再試一次。");
+  expect(posts, "重取 token 重送一次").toBe(2);
+  await expect(page.getByLabel("剛剛發生了什麼？")).toHaveValue(text);
+  await expect(page.getByRole("button", { name: "留下這封信 ↗" })).toBeEnabled();
 });

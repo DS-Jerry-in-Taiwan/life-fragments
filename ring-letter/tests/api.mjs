@@ -44,7 +44,11 @@ async function call(method,path,{data,raw,type='application/json',cookie='',admi
 const session=(o)=>call('POST','/api/session',o);
 const stories=()=>call('GET','/api/stories');
 const mine=(cookie)=>call('GET','/api/me/stories',{cookie});
-const submit=(data,cookie,o={})=>call('POST','/api/me/stories',{data,cookie,...o});
+// Turnstile (#4 §5.1): submit and feedback send Cloudflare's dummy token, which
+// the dev server's test secret accepts; `turnstile:null` sends none.
+const TURNSTILE_TOKEN='XXXX.DUMMY.TOKEN.XXXX';
+const withToken=({turnstile=TURNSTILE_TOKEN,headers={},...o})=>({...o,headers:{...(turnstile===null?{}:{'X-Turnstile-Token':turnstile}),...headers}});
+const submit=(data,cookie,o={})=>call('POST','/api/me/stories',{data,cookie,...withToken(o)});
 const start=(data,cookie,o={})=>call('POST','/api/writing-attempts',{data,cookie,...o});
 const withdraw=(id,cookie,o={})=>call('DELETE','/api/me/stories/'+encodeURIComponent(id),{cookie,...o});
 const erase=(cookie,o={})=>call('DELETE','/api/me',{cookie,...o});
@@ -53,7 +57,7 @@ const CONSENT={adult:true,privacy:true,share:true};
 const sharing=(id,data,cookie,o={})=>call('PATCH','/api/me/stories/'+encodeURIComponent(id)+'/sharing',{data,cookie,...o});
 const shareOn=(id,cookie,o)=>sharing(id,{share:true,consent:CONSENT},cookie,o);
 const shareOff=(id,cookie,o)=>sharing(id,{share:false},cookie,o);
-const feedback=(data,cookie)=>call('POST','/api/feedback',{data,cookie});
+const feedback=(data,cookie,o={})=>call('POST','/api/feedback',{data,cookie,...withToken(o)});
 const adminGet=(admin=true,headers={})=>call('GET','/api/admin/summary',{admin,headers});
 const moderate=(id,data,{cookie='',admin=false,source=origin}={})=>call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{data,cookie,admin,source});
 const batchModerate=(data,{admin=true,source=origin,headers={}}={})=>call('POST','/api/admin/moderation',{data,admin,source,headers});
@@ -90,12 +94,18 @@ for(const source of [ATTACKER,OTHER_PORT,null]){
  assert.equal((await deleteFeedback('x',{source})).status,403);
 }
 for(const source of [OTHER_PORT,null]){
+ // Origin first: no Turnstile code, with or without a token.
+ for(const turnstile of [TURNSTILE_TOKEN,null]){
+  assert.deepEqual((await submit({},'',{source,turnstile})),{status:403,data:{error:'來源驗證失敗'},cookie:undefined,setCookie:null});
+  assert.deepEqual((await feedback({},'',{source,turnstile})),{status:403,data:{error:'來源驗證失敗'},cookie:undefined,setCookie:null});
+ }
  assert.deepEqual((await erase('',{source})).data,{error:'來源驗證失敗'});
  assert.deepEqual((await logout('',{source})).data,{error:'來源驗證失敗'});
  assert.deepEqual((await withdraw('x','',{source})).data,{error:'來源驗證失敗'});
  assert.deepEqual((await session({source})).data,{error:'來源驗證失敗'});
 }
-// Session required (after the body checks, as in v1).
+// Session required (after the body checks, as in v1; submit and feedback
+// pass Turnstile first, writing attempts need no token).
 assert.equal((await submit({})).status,401);
 assert.equal((await start({})).status,401);
 assert.equal((await feedback({})).status,401);
@@ -108,6 +118,13 @@ assert.equal((await submit(undefined,'',{raw:'{}',type:'text/plain'})).status,41
 assert.equal((await submit(undefined,'',{raw:JSON.stringify({body:'x'.repeat(12001)})})).status,413);
 assert.deepEqual((await submit(undefined,'',{raw:'{'})).data,{error:'格式不正確'});
 assert.deepEqual((await submit(null,'')).data,{error:'格式不正確'});
+// The body checks come before Turnstile too: no token, still 415 / 413 / 400.
+for(const send of [submit,feedback]){
+ assert.equal((await send(undefined,'',{raw:'{}',type:'text/plain',turnstile:null})).status,415);
+ assert.equal((await send(undefined,'',{raw:JSON.stringify({note:'x'.repeat(12001)}),turnstile:null})).status,413);
+ assert.deepEqual((await send(undefined,'',{raw:'{',turnstile:null})).data,{error:'格式不正確'});
+ assert.deepEqual((await send(null,'',{turnstile:null})).data,{error:'格式不正確'});
+}
 // Admin: Access identity only via the per-run dev secret.
 assert.equal((await adminGet(false)).status,403);
 assert.equal((await adminGet(false,{'oai-authenticated-user-email':'tom82523@gmail.com'})).status,403);
@@ -128,6 +145,23 @@ const YEAR=31536000, refreshed=(cookie)=>`${cookie}; HttpOnly; SameSite=Lax; Pat
 assert.match(a.setCookie,new RegExp(`^rl_session=[a-f0-9]{64}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${YEAR}$`));
 const again=await session({cookie:a.cookie});assert.deepEqual(again.data,{ok:true});assert.equal(again.setCookie,refreshed(a.cookie),'reused session: cookie re-issued, not replaced');
 const story={title:'自動測試文章，結束即刪除',body:'這是一篇測試資料，用來驗證投稿與權限流程。這段內容不是真實使用者的經歷，測試完成後將刪除。',era:'測試日期',source:'recollection',adult:true,privacy:true,share:true};
+// Turnstile (#4 §5.1) comes before the session and the field checks: without
+// a token nothing is stored, whatever else the request gets right or wrong.
+{
+ const MISSING={status:403,data:{error:'請先完成人機驗證再送出。',code:'turnstile'}};
+ const only=({status,data})=>({status,data});
+ for(const turnstile of [null,'']){
+  for(const cookie of [a.cookie,'']){
+   assert.deepEqual(only(await submit(story,cookie,{turnstile})),MISSING);
+   assert.deepEqual(only(await submit({...story,adult:false},cookie,{turnstile})),MISSING,'before field validation');
+   assert.deepEqual(only(await feedback({story:'demo-1',kind:'resonate',note:''},cookie,{turnstile})),MISSING);
+   assert.deepEqual(only(await feedback({story:'no-such-story',kind:'resonate',note:''},cookie,{turnstile})),MISSING,'before the story lookup');
+  }
+ }
+ assert.deepEqual((await mine(a.cookie)).data.stories,[],'nothing was submitted');
+ assert.equal(sql(`SELECT COUNT(*) AS n FROM feedback WHERE owner=${q(hashOf(a.cookie))}`)[0].n,0,'no feedback stored');
+ // Creating a session and starting to write need no token (session() and start() send none).
+}
 assert.equal((await submit({...story,body:'太短'},a.cookie)).status,400);
 assert.equal((await submit({...story,adult:false},a.cookie)).status,400);
 const s=await submit(story,a.cookie);assert.equal(s.status,200);assert.equal(s.data.status,'pending');const id=s.data.id;
@@ -668,7 +702,7 @@ const erased=await erase(a.cookie);assert.equal(erased.status,200);assert.match(
 assert.equal((await erase(a.cookie)).status,401);
 assert.equal((await erase(b.cookie)).status,200);
 assert.equal((await adminAll('stories',{status:'all',q:story.title})).length,0);
-console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin story list pages through every story (no cap, old approved found), the queue removed (404), durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin list counts, concurrent changes, moderation refused when the story changed since it was listed), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
+console.log('PASS: removed v1 endpoints (404), unsupported methods (405), cross-origin rejection on POST and DELETE, body checks, Turnstile on submit and feedback (after origin and body, before session and fields; none for session or writing attempts), session and admin auth (forged legacy header rejected), validation, path ids, isolation, moderation, private consent, v3 consent version, admin story list pages through every story (no cap, old approved found), the queue removed (404), durable reads, feedback, withdrawal, one-year sliding sessions (cookie re-issue, daily last_seen, old-cookie upgrade, expiry), logout, author sharing changes (every §6.1 transition, 409s, consent strings and events, re-review, per-story and daily caps, old consent versions, admin list counts, concurrent changes, moderation refused when the story changed since it was listed), V6-a admin API (summary counts, every story filter alone and combined, literal q, Taipei date range, invalid params, cursor paging without duplicates or gaps, expired stories hidden, feedback filters/titles/ordering/paging/delete, batch rejection and delete with per-item results, no batch approval, operation log: one event per real change, successes only, verified email, kept after deletion, admin filter, paging), erase, cleanup');
 }finally{
  // Runs even when a check fails, so a failed run leaves no admin_events behind (nothing else here empties the table, so ids are not reused).
  sql(`DELETE FROM admin_events WHERE id>${firstEvent}`);

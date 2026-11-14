@@ -1,8 +1,11 @@
 # Deploy ring-letter to Cloudflare when main changes: apply new D1
 # migrations, then deploy the Worker to ringletter.wetrytrysee.cc.
 # Needs repository secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
-# Runtime secrets (ADMIN_EMAILS, ACCESS_*) live on the Worker and are kept
-# across deploys; they are not managed here.
+# Runtime secrets (ADMIN_EMAILS, ACCESS_*, TURNSTILE_SECRET_KEY) live on the
+# Worker and are kept across deploys; they are not managed here. Before
+# touching production, the deploy stops if TURNSTILE_SECRET_KEY is missing
+# from the Worker or wrangler.jsonc still has the placeholder Turnstile site
+# key: either would make every submission and feedback fail (#4 §5.1).
 name: Deploy
 
 on:
@@ -49,7 +52,22 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test:auth
+      - run: npm run test:turnstile
       - run: npm run build
+
+      - name: Check Turnstile configuration
+        run: |
+          if grep -q REPLACE_WITH_TURNSTILE_SITE_KEY wrangler.jsonc; then
+            echo "::error::wrangler.jsonc still has the placeholder TURNSTILE_SITE_KEY"
+            exit 1
+          fi
+          # `wrangler secret list` prints names and types only, never values.
+          # A failing wrangler call fails the step (bash -e), so nothing deploys.
+          secrets=$(npx wrangler secret list --format json)
+          if ! grep -Eq '"name": *"TURNSTILE_SECRET_KEY"' <<< "$secrets"; then
+            echo "::error::TURNSTILE_SECRET_KEY is not set on the Worker (npx wrangler secret put TURNSTILE_SECRET_KEY)"
+            exit 1
+          fi
 
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply ring-letter-db --remote

@@ -40,14 +40,16 @@ async function request(url,init){
  try{return await fetch(url,init);}
  catch(e){if(e.cause?.code!=='UND_ERR_SOCKET')throw e;return fetch(url,init);}
 }
-async function call(method,path,{data,cookie='',admin=false}={}){
- const h={...(method!=='GET'?{Origin:origin}:{}),...(cookie?{Cookie:cookie}:{}),...(admin?ADMIN:{}),...(data!==undefined?{'Content-Type':'application/json'}:{})};
+async function call(method,path,{data,cookie='',admin=false,headers={}}={}){
+ const h={...(method!=='GET'?{Origin:origin}:{}),...(cookie?{Cookie:cookie}:{}),...(admin?ADMIN:{}),...(data!==undefined?{'Content-Type':'application/json'}:{}),...headers};
  const r=await request(origin+path,{method,headers:h,body:data===undefined?undefined:JSON.stringify(data),redirect:'manual'});
  const t=await r.text();let body;try{body=JSON.parse(t);}catch{body={raw:t};}
  return {status:r.status,data:body,cookie:r.headers.get('set-cookie')?.split(';')[0]};
 }
 const session=async()=>{const r=await call('POST','/api/session');assert.equal(r.status,200);assert.ok(r.cookie);return r.cookie;};
-const submit=async(cookie,extra={})=>{const r=await call('POST','/api/me/stories',{cookie,data:{...story,...extra}});assert.equal(r.status,200,JSON.stringify(r));return r.data.id;};
+// Cloudflare's dummy Turnstile token; the dev server's test secret accepts it (#4 §5.1).
+const TURNSTILE={'X-Turnstile-Token':'XXXX.DUMMY.TOKEN.XXXX'};
+const submit=async(cookie,extra={})=>{const r=await call('POST','/api/me/stories',{cookie,headers:TURNSTILE,data:{...story,...extra}});assert.equal(r.status,200,JSON.stringify(r));return r.data.id;};
 // Every story this run moderates, so its admin_events rows can be removed at the end by target id.
 const moderated=new Set();
 const moderate=async(id,status)=>{moderated.add(id);assert.equal((await call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{admin:true,data:{status}})).status,200);};
@@ -58,7 +60,7 @@ const metrics=async()=>(await adminGet('summary')).metrics;
 const publicIds=async()=>(await call('GET','/api/stories')).data.stories.map(x=>x.id);
 const mineIds=async(cookie)=>(await call('GET','/api/me/stories',{cookie})).data.stories.map(x=>x.id);
 const sharing=(id,cookie,share)=>call('PATCH','/api/me/stories/'+encodeURIComponent(id)+'/sharing',{cookie,data:share?{share,consent:{adult:true,privacy:true,share:true}}:{share}});
-const feedback=(story,cookie)=>call('POST','/api/feedback',{cookie,data:{story,kind:'resonate',note:'保留政策測試'}});
+const feedback=(story,cookie)=>call('POST','/api/feedback',{cookie,headers:TURNSTILE,data:{story,kind:'resonate',note:'保留政策測試'}});
 /** Fires the Cron Trigger as if it were `time` (ms). */
 async function cron(time){
  const r=await request(`${origin}/cdn-cgi/handler/scheduled?time=${time}`);

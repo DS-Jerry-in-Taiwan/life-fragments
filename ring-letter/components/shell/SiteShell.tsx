@@ -7,10 +7,19 @@ import SiteHeader from "./SiteHeader";
 import styles from "./SiteShell.module.css";
 
 /** Night sky + header + main + footer around every route (#4 §4.3). */
-export default function SiteShell({ children }: { children: React.ReactNode }) {
+export default function SiteShell({
+  children,
+  turnstileSiteKey,
+}: {
+  children: React.ReactNode;
+  turnstileSiteKey: string;
+}) {
   const [privacy, setPrivacy] = useState(false),
     [admin, setAdmin] = useState(false);
-  const shell = useMemo(() => ({ openPrivacy: () => setPrivacy(true), setAdmin }), []);
+  const shell = useMemo(
+    () => ({ openPrivacy: () => setPrivacy(true), setAdmin, turnstileSiteKey }),
+    [turnstileSiteKey],
+  );
   return (
     <ShellContext.Provider value={shell}>
       <div className={styles.sky}>
