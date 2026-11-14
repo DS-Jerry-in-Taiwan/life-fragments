@@ -47,20 +47,24 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [request, setRequest] = useState<Request | null>(null);
   const current = useRef<Request | null>(null),
     count = useRef(0);
-  const settle = useCallback((ok: boolean) => {
+  const settle = useCallback((ok: boolean, restoreFocus = true) => {
     const r = current.current;
     if (!r) return;
     current.current = null;
     setRequest(null);
     // Back to whatever asked (a button that is still there and usable).
-    if (r.opener instanceof HTMLElement && r.opener.isConnected) r.opener.focus();
+    if (restoreFocus && r.opener instanceof HTMLElement && r.opener.isConnected) r.opener.focus();
     r.resolve(ok);
   }, []);
   const confirm = useCallback<Confirm>(
     (options) =>
       new Promise<boolean>((resolve) => {
-        settle(false); // a newer question replaces an unanswered one
-        const r = { ...options, id: ++count.current, resolve, opener: document.activeElement };
+        // A newer question replaces an unanswered one. It inherits that one's
+        // opener: focus is still inside the old modal (the page under it is
+        // inert), so document.activeElement would be a button about to go.
+        const opener = current.current ? current.current.opener : document.activeElement;
+        settle(false, false);
+        const r = { ...options, id: ++count.current, resolve, opener };
         current.current = r;
         setRequest(r);
       }),
