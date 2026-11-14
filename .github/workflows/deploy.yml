@@ -4,8 +4,9 @@
 # Runtime secrets (ADMIN_EMAILS, ACCESS_*, TURNSTILE_SECRET_KEY) live on the
 # Worker and are kept across deploys; they are not managed here. Before
 # touching production, the deploy stops if TURNSTILE_SECRET_KEY is missing
-# from the Worker or wrangler.jsonc still has the placeholder Turnstile site
-# key: either would make every submission and feedback fail (#4 §5.1).
+# from the Worker, or wrangler.jsonc still has the placeholder Turnstile site
+# key or lacks TURNSTILE_HOSTNAME: any of them would make every submission
+# and feedback fail (#4 §5.1).
 name: Deploy
 
 on:
@@ -57,10 +58,17 @@ jobs:
 
       - name: Check Turnstile configuration
         run: |
-          if grep -q REPLACE_WITH_TURNSTILE_SITE_KEY wrangler.jsonc; then
-            echo "::error::wrangler.jsonc still has the placeholder TURNSTILE_SITE_KEY"
-            exit 1
-          fi
+          # The vars as built for deploy (dist/server/wrangler.json, plain JSON):
+          # a real site key and a non-empty TURNSTILE_HOSTNAME, which production
+          # requires (lib/server/turnstile-siteverify.ts turnstileVarsProblems()).
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            import { turnstileVarsProblems } from "./lib/server/turnstile-siteverify.ts";
+            const { vars } = JSON.parse(readFileSync("dist/server/wrangler.json", "utf8"));
+            const problems = turnstileVarsProblems(vars);
+            for (const p of problems) console.log(`::error::${p}`);
+            process.exit(problems.length ? 1 : 0);
+          '
           # `wrangler secret list` prints names and types only, never values.
           # A failing wrangler call fails the step (bash -e), so nothing deploys.
           secrets=$(npx wrangler secret list --format json)

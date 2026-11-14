@@ -12,7 +12,7 @@ import {
  *
  * Production: the site key and TURNSTILE_HOSTNAME are `vars` in
  * wrangler.jsonc, the secret is TURNSTILE_SECRET_KEY (`wrangler secret put`).
- * A missing secret fails closed (503).
+ * A missing secret or hostname fails closed (503).
  *
  * Development (`import.meta.env.DEV`, compiled out of production builds, as
  * in lib/server/auth.ts): always Cloudflare's always-pass test keys, whatever

@@ -1,10 +1,11 @@
 // Unit tests for lib/server/turnstile-siteverify.ts (#4 §5.1). Run with
 // `npm run test:turnstile` (Node >= 22.18 strips the TypeScript types natively).
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  checkTurnstile, productionTurnstileConfig, SITEVERIFY_URL,
-  TURNSTILE_FAILED, TURNSTILE_MISSING, TURNSTILE_UNAVAILABLE,
+  checkTurnstile, productionTurnstileConfig, SITE_KEY_PLACEHOLDER, SITEVERIFY_URL,
+  TURNSTILE_FAILED, TURNSTILE_MISSING, TURNSTILE_UNAVAILABLE, turnstileVarsProblems,
 } from '../lib/server/turnstile-siteverify.ts';
 
 const config = { secret: 'secret-key', hostname: 'ringletter.wetrytrysee.cc' };
@@ -75,10 +76,16 @@ test('another action is 403, even with success:true', async () => {
   assert.deepEqual(await check(mock({ ...good, action: 'feedback' }), { action: 'feedback' }), { ok: true });
 });
 
-test('another hostname is 403; no configured hostname skips the check', async () => {
+test('another hostname is 403', async () => {
   assert.deepEqual(await check(mock({ ...good, hostname: 'evil.example' })), FAILED);
   assert.deepEqual(await check(mock({ ...good, hostname: undefined })), FAILED);
-  assert.deepEqual(await check(mock({ ...good, hostname: 'example.com' }), { cfg: { secret: 's' } }), { ok: true });
+});
+
+test('no configured hostname fails closed (503) without calling siteverify', async () => {
+  const f = mock({ ...good, hostname: 'example.com' });
+  for (const hostname of [undefined, ''])
+    assert.deepEqual(await check(f, { cfg: { secret: 's', hostname } }), UNAVAILABLE);
+  assert.equal(f.calls.length, 0);
 });
 
 test('dev test keys: success without action or hostname passes, success:false still fails', async () => {
@@ -105,6 +112,25 @@ test('production without the secret fails closed (503) and never calls siteverif
   for (const env of [{}, { TURNSTILE_SECRET_KEY: '' }, { TURNSTILE_SECRET_KEY: '  ', TURNSTILE_HOSTNAME: 'ringletter.wetrytrysee.cc' }])
     assert.deepEqual(await check(f, { cfg: productionTurnstileConfig(env) }), UNAVAILABLE);
   assert.equal(f.calls.length, 0);
+});
+
+test('production without TURNSTILE_HOSTNAME fails closed (503) and never calls siteverify', async () => {
+  const f = mock(good);
+  for (const env of [{ TURNSTILE_SECRET_KEY: 'k' }, { TURNSTILE_SECRET_KEY: 'k', TURNSTILE_HOSTNAME: '' }, { TURNSTILE_SECRET_KEY: 'k', TURNSTILE_HOSTNAME: '   ' }])
+    assert.deepEqual(await check(f, { cfg: productionTurnstileConfig(env) }), UNAVAILABLE);
+  assert.equal(f.calls.length, 0);
+});
+
+test('deploy check: the built vars need a real site key and a non-empty hostname', async () => {
+  const vars = JSON.parse(readFileSync(new URL('../wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '')).vars;
+  assert.deepEqual(turnstileVarsProblems(vars), [], 'wrangler.jsonc as committed passes');
+  const ok = { TURNSTILE_SITE_KEY: '0x4AAAAAAA', TURNSTILE_HOSTNAME: 'ringletter.wetrytrysee.cc' };
+  assert.deepEqual(turnstileVarsProblems(ok), []);
+  assert.deepEqual(turnstileVarsProblems({ ...ok, TURNSTILE_HOSTNAME: undefined }), ['wrangler.jsonc vars lack a non-empty TURNSTILE_HOSTNAME']);
+  assert.deepEqual(turnstileVarsProblems({ ...ok, TURNSTILE_HOSTNAME: ' ' }), ['wrangler.jsonc vars lack a non-empty TURNSTILE_HOSTNAME']);
+  assert.deepEqual(turnstileVarsProblems({ ...ok, TURNSTILE_HOSTNAME: 1 }), ['wrangler.jsonc vars lack a non-empty TURNSTILE_HOSTNAME']);
+  assert.deepEqual(turnstileVarsProblems({ ...ok, TURNSTILE_SITE_KEY: SITE_KEY_PLACEHOLDER }), ['wrangler.jsonc still has the placeholder TURNSTILE_SITE_KEY']);
+  assert.deepEqual(turnstileVarsProblems(undefined), ['wrangler.jsonc vars lack TURNSTILE_SITE_KEY', 'wrangler.jsonc vars lack a non-empty TURNSTILE_HOSTNAME']);
 });
 
 test('production config: secret and lowercased hostname from the env', () => {
