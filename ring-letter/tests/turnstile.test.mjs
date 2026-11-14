@@ -63,6 +63,12 @@ test('an expired or already used token (timeout-or-duplicate) is 403', async () 
   assert.deepEqual(await check(mock({ success: false, 'error-codes': ['timeout-or-duplicate'] })), FAILED);
 });
 
+test('success:false for a service or configuration problem is 503, not the visitor\'s fault', async () => {
+  for (const code of ['internal-error', 'invalid-input-secret', 'missing-input-secret', 'bad-request'])
+    assert.deepEqual(await check(mock({ success: false, 'error-codes': [code] })), UNAVAILABLE, code);
+  assert.deepEqual(await check(mock({ success: false, 'error-codes': ['something-new'] })), FAILED, 'unknown codes stay 403');
+});
+
 test('another action is 403, even with success:true', async () => {
   assert.deepEqual(await check(mock(good), { action: 'feedback' }), FAILED);
   assert.deepEqual(await check(mock({ ...good, action: undefined })), FAILED, 'no action at all');

@@ -11,6 +11,8 @@ import { useShell } from "../shell/ShellContext";
 const SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 const UNAVAILABLE = "人機驗證暫時無法載入，請保留文字並稍後重試。";
 const FAILED = "人機驗證沒有通過，請再試一次。";
+/** A stalled api.js fires neither load nor error; give up so the form isn't stuck. */
+const SCRIPT_TIMEOUT_MS = 15000;
 
 type RenderOptions = {
   sitekey: string;
@@ -40,14 +42,21 @@ function loadScript() {
   loading ??= new Promise<TurnstileApi>((resolve, reject) => {
     if (window.turnstile) return resolve(window.turnstile);
     const s = document.createElement("script");
-    s.src = SCRIPT;
-    s.async = true;
-    s.onload = () =>
-      window.turnstile ? resolve(window.turnstile) : reject(new Error(UNAVAILABLE));
-    s.onerror = () => {
+    const fail = () => {
+      clearTimeout(timer);
+      s.onload = s.onerror = null;
       s.remove();
       reject(new Error(UNAVAILABLE));
     };
+    const timer = setTimeout(fail, SCRIPT_TIMEOUT_MS);
+    s.src = SCRIPT;
+    s.async = true;
+    s.onload = () => {
+      clearTimeout(timer);
+      if (window.turnstile) resolve(window.turnstile);
+      else fail();
+    };
+    s.onerror = fail;
     document.head.appendChild(s);
   }).catch((e) => {
     loading = null; // let the next submit try again

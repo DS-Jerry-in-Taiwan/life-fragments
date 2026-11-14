@@ -27,6 +27,20 @@ export type TurnstileConfig = {
 
 export type TurnstileResult = { ok: true } | { ok: false; status: 403 | 503; error: string };
 
+/**
+ * siteverify `error-codes` that mean our side or Cloudflare's is broken, not
+ * that the visitor's token is bad: answering 403 would make the client retry
+ * a fresh challenge and blame the visitor, so these are 503 like a missing
+ * secret. Token problems (invalid-input-response, timeout-or-duplicate, …)
+ * and unknown codes stay 403.
+ */
+const SERVICE_ERRORS = new Set([
+  "missing-input-secret",
+  "invalid-input-secret",
+  "bad-request",
+  "internal-error",
+]);
+
 type Options = { fetcher?: typeof fetch; timeoutMs?: number };
 
 /** Production keys from the Worker env: the secret and the expected hostname. */
@@ -90,8 +104,17 @@ export async function checkTurnstile(
   )
     return refused(503, TURNSTILE_UNAVAILABLE);
 
-  const o = outcome as { success: boolean; action?: unknown; hostname?: unknown };
-  if (o.success !== true) return refused(403, TURNSTILE_FAILED);
+  const o = outcome as {
+    success: boolean;
+    action?: unknown;
+    hostname?: unknown;
+    "error-codes"?: unknown;
+  };
+  if (o.success !== true) {
+    const codes = Array.isArray(o["error-codes"]) ? o["error-codes"] : [];
+    if (codes.some((c) => SERVICE_ERRORS.has(c))) return refused(503, TURNSTILE_UNAVAILABLE);
+    return refused(403, TURNSTILE_FAILED);
+  }
   if (!config.testKeys && o.action !== action) return refused(403, TURNSTILE_FAILED);
   if (
     config.hostname &&
