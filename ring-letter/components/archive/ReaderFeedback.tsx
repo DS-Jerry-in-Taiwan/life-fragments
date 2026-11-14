@@ -50,7 +50,13 @@ export default function ReaderFeedback({
   return (
     <details
       className={styles.feedbackBox}
-      onToggle={(e) => e.currentTarget.open && setOpened(true)}
+      onToggle={(e) => {
+        const box = e.currentTarget;
+        if (box.open) setOpened(true);
+        // Closing while sending would hide an interactive Turnstile challenge
+        // (its deadline is paused then), so keep the box open until it's done.
+        else if (busy) box.open = true;
+      }}
     >
       <summary>願意告訴我們讀起來如何嗎？</summary>
       <CheckboxField

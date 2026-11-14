@@ -825,6 +825,9 @@ test("feedback: a challenge that never answers gives up after 30 s, the note kep
   await box.fill(note);
   await page.getByRole("button", { name: "送出回饋" }).click();
   await expect.poll(async () => (await turnstileLog(page))?.executed).toBe(1);
+  // While it is pending the box can't be closed: that would hide a challenge.
+  await page.getByText("願意告訴我們讀起來如何嗎？").click();
+  await expect(box).toBeVisible();
   await page.clock.runFor(29_000);
   await expect(page.getByRole("alert")).toHaveCount(0);
   await page.clock.runFor(1_500);
