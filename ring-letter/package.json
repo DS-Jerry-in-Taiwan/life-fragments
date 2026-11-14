@@ -21,6 +21,7 @@
     "test:retention": "node tests/retention.mjs"
   },
   "dependencies": {
+    "@fontsource/noto-serif-tc": "5.3.1",
     "drizzle-orm": "0.45.2",
     "next": "16.3.4",
     "react": "19.2.6",

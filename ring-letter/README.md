@@ -51,7 +51,7 @@ npm run test:e2e:update                       # 畫面確定要改時，重新�
 ```
 
 - 本機 D1 要是乾淨的（跟 `test:api` 一樣）：管理頁與公開信箱的截圖是空資料庫的樣子（公開信箱是空狀態；回饋測試會自己種一篇已核准的故事，結束後刪除）。管理頁的操作紀錄會保留一年（smoke 測試自己的操作也會留下），截圖時把 `/api/admin/events` 換成空清單（`tests/e2e/screens.ts`）。有殘留資料就刪掉 `.wrangler/state` 再跑 `db:migrate:local`。
-- 字型從 Google Fonts 載入，需要連得到網路。Google 對 400／500／600 三個字重回傳同一批可變字型檔、每個檔宣告三次，比對哪一個會隨載入順序而變，造成字形有細微像素差；測試會把這段 CSS 改寫成每個檔一個 `font-weight: 400 600` 的 @font-face（見 `tests/e2e/fixtures.ts`），字檔本身不變。
+- Noto Serif TC 是自託管的（`@fontsource/noto-serif-tc`，見下方「字型」），截圖不需要連外網路；`settle()` 會等 `document.fonts.ready` 並確認字型已載入；每個測試都記錄對 `fonts.googleapis.com`／`fonts.gstatic.com` 的請求，有任何一個就失敗，另有一個測試走過 `/`、`/read`、`/write?mode=past`、`/archive`、`/privacy` 確認 woff2 分片來自本站（`tests/e2e/fixtures.ts` 的 `fontRequests()`）。
 - 失敗時差異圖在 `test-results/`；CI 會把 `playwright-report/` 與 `test-results/` 上傳成 artifact。
 - 升級 `@playwright/test` 後，容器版本會跟著換，要重新產生全部基準（`npm run test:e2e -- --update-snapshots=all`）。
 
@@ -84,6 +84,10 @@ npx wrangler secret put TURNSTILE_SECRET_KEY   # widget 的 secret key，不進�
 ```
 
 `deploy.yml` 在套用遷移之前檢查：Worker 上沒有 `TURNSTILE_SECRET_KEY`，或 `wrangler.jsonc` 還是佔位字串 `REPLACE_WITH_TURNSTILE_SITE_KEY`，就中止部署（不然上線後所有投稿與回饋都會被拒）。
+
+## 字型
+
+標題與故事內文用 Noto Serif TC，自託管在 Worker 的靜態資源裡（`@fontsource/noto-serif-tc`，版本固定），訪客不會連到 Google。`app/globals.css` 只匯入 400 字重（所有襯線字都是 400）；字型依 unicode-range 分成 108 片 woff2，瀏覽器只下載頁面用到的字所在的那幾片。不做固定字集的子集化：投稿內容的字無法預知，缺字會在同一句裡混用字體。`vite.config.ts` 讓字檔一律輸出成獨立檔案（不內嵌成 data: URI），並拿掉每片的 .woff 備援（支援的瀏覽器都讀 woff2）。建置後在 `dist/client/_next/static/media/`，檔名帶雜湊，`_headers` 讓它們快取一年（immutable）。要讓襯線字用更粗的字重，先在 `app/globals.css` 加上那個字重的 CSS，不然瀏覽器會用假粗體。
 
 ## 設定
 

@@ -12,9 +12,9 @@ export const WIDTHS = {
 /**
  * The dev server grants an admin identity only to requests carrying its
  * per-run secret (vite.config.ts devAdminIdentity(), same as tests/api.mjs).
- * The headers go only to our own origin, never to Google Fonts. (Playwright
- * would keep them on a redirect; the dev app never redirects off-origin, and
- * the token is per dev-server start and only unlocks the local D1.)
+ * The headers go only to our own origin. (Playwright would keep them on a
+ * redirect; the dev app never redirects off-origin, and the token is per
+ * dev-server start and only unlocks the local D1.)
  */
 export function adminHeaders() {
   const token =
@@ -65,7 +65,7 @@ export async function hydrated(page: Page) {
 
 /**
  * Everything that can make two screenshots of the same screen differ:
- * pending requests, web fonts (Google Fonts @import at the top of app/globals.css), scroll
+ * pending requests, web fonts (self-hosted @fontsource slices, top of app/globals.css), scroll
  * position after `window.scrollTo({behavior: "smooth"})`.
  */
 export async function settle(page: Page) {
@@ -76,7 +76,7 @@ export async function settle(page: Page) {
       [...document.fonts].filter((f) => f.family.includes("Noto Serif TC") && f.status === "loaded")
         .length,
   );
-  expect(serif, "Noto Serif TC 沒有載入（需要連得到 Google Fonts）").toBeGreaterThan(0);
+  expect(serif, "Noto Serif TC 沒有載入").toBeGreaterThan(0);
   // The web font arrives as many unicode-range slices, each swapped in as it
   // loads; the final text layout could still depend on that order. Rebuild
   // the whole layout once everything is loaded so it starts from one state.
@@ -95,52 +95,20 @@ export async function settle(page: Page) {
 }
 
 /**
- * Google Fonts serves Noto Serif TC as a variable font, but the CSS for
- * `wght@400;500;600` declares every woff2 slice three times (once per
- * weight). Which duplicate face a run of text ends up matched to depends on
- * load order, and the serif glyphs then rasterize slightly differently from
- * run to run. Collapse the duplicates into one face per file with a
- * `font-weight: 400 600` range: same files, same glyphs, one possible match.
- * The CSS and font files are fetched once per worker and reused.
+ * Noto Serif TC is self-hosted (@fontsource, app/globals.css; #4 §10 item 6):
+ * no page may contact Google Fonts. Every test records such requests and
+ * fails if there were any; `fontRequests` also lists our own woff2 slices.
  */
-const fontFiles = new Map<string, { body: Buffer; headers: Record<string, string> }>();
-const fontCss = new Map<string, string>();
-async function stableFonts(context: BrowserContext) {
-  await context.route("https://fonts.googleapis.com/css2?**", async (route) => {
-    const cached = fontCss.get(route.request().url());
-    if (cached)
-      return route.fulfill({ status: 200, contentType: "text/css; charset=utf-8", body: cached });
-    const css = await (await route.fetch()).text();
-    const faces = new Map<string, { block: string; weights: number[] }>();
-    for (const [block] of css.matchAll(/@font-face\s*{[^}]*}/g)) {
-      const src = /src:\s*url\(([^)]+)\)/.exec(block)?.[1] ?? block;
-      const weight = Number(/font-weight:\s*(\d+)/.exec(block)?.[1]);
-      const face = faces.get(src);
-      if (face) face.weights.push(weight);
-      else faces.set(src, { block, weights: [weight] });
-    }
-    const body = [...faces.values()]
-      .map(({ block, weights }) =>
-        block.replace(
-          /font-weight:\s*\d+/,
-          `font-weight: ${Math.min(...weights)} ${Math.max(...weights)}`,
-        ),
-      )
-      .join("\n");
-    fontCss.set(route.request().url(), body);
-    await route.fulfill({ status: 200, contentType: "text/css; charset=utf-8", body });
+export const GOOGLE_FONTS = /^https:\/\/fonts\.(googleapis|gstatic)\.com\//;
+export function fontRequests(context: BrowserContext) {
+  const google: string[] = [];
+  const selfHosted: string[] = [];
+  context.on("request", (r) => {
+    const url = r.url();
+    if (GOOGLE_FONTS.test(url)) google.push(url);
+    else if (url.startsWith(ORIGIN + "/") && /\.woff2(\?|$)/.test(url)) selfHosted.push(url);
   });
-  await context.route("https://fonts.gstatic.com/**", async (route) => {
-    const url = route.request().url();
-    let file = fontFiles.get(url);
-    if (!file) {
-      const r = await route.fetch();
-      if (!r.ok()) return route.fulfill({ response: r });
-      file = { body: await r.body(), headers: r.headers() };
-      fontFiles.set(url, file);
-    }
-    await route.fulfill({ status: 200, headers: file.headers, body: file.body });
-  });
+  return { google, selfHosted };
 }
 
 /** Cloudflare's dummy token; the dev server's Turnstile test secret accepts it. */
@@ -191,7 +159,7 @@ export const test = base.extend<{ seededRandom: void }>({
   // the sequence fixed (mulberry32, seed 1) so the same letter shows each run.
   seededRandom: [
     async ({ context }, use) => {
-      await stableFonts(context);
+      const fonts = fontRequests(context);
       await context.route(TURNSTILE_SCRIPT, (route) =>
         route.fulfill({ status: 200, contentType: "text/javascript", body: FAKE_TURNSTILE }),
       );
@@ -205,9 +173,10 @@ export const test = base.extend<{ seededRandom: void }>({
         };
       });
       await use();
-      // Smoke tests can finish while font requests are still being routed.
+      // Smoke tests can finish while routed requests are still pending.
       await context.unrouteAll({ behavior: "ignoreErrors" });
       await eraseSession(context);
+      expect(fonts.google, "不應向 Google Fonts 發出請求").toEqual([]);
     },
     { auto: true },
   ],
