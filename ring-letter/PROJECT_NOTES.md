@@ -54,7 +54,7 @@ Jerry tested on his phone and replied 「都沒問題」; the rest was checked b
 - [x] Classic scrollbars: opening a modal shifts the page by 7.5px (hidden under the dark backdrop). Accepted for v2; v3 candidate: `scrollbar-gutter: stable`.
 - [x] Ctrl+click / middle-click on header links and in-page NavButton links opens a new tab (emulated, real Chromium engine).
 - [x] Accessibility tree (emulated, not VoiceOver itself): 有回應到我 is a pressed toggle; 想參加人工媒合？'s name includes 尚未開放; the skip link is the first Tab stop and moves focus to main#main.
-- [x] Tap targets ≥ 44px everywhere except: the chips (39.6px) and, at 390px, the header brand link 「☾ Ring letter」 (43.4px). Both accepted for v2; v3 candidates.
+- [x] Tap targets checked in this device run (header nav, footer, phone lines, letter buttons, /mine, /archive feedback): ≥ 44px except the chips (39.6px) and, at 390px, the header brand link 「☾ Ring letter」 (43.4px); both accepted for v2, v3 candidates. The smaller targets measured by qa.spec above still stand and are not changed: one-line checkbox labels (25px tall, full width), /write 完整資料使用說明 (23.6px) and the story-title button in /admin's feedback list (21.6px); the last two meet WCAG 2.5.8 through its spacing exception.
 - [x] Production data: the emulation left 1 anonymous session and 1 writing attempt (no story, no feedback); retention removes them. No test story was created; 0f6ab13c 「我想想」 (a real approved story) is intact and must never be deleted.
 
 v3 candidates from V5-d: scrollbar-gutter for modals; 44px chips; 44px header brand link at 390px.
