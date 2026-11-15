@@ -35,9 +35,8 @@
   gap: var(--space-3) var(--space-6);
   margin-top: var(--space-6);
 }
-/* The text-link danger style, with a tap-sized target. */
+/* The text-link danger style (tap-sized via utilities.css), with room beside it. */
 .actions :global(.danger) {
-  min-height: 45px;
   padding: 10px var(--space-1);
 }
 @media (max-width: 640px) {
