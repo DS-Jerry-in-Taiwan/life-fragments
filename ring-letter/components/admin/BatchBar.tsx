@@ -62,8 +62,10 @@ export default function BatchBar({
       </div>
       {selected.length > 0 && (
         <>
-          <div className={chips.chips}>
+          {/* The site's own buttons, not chips: chips are for filters (管理頁 1). */}
+          <div className={admin.batchActions}>
             <button
+              className="secondary"
               disabled={disabled || rejectable === 0 || rejectTooMany}
               aria-describedby={rejectWhy ? "batch-note" : undefined}
               onClick={() => onModerate("rejected")}
