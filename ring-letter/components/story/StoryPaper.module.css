@@ -16,6 +16,15 @@
   margin-bottom: var(--space-7);
   color: #5a6460;
 }
+/* Focus is moved to the paper after 再讀一封 (/read, /archive). Keyboard
+   users get the site's gold ring, drawn outside the paper on the night sky. */
+.storyPaper:focus {
+  outline: none;
+}
+.storyPaper:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 5px;
+}
 /* The gold ring (base.css) is 1.35:1 on the paper; the ink is 8.6:1. */
 .storyPaper :focus-visible {
   outline-color: var(--paperink);
