@@ -2,7 +2,7 @@
 
 匿名的跨時間故事閱讀與投稿網站。使用 [Vinext](https://github.com/cloudflare/vinext)（Vite 版 Next.js App Router，beta）+ React 19，部署在 Cloudflare Workers，資料庫為 Cloudflare D1 + Drizzle。
 
-產品決策、隱私與同意規則記錄在 `PROJECT_NOTES.md`；搬遷規劃見 GitHub issue #2，第二版規劃見 issue #4。
+正式站：<https://ringletter.wetrytrysee.cc>（`main` 有變更時由 GitHub Actions 自動部署）。產品決策、隱私與同意規則記錄在 `PROJECT_NOTES.md`；第一版（搬到自有 Cloudflare）的規劃與驗收在 GitHub issue #2，第二版在 issue #4（收尾 spec #30）。
 
 ## 開發
 
@@ -22,23 +22,25 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run build` | 建置到 `dist/`，含 `dist/server/wrangler.json` |
 | `npm start` | 用 Wrangler 在本機跑建置後的 Worker（port 8788） |
 | `npm run typecheck` | TypeScript 型別檢查 |
-| `npm run lint` | ESLint |
+| `npm run lint` | ESLint（目前 0 個問題） |
 | `npm run db:generate` | 修改 `db/schema.ts` 後產生新的 `drizzle/` 遷移 |
 | `npm run db:migrate:local` | 把 `drizzle/` 的遷移套用到本機 D1 |
 | `npm run test:api` | API 整合測試（需先另開 `npm run dev`） |
 | `npm run test:retention` | 資料保留政策測試（需先另開 `npm run dev`；會清掉本機 D1 幾乎所有資料，放在 `test:api` 之後跑） |
 | `npm run test:auth` | Access JWT 驗證的單元測試 |
 | `npm run test:turnstile` | Turnstile siteverify 檢查的單元測試（mock fetch） |
-| `npm run test:e2e` | Playwright smoke 與截圖比對（需先另開 `npm run dev`，並有 Docker） |
+| `npm run test:e2e` | Playwright 全部瀏覽器測試：smoke、截圖比對、axe 無障礙掃描、QA（需先另開 `npm run dev`，並有 Docker） |
 | `npm run test:e2e:update` | 重新產生截圖基準 |
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state` 裡的本機 D1。這個目錄可以直接刪掉重建，刪掉後再跑一次 `npm run db:migrate:local` 即可。
 
-如果你的本機 D1 是 M1 之前用 `wrangler d1 execute --file` 建的，裡面沒有 `d1_migrations` 紀錄，`db:migrate:local` 會因為資料表已存在而失敗。這時刪掉 `.wrangler/state` 重建即可。
-
 ## 瀏覽器測試與截圖基準
 
-`tests/e2e/` 是 v2 重構的安全網（issue #4，V1-a）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）、`ConfirmDialog`（取消、Esc、點背景都不做事）、`/write` 草稿（重新整理與換頁後還原、送出或切換寫法後清除）、投稿與回饋的 Turnstile（用 `fixtures.ts` 假的 `api.js`：只在表單出現時載入、請求帶 token、被拒重取 token 重送一次、再失敗文字仍在表單上）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。
+`tests/e2e/` 是瀏覽器端的安全網（issue #4，V1-a 起）：`smoke.spec.ts` 檢查每個畫面都能打開、390px 寬沒有橫向捲動、投稿 → 我的片段 → 撤回、我的片段的「在這台裝置登出」、管理頁的篩選 → 搜尋 → 載入更多 → 單篇 409 自動更新 → 刪除（種 51 篇測試投稿，結束後刪除）、`ConfirmDialog`（取消、Esc、點背景都不做事）、`/write` 草稿（重新整理與換頁後還原、送出或切換寫法後清除）、投稿與回饋的 Turnstile（用 `fixtures.ts` 假的 `api.js`：只在表單出現時載入、請求帶 token、被拒重取 token 重送一次、再失敗文字仍在表單上）；`visual.spec.ts` 對每個畫面在 390px 與 1280px 拍整頁截圖，和 `tests/e2e/__screenshots__/` 的基準逐像素比對（不允許任何像素超出預設的顏色容差 0.2，只吸收不同 CPU 的反鋸齒雜訊）。畫面清單在 `tests/e2e/screens.ts`。其餘 spec 依功能各一個檔（`archive`、`mine`、`write`、`nav`、`page-title`、`open-entries` 等）。
+
+無障礙與 QA（V5-d，issue #39）：
+- `a11y.spec.ts` 用 [`@axe-core/playwright`](https://github.com/dequelabs/axe-core-npm)（devDependency，只在測試用，不進正式建置）對 `tests/e2e/states.ts` 的 15 個狀態（7 條路由加上展開的選單、對話框、有資料的公開信箱／我的片段／管理頁）在 390px 與 1280px 掃描 WCAG 2.0／2.1 A＋AA 與 WCAG 2.2 AA 規則。任何 violation 都會失敗；axe 判斷不了的（incomplete，例如夜空漸層上的文字對比）只記在 log。例外只能逐節點加在檔案開頭的 `EXCEPTIONS`（規則 id、節點 HTML 片段、理由），不能整條規則關掉；目前只有信紙結尾裝飾用的「· · ·」。
+- `qa.spec.ts`：同一批狀態在 320／390／1280px 與 200% 縮放下不橫向捲動、文字對比（含夜空漸層）、純鍵盤操作主要流程、`prefers-reduced-motion`、點擊目標尺寸。需要實機的項目記在 `PROJECT_NOTES.md`。
 
 截圖只有在同一個環境才能比對，所以測試一律跑在官方 Playwright 容器（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`）裡，CI 也一樣。dev server 跑在本機，容器用 host 網路連過去，所以**只能在 Linux 上跑**（Docker Desktop for Mac／Windows 的 host 網路連不到本機 127.0.0.1；容器固定用 `linux/amd64`，基準也是 amd64 產生的）。
 
@@ -75,15 +77,20 @@ npx wrangler secret put ACCESS_AUD           # Access 應用程式的 Audience (
 
 **開發環境**：`npm run dev` 一律使用 Cloudflare 的測試金鑰（一律通過、不顯示），不讀 `wrangler.jsonc` 的設定，也不檢查 hostname 與 action（測試金鑰的回應不帶 action、hostname 是 `example.com`），所以本機與 CI 不需要額外設定；但 siteverify 仍是真的連到 `challenges.cloudflare.com`，`test:api` 用測試 token `XXXX.DUMMY.TOKEN.XXXX`。Playwright 測試用假的 `api.js`（`tests/e2e/fixtures.ts`），不連 Cloudflare。
 
-**正式環境**：在 Cloudflare dashboard → Turnstile 建立 widget（Hostname `ringletter.wetrytrysee.cc`、Managed），然後：
+**正式環境**（目前已設定完成；換 widget 或重建環境時照這個順序）：
 
-```sh
-# wrangler.jsonc 的 vars：把 TURNSTILE_SITE_KEY 換成 widget 的 site key（公開）；
-# TURNSTILE_HOSTNAME 已是 ringletter.wetrytrysee.cc
-npx wrangler secret put TURNSTILE_SECRET_KEY   # widget 的 secret key，不進版控
-```
+1. Cloudflare dashboard → Turnstile → 新增 widget：Hostname `ringletter.wetrytrysee.cc`、Widget mode 選 Managed。建立後會拿到 site key 與 secret key。
+2. `wrangler.jsonc` 的 `vars.TURNSTILE_SITE_KEY` 填 site key（公開值，進版控，由 `app/layout.tsx` 交給前端）。
+3. `wrangler.jsonc` 的 `vars.TURNSTILE_HOSTNAME` 是 `ringletter.wetrytrysee.cc`（siteverify 回應的 hostname 必須相同；正式環境缺這個值時投稿與回饋一律 503）。
+4. Worker secret `TURNSTILE_SECRET_KEY` 設成 secret key（不進版控，也不放 GitHub）：
 
-`deploy.yml` 在套用遷移之前檢查：Worker 上沒有 `TURNSTILE_SECRET_KEY`，或 `wrangler.jsonc` 還是佔位字串 `REPLACE_WITH_TURNSTILE_SITE_KEY`，就中止部署（不然上線後所有投稿與回饋都會被拒）。
+   ```sh
+   npx wrangler secret put TURNSTILE_SECRET_KEY
+   ```
+
+5. 推到 `main`（或手動執行 Deploy workflow）。GitHub Actions 只需要 repository secrets `CLOUDFLARE_API_TOKEN` 與 `CLOUDFLARE_ACCOUNT_ID`；Turnstile 的 secret 只在 Worker 上。
+
+`deploy.yml` 在套用遷移之前檢查，任一項不符就中止部署（不然上線後所有投稿與回饋都會被拒）：建置出的 `dist/server/wrangler.json` 的 `vars` 沒有 `TURNSTILE_SITE_KEY`、仍是佔位字串 `REPLACE_WITH_TURNSTILE_SITE_KEY`，或沒有非空的 `TURNSTILE_HOSTNAME`（`lib/server/turnstile-siteverify.ts` 的 `turnstileVarsProblems()`，有單元測試）；或 `wrangler secret list` 裡沒有 `TURNSTILE_SECRET_KEY`（只看名稱，看不到值）。
 
 ## 字型
 
@@ -93,7 +100,11 @@ npx wrangler secret put TURNSTILE_SECRET_KEY   # widget 的 secret key，不進�
 
 `wrangler.jsonc` 定義 Worker 名稱、D1 綁定 `DB`（正式資料庫 `ring-letter-db`，APAC）、自訂網域 `ringletter.wetrytrysee.cc`，Turnstile 的 `vars`（`TURNSTILE_SITE_KEY`、`TURNSTILE_HOSTNAME`，見上一節），以及每日的 Cron Trigger（`17 19 * * *`，台北 03:17，執行 `lib/server/retention.ts` 的資料保留政策；部署後在 Cloudflare 主控台的 Worker → Settings → Triggers 可以看到）。`workers_dev` 和 `preview_urls` 都關閉，因為 Access 只保護自訂網域，不能留其他入口。本機的 `--local` 一律使用 `.wrangler/state`，不會碰到正式資料庫。
 
-## 部署（手動）
+## 部署
+
+`main` 有 `ring-letter/**` 或 `deploy.yml` 的變更時，`.github/workflows/deploy.yml` 自動部署：`npm ci` → typecheck、單元測試、build → 檢查 Turnstile 設定（見「Turnstile」一節）→ 套用遠端 D1 遷移 → `wrangler deploy` → smoke test（首頁 200、`/api/admin/summary` 被 Access 轉址 302）。它需要 repository secrets `CLOUDFLARE_API_TOKEN` 與 `CLOUDFLARE_ACCOUNT_ID`；執行期的 secret（`ADMIN_EMAILS`、`ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`、`TURNSTILE_SECRET_KEY`）放在 Worker 上，部署不會動到它們。PR 由 `.github/workflows/ci.yml` 檢查（typecheck、單元測試、build、`test:api`、`test:retention`、`test:e2e`），不用 Cloudflare 憑證。
+
+手動部署（等同上面的步驟，不含檢查）：
 
 ```sh
 npx wrangler d1 migrations apply ring-letter-db --remote   # drizzle/ 有新遷移時
@@ -101,12 +112,12 @@ npm run build
 npx wrangler deploy --config dist/server/wrangler.json
 ```
 
-第一次部署前，要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/summary`；部署後的 smoke test 會確認 `/api/admin/summary` 被 Access 轉址），政策只允許管理者的 email。部署完再設上面三個 secret（先設 secret 的話，wrangler 會先建一個空殼 Worker）。缺 secret 時管理端點一律拒絕。`TURNSTILE_SECRET_KEY` 也是 secret（見「Turnstile」一節），自動部署會先確認它存在。
+從零建立環境時，第一次部署前要先在 Cloudflare One 建立 Access 應用程式。Destinations 放 `ringletter.wetrytrysee.cc/admin` 和 `/api/admin` 兩筆（Access 的路徑會一併保護其下所有子路徑，例如 `/api/admin/summary`；部署後的 smoke test 會確認 `/api/admin/summary` 被 Access 轉址），政策只允許管理者的 email。第一次部署完再設「管理者」一節的三個 secret 與 `TURNSTILE_SECRET_KEY`（先設 secret 的話，wrangler 會先建一個空殼 Worker）；自動部署會先確認 `TURNSTILE_SECRET_KEY` 存在。缺 Access 的 secret 時管理端點一律拒絕。管理者有兩位時，Access 政策與 `ADMIN_EMAILS` 都要列出兩人。
 
 頁尾與隱私說明公開的聯絡信箱 `ringletter@wetrytrysee.cc`（`lib/contact.ts`）用 Cloudflare Email Routing 轉寄給管理者，不公開管理者自己的信箱：在 `wetrytrysee.cc` 的 Email → Email Routing 建立這個自訂地址並指向已驗證的目的地信箱。作者遺失 cookie、換裝置或超過一年沒回來時，會寫信來請管理者代刪（#4 第 6.2 節）：在 `/admin` 狀態選「全部」，用搜尋框（標題或部分內文）加投稿日期範圍找到該篇，用「永久刪除」移除（連同回饋與同意紀錄），通常 7 天內回信告知。
 
 ### Session 與資料保留
 
-匿名 session 的 cookie 是 1 年，每次造訪（頁面或 API）都由 `worker/index.ts` 續發，`sessions.last_seen` 每天最多寫一次；最後造訪後 1 年由每日 Cron 刪除。故事保留依同意版本：V3-c 起的投稿（`v3-2026-11-12`）核准公開後保留到撤回或管理者刪除，其他狀態在最後一次狀態變更後 30 天刪除；之前的投稿照當時的 30 天條款（送出後 30 天，包含已核准）。回饋與試寫紀錄 30 天。管理者操作紀錄（`admin_events`）1 年。細節見 `lib/server/retention.ts` 與 `PROJECT_NOTES.md`。
+匿名 session 的 cookie 是 1 年，每次造訪（頁面或 API）都由 `worker/index.ts` 續發，`sessions.last_seen` 每天最多寫一次；最後造訪後 1 年由每日 Cron 刪除。故事保留依同意版本：2026-11-12 起的投稿（`v3-2026-11-12`）核准公開後保留到撤回或管理者刪除，其他狀態在最後一次狀態變更後 30 天刪除；更早的投稿（`v2-2026-11-05` 或更舊）照當時的 30 天條款（送出後 30 天，包含已核准）。故事刪除時連同它的回饋與授權紀錄。回饋與試寫紀錄 30 天。管理者操作紀錄（`admin_events`）1 年。細節見 `lib/server/retention.ts` 與 `PROJECT_NOTES.md`。
 
 作者可在「我的片段」改為分享（重新勾選目前版本的同意，舊版同意的故事因此改用新條款）或停止分享（已公開的立即下架，改為未公開，依上面的 30 天規則刪除）；每篇送出後最多再申請分享 3 次，每個 session 每天最多調整 10 次（`PATCH /api/me/stories/:id/sharing`）。

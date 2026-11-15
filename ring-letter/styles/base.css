@@ -127,9 +127,11 @@ textarea::placeholder {
 }
 /*
  * While a modal <dialog> is open (ConfirmDialog, PrivacyDialog) the page
- * under it doesn't scroll. (No scrollbar-gutter: with Playwright's hidden
- * scrollbars it would reserve an empty strip; under the blurred backdrop a
- * classic scrollbar's width of shift doesn't show.)
+ * under it doesn't scroll. With classic (always-shown) scrollbars this shifts
+ * the page by the scrollbar's width (7.5px measured, V5-d), mostly hidden by
+ * the dark backdrop. Accepted for v2; `scrollbar-gutter: stable` is the v3
+ * fix (not used yet: with Playwright's hidden scrollbars it reserves an
+ * empty strip and changes every baseline).
  */
 :root:has(dialog:modal) {
   overflow: hidden;
