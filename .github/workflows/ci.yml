@@ -1,4 +1,4 @@
-# PR checks for ring-letter: typecheck, unit tests, build, the API
+# PR checks for ring-letter: typecheck, lint, unit tests, build, the API
 # integration and retention tests and the Playwright e2e run, each against `npm run dev`
 # with a fresh local D1.
 # No Cloudflare credentials are used here.
@@ -39,6 +39,7 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint -- --max-warnings=0
       - run: npm run test:auth
       - run: npm run test:turnstile
       - run: npm run build

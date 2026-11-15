@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 這個 repo 有兩個互不相干的部分：
 
 - **根目錄 `index.html` + `CNAME`**：GitHub Pages 靜態概念頁（`life.wetrytrysee.cc`），沒有建置流程，直接改 HTML。
-- **`ring-letter/`**：Ring letter 應用。Vinext（Vite 版 Next.js App Router，**beta**）+ React 19，跑在 Cloudflare Workers，資料庫是 D1（SQLite）+ Drizzle。線上版在使用者自己的 Cloudflare 帳號（`ringletter.wetrytrysee.cc`，v1.0.0 起，2026-11-12），`main` 有變更就由 `.github/workflows/deploy.yml` 自動部署；PR 由 `ci.yml` 檢查（typecheck、單元測試、build、`test:api`／`test:retention`、e2e）。原本是用 OpenAI ChatGPT Sites 做的，Sites 腳手架（`.openai/`、`scripts/`、connector、`chatgpt-auth`、sites vite plugin）已全部移除。
+- **`ring-letter/`**：Ring letter 應用。Vinext（Vite 版 Next.js App Router，**beta**）+ React 19，跑在 Cloudflare Workers，資料庫是 D1（SQLite）+ Drizzle。線上版在使用者自己的 Cloudflare 帳號（`ringletter.wetrytrysee.cc`，v1.0.0 起，2026-11-12），`main` 有變更就由 `.github/workflows/deploy.yml` 自動部署；PR 由 `ci.yml` 檢查（typecheck、lint、單元測試、build、`test:api`／`test:retention`、e2e）。原本是用 OpenAI ChatGPT Sites 做的，Sites 腳手架（`.openai/`、`scripts/`、connector、`chatgpt-auth`、sites vite plugin）已全部移除。
 
 規劃文件一律記在 GitHub issue，不放進 repo，issue 內文就是設計紀錄：v1 搬遷（M0–M5，已定版）在 DS-Jerry-in-Taiwan/life-fragments#2，v2（V1–V6：前端拆分、REST、保留政策、Turnstile、管理介面、設計打磨）在 #4，收尾 spec 在 #30。`wetrytrysee.cc` 由 Cloudflare 管理；管理者是使用者本人與 tom82523（Access 政策與 `ADMIN_EMAILS` 兩邊都要列）。
 
@@ -22,7 +22,7 @@ npm run dev                # vinext dev，port 5173（對外開放用 -- --hostn
 npm run build              # 產生 dist/，含 dist/server/wrangler.json
 npm start                  # 用 wrangler 在本機跑建置後的 Worker，port 8788
 npm run typecheck
-npm run lint               # 目前 0 個問題（error、warning 都沒有）
+npm run lint               # 目前 0 個問題（error、warning 都沒有）；CI 用 `--max-warnings=0` 跑，error 或 warning 都會失敗
 npm run db:generate        # 改 db/schema.ts 後產生 drizzle/ 遷移
 npm run test:auth          # lib/server/access-jwt.ts 單元測試（node --test，Node 原生剝除 TS 型別）
 npm run test:turnstile     # lib/server/turnstile-siteverify.ts 單元測試（同上，mock fetch）
