@@ -13,6 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 UI 文案與錯誤訊息都是繁體中文。
 
+改 UI 前先讀 `ring-letter/DESIGN.md`（視覺規則：顏色 token 與對比值、字級、版面、元件、動效）與 `ring-letter/PRODUCT.md`（誰在用、語氣、不做的事）。v3 D1（#71）起程式依 `DESIGN.md` 實作，在那之前 `styles/tokens.css` 仍是 v2 的值。
+
 ## 指令（在 `ring-letter/` 下執行，需 Node ≥ 22.18）
 
 ```sh
