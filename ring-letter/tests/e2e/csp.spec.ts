@@ -1,6 +1,6 @@
-import type { BrowserContext, Page } from "@playwright/test";
-import type { Story } from "../../lib/stories";
+import type { Page } from "@playwright/test";
 import { contentSecurityPolicy } from "../../lib/server/security-headers";
+import { lateReports, nonceOf, STORY, watchCsp } from "./csp";
 import {
   adminHeaders,
   asAdmin,
@@ -19,11 +19,12 @@ import { SCREENS } from "./screens";
 // this spec is the gate: a Report-Only violation still fires a
 // `securitypolicyviolation` event and logs to the console, and any of either
 // while walking the main flows fails the test.
+//
+// This spec runs against `npm run dev`, whose policy also allows
+// 'unsafe-eval' and inline <style> (Vite, React dev). csp-build.spec.ts walks
+// the built Worker under the production policy (`npm run test:e2e:build`).
 
 const PAGES = ["/", "/read", "/write", "/write?mode=past", "/write?mode=present", "/archive", "/mine", "/privacy", "/admin"];
-
-/** The nonce in a Report-Only policy. */
-const nonceOf = (policy: string) => /'nonce-([^']+)'/.exec(policy)?.[1];
 
 test("HTML responses carry the security headers; the nonce is on every script", async ({
   request,
@@ -77,30 +78,6 @@ test("other responses get nosniff and Referrer-Policy, but no page policy", asyn
   expect(h["x-frame-options"]).toBeUndefined();
 });
 
-type Violation = { page: string; directive: string; blocked: string; source: string };
-
-/** Records every CSP violation event and CSP console message in `context`. */
-async function watchCsp(context: BrowserContext) {
-  const violations: Violation[] = [];
-  const messages: string[] = [];
-  await context.exposeBinding("__cspViolation", ({ page }, v: Omit<Violation, "page">) => {
-    violations.push({ page: page.url(), ...v });
-  });
-  await context.addInitScript(() => {
-    document.addEventListener("securitypolicyviolation", (e) => {
-      (window as unknown as { __cspViolation: (v: object) => void }).__cspViolation({
-        directive: e.effectiveDirective,
-        blocked: e.blockedURI,
-        source: `${e.sourceFile}:${e.lineNumber}`,
-      });
-    });
-  });
-  context.on("console", (m) => {
-    if (/content.security.policy/i.test(m.text())) messages.push(m.text());
-  });
-  return { violations, messages };
-}
-
 test("the listener does catch a violation", async ({ page, context }) => {
   const csp = await watchCsp(context);
   await page.goto("/");
@@ -114,17 +91,6 @@ test("the listener does catch a violation", async ({ page, context }) => {
   await expect.poll(() => csp.violations.length).toBeGreaterThan(0);
   expect(csp.violations[0].directive).toBe("script-src-elem");
 });
-
-const STORY: Story = {
-  id: "e2e-csp-story",
-  title: "CSP 測試的信",
-  body: "這是一封虛構的測試信，只出現在瀏覽器測試裡。",
-  era: "",
-  source: "recollection",
-  letterType: "present",
-  created: Date.UTC(2026, 10, 1, 4),
-  mood: "平靜",
-};
 
 async function fillPresent(page: Page) {
   await page.getByLabel("剛剛發生了什麼？").fill("CSP 測試留下的文字，測試結束會刪除。");
@@ -183,9 +149,7 @@ test("the main flows fire no CSP violation", async ({ page, context }) => {
     await screen.ready(page);
   }
 
-  // Late reports (style recalculation, lazy chunks) arrive asynchronously.
-  await page.waitForLoadState("networkidle");
-  await page.evaluate(() => new Promise((r) => setTimeout(r, 500)));
+  await lateReports(page);
   expect(csp.violations, "不應有 CSP 違規").toEqual([]);
   expect(csp.messages, "console 不應有 CSP 訊息").toEqual([]);
 });
