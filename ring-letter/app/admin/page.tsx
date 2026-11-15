@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import AdminDashboard from "../../components/admin/AdminDashboard";
+
+export const metadata: Metadata = { title: "管理信箱" };
 
 // Cloudflare Access protects /admin* and /api/admin*. Reaching this page by a
 // full navigation is what triggers the Access sign-in; fetch() to the API
