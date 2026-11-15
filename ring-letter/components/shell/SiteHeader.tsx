@@ -15,7 +15,10 @@ export default function SiteHeader() {
   return (
     <header className={styles.header}>
       <NavButton to="/" className={styles.brand}>
-        <span className={styles.logo}>☾</span> Ring letter
+        <span className={styles.logo} aria-hidden="true">
+          ☾
+        </span>{" "}
+        Ring letter
         <span className={styles.brandSmall}>時光來信</span>
       </NavButton>
       <nav className={styles.nav} aria-label="主要導覽">
