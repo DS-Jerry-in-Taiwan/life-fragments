@@ -1,11 +1,18 @@
 import NavButton from "../shell/NavButton";
 import styles from "./SubmitSuccess.module.css";
 
-export default function SubmitSuccess() {
+/** `headingRef`: WriteFlow moves focus to the heading once the letter is sent. */
+export default function SubmitSuccess({
+  headingRef,
+}: {
+  headingRef?: React.Ref<HTMLHeadingElement>;
+}) {
   return (
     <div className={styles.success}>
       <span>✦</span>
-      <h2>你的文字已留下。</h2>
+      <h2 ref={headingRef} tabIndex={-1}>
+        你的文字已留下。
+      </h2>
       <p>
         如果你勾選願意分享，會先經人工審閱，再讓其他讀者看見；未勾選的內容只供你與管理團隊查看。
       </p>

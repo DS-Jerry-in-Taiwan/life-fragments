@@ -1,3 +1,4 @@
+import { BODY_COUNT_ID } from "./BodyCount";
 import type { Draft } from "./useDraft";
 
 /** Fields of the 回憶信 form; `source` picks guided questions or pasted original text. */
@@ -7,6 +8,7 @@ export default function PastLetterForm({
   body,
   onBodyChange,
   draft,
+  count,
 }: {
   source: string;
   onSourceChange: (source: string) => void;
@@ -14,6 +16,8 @@ export default function PastLetterForm({
   onBodyChange: (body: string) => void;
   /** Restored values of the uncontrolled inputs (useDraft.ts). */
   draft?: Draft["fields"];
+  /** The live length of the body (BodyCount), shown under the fields that make it up. */
+  count: React.ReactNode;
 }) {
   return (
     <>
@@ -42,21 +46,31 @@ export default function PastLetterForm({
             name="event"
             defaultValue={draft?.event}
             id="event"
+            aria-describedby={BODY_COUNT_ID}
             maxLength={700}
             rows={3}
             placeholder="從一件小事開始也可以。"
           />
           <label htmlFor="scene">如果只留下一個畫面，你會寫下哪個瞬間？</label>
-          <textarea name="scene" id="scene" defaultValue={draft?.scene} maxLength={700} rows={3} />
+          <textarea
+            name="scene"
+            id="scene"
+            defaultValue={draft?.scene}
+            aria-describedby={BODY_COUNT_ID}
+            maxLength={700}
+            rows={3}
+          />
           <label htmlFor="feeling">那時候，你最在意或最不確定的是什麼？</label>
           <textarea
             name="feeling"
             defaultValue={draft?.feeling}
             id="feeling"
+            aria-describedby={BODY_COUNT_ID}
             maxLength={700}
             rows={3}
             placeholder="寫當時記得的感覺，不必用現在的答案解釋。"
           />
+          {count}
         </>
       ) : (
         <>
@@ -68,7 +82,9 @@ export default function PastLetterForm({
             rows={8}
             value={body}
             onChange={(e) => onBodyChange(e.target.value)}
+            aria-describedby={BODY_COUNT_ID}
           />
+          {count}
         </>
       )}
       <label htmlFor="reflection">現在回頭看，有什麼跟當時想的不一樣？（選填）</label>

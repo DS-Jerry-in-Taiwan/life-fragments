@@ -7,6 +7,10 @@
   margin-bottom: var(--space-5);
   text-wrap: balance;
 }
+.sectionIntro h1:focus {
+  /* Focused from script only (titleRef), as the start of a new screen. */
+  outline: none;
+}
 .sectionIntro > p:last-child {
   font-size: var(--text-base);
   line-height: 2;

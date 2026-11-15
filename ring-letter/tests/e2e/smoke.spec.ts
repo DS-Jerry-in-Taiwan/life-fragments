@@ -69,6 +69,7 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
       execution: "execute",
       appearance: "interaction-only",
       language: "zh-tw",
+      theme: "dark",
     },
   ]);
   expect(turnstile?.executed, "送出時才取 token").toBe(1);

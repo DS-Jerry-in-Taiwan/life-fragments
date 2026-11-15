@@ -3,7 +3,7 @@
   padding-top: 22px;
 }
 .consent > p {
-  font-size: var(--text-xs);
+  font-size: var(--text-md);
   color: var(--muted);
   margin-left: 26px;
 }

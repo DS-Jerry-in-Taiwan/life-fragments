@@ -25,6 +25,7 @@ type RenderOptions = {
   action: string;
   execution: "execute";
   appearance: "interaction-only";
+  theme: "dark";
   language: string;
   callback: (token: string) => void;
   "error-callback": () => boolean;
@@ -85,9 +86,12 @@ type Pending = { resolve: (token: string) => void; reject: (e: Error) => void };
 export default function Turnstile({
   action,
   ref,
+  className,
 }: {
   action: "submit" | "feedback";
   ref: React.Ref<TurnstileHandle>;
+  /** Spacing in the form around it; the widget only takes up room when it shows a challenge. */
+  className?: string;
 }) {
   const { turnstileSiteKey } = useShell();
   const box = useRef<HTMLDivElement>(null);
@@ -134,6 +138,8 @@ export default function Turnstile({
         action,
         execution: "execute",
         appearance: "interaction-only",
+        // The forms are on the night sky; "auto" would follow a light system theme.
+        theme: "dark",
         language: "zh-tw",
         callback: (token) => settle(token),
         "error-callback": () => {
@@ -190,5 +196,5 @@ export default function Turnstile({
     },
   }));
 
-  return <div ref={box} />;
+  return <div ref={box} className={className} />;
 }

@@ -18,6 +18,43 @@
   width: 100%;
   margin-top: 26px;
 }
+/* BodyCount: right under the last field of the body. */
+.count {
+  margin: -14px 0 0;
+  text-align: right;
+  font-size: var(--text-sm);
+  color: #99aab4;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+}
+.count[data-over] {
+  color: #e8ada5;
+}
+/*
+ * The Turnstile box is empty unless a challenge shows; then it keeps clear
+ * of the consent above and the button below. The two margins add up to the
+ * button's usual 26px, so nothing moves while it is empty.
+ */
+.turnstile {
+  margin-top: var(--space-4);
+}
+.turnstile + .submit {
+  margin-top: 10px;
+}
+/*
+ * A submit error, right under the button: the button doesn't move when it
+ * appears, and scrolling it into view keeps the button on screen too.
+ */
+.error {
+  background: #493b3b;
+  border: 1px solid #9c7771;
+  color: #e2e8df;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-md);
+  line-height: 1.8;
+  margin-top: var(--space-3);
+  scroll-margin: var(--space-4);
+}
 @media (max-width: 640px) {
   .form {
     padding: var(--space-5) var(--space-4);
