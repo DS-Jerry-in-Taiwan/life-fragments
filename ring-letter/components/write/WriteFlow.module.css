@@ -63,3 +63,13 @@
     padding-bottom: 45px;
   }
 }
+/*
+ * The phone lines under every screen of /write (issue #34): the size and
+ * colour of /read's care note, not .quiet's smaller print.
+ */
+.care {
+  margin-top: var(--space-8);
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1.9;
+}

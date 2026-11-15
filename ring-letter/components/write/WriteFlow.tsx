@@ -5,6 +5,7 @@ import * as api from "../../lib/api-client";
 import type { LetterType } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import { useConfirm } from "../common/ConfirmDialog";
+import CrisisLines from "../common/CrisisLines";
 import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import Turnstile, { type TurnstileHandle } from "../common/Turnstile";
@@ -303,6 +304,10 @@ export default function WriteFlow() {
             <p className="quiet">不保證送達日期，也不提供即時回信。</p>
           </form>
         )}
+        <p className={styles.care}>
+          <span className="sentence">這裡不是諮商或緊急求助的地方。</span>
+          <CrisisLines />
+        </p>
       </section>
     </>
   );

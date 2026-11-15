@@ -1,4 +1,5 @@
 import { CONTACT_EMAIL, CONTACT_MAILTO } from "../../lib/contact";
+import CrisisLines from "../common/CrisisLines";
 
 /** The full data-use notice (#4 §4.2: shared by /privacy and the dialog). */
 export default function PrivacyContent({ page = false }: { page?: boolean }) {
@@ -84,6 +85,9 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
       <p>
         <span className="sentence">此處不是即時對話或緊急支援服務。</span>
         <span className="sentence">若文字讓你不適，可以離開並透過閱讀頁回報。</span>
+      </p>
+      <p>
+        <CrisisLines />
       </p>
     </>
   );
