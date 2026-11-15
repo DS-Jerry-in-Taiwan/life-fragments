@@ -254,7 +254,7 @@ test("the header's ☾ is hidden from assistive tech", async ({ page }) => {
   await page.goto("/");
   const moon = page.getByRole("banner").getByText("☾", { exact: true });
   await expect(moon).toHaveAttribute("aria-hidden", "true");
-  await expect(page.getByRole("banner").getByRole("button").first()).toHaveAccessibleName(
+  await expect(page.getByRole("banner").getByRole("link").first()).toHaveAccessibleName(
     /^Ring letter/,
   );
 });

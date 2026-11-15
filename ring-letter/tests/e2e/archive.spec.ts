@@ -51,7 +51,7 @@ test("archive: with one story there is no 再讀一封", async ({ page }) => {
   const letter = await open(page, STORIES.slice(0, 1));
   await expect(letter).toHaveCount(1);
   await expect(page.getByRole("button", { name: /再讀一封/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "留下我的片段" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "留下我的片段" })).toBeVisible();
 });
 
 test("archive: 再讀一封 brings the next story into view and focuses it", async ({ page }) => {

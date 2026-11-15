@@ -1,11 +1,31 @@
 /*
  * Classes shared across components (#4 §4.6.2), kept global on purpose:
- * buttons (.primary .secondary .text-btn .danger), text (.eyebrow .quiet
- * .sentence .prewrap) and the checkbox row (.check — base.css's
- * `label:not(.check)` depends on its name). Components combine them with
- * their own module classes; a module styles them in context with
- * `.local :global(.primary)`.
+ * buttons (.primary .secondary .text-btn .danger, also used on NavButton's
+ * links, with .nav-link), text (.eyebrow .quiet .sentence .prewrap) and
+ * the checkbox row (.check — base.css's `label:not(.check)` depends on its
+ * name). Components combine them with their own module classes; a module
+ * styles them in context with `.local :global(.primary)`.
  */
+/*
+ * NavButton's <a> (V5-nav, #36), given the box a <button> has (the browser's
+ * button defaults plus base.css's `button` rules), so links styled with the
+ * classes below, or by the header and footer, look as they did as buttons.
+ * :where() keeps it at zero specificity: every class and module rule wins.
+ */
+:where(a.nav-link) {
+  display: inline-block;
+  padding: 1px 6px;
+  max-width: 100%;
+  text-align: center;
+  text-decoration: none;
+  text-indent: 0;
+  text-transform: none;
+  text-shadow: none;
+  letter-spacing: normal;
+  word-spacing: normal;
+  white-space: normal;
+  cursor: pointer;
+}
 .eyebrow {
   font-size: var(--text-sm);
   letter-spacing: 0.17em;

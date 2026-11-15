@@ -75,7 +75,7 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   expect(turnstile?.executed, "送出時才取 token").toBe(1);
   expect(turnstile?.reset, "用過就 reset").toBeGreaterThanOrEqual(1);
 
-  await page.getByRole("button", { name: "查看我的片段 →" }).click();
+  await page.getByRole("link", { name: "查看我的片段 →" }).click();
   const story = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: title }) });
@@ -307,10 +307,10 @@ test("home: the hero buttons are named without their decorative arrows", async (
   await page.goto("/");
   await hydrated(page);
   const hero = page.locator("section").filter({ has: page.getByRole("heading", { level: 1 }) });
-  await expect(hero.getByRole("button", { name: "先讀一封", exact: true })).toBeVisible();
-  await expect(hero.getByRole("button", { name: "我想寫一封", exact: true })).toBeVisible();
+  await expect(hero.getByRole("link", { name: "先讀一封", exact: true })).toBeVisible();
+  await expect(hero.getByRole("link", { name: "我想寫一封", exact: true })).toBeVisible();
   await expect(hero.getByText("↗")).toHaveCount(0);
-  await hero.getByRole("button", { name: "先讀一封", exact: true }).click();
+  await hero.getByRole("link", { name: "先讀一封", exact: true }).click();
   await expect(page).toHaveURL(/\/read$/);
 });
 
@@ -318,9 +318,9 @@ test("routes: nav buttons change the URL and the back button works", async ({ pa
   await page.goto("/");
   await hydrated(page);
   const nav = page.getByRole("navigation", { name: "主要導覽" });
-  await nav.getByRole("button", { name: "讀一封信" }).click();
+  await nav.getByRole("link", { name: "讀一封信" }).click();
   await expect(page).toHaveURL(/\/read$/);
-  await nav.getByRole("button", { name: "我的片段" }).click();
+  await nav.getByRole("link", { name: "我的片段" }).click();
   await expect(page).toHaveURL(/\/mine$/);
   await expect(page.getByRole("heading", { level: 1, name: "我的片段" })).toBeVisible();
   await page.goBack();
@@ -328,7 +328,7 @@ test("routes: nav buttons change the URL and the back button works", async ({ pa
   await expect(page.getByRole("heading", { name: "先讀一封，不必先寫" })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: /寫下你的/ })).toBeVisible();
-  await nav.getByRole("button", { name: "公開信箱" }).click();
+  await nav.getByRole("link", { name: "公開信箱" }).click();
   await expect(page).toHaveURL(/\/archive$/);
   await expect(page.getByRole("heading", { level: 1, name: /有一段生活/ })).toBeVisible();
 });
@@ -344,7 +344,7 @@ test("write: choosing a type sets ?mode=, and the link opens the form directly",
   // Nav 寫一封信 goes back to the chooser, as in v1.
   await page
     .getByRole("navigation", { name: "主要導覽" })
-    .getByRole("button", { name: "寫一封信" })
+    .getByRole("link", { name: "寫一封信" })
     .click();
   await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
   // Direct link: the form opens and the writing attempt is recorded.
@@ -432,11 +432,11 @@ test("write: the unsent letter survives a reload and other pages, under the same
   await expectDraft();
   // Another page and back (nav, then the back button), and the chooser again.
   const nav = page.getByRole("navigation", { name: "主要導覽" });
-  await nav.getByRole("button", { name: "我的片段" }).click();
+  await nav.getByRole("link", { name: "我的片段" }).click();
   await expect(page).toHaveURL(/\/mine$/);
   await page.goBack();
   await expectDraft();
-  await nav.getByRole("button", { name: "寫一封信" }).click();
+  await nav.getByRole("link", { name: "寫一封信" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "你今天想怎麼寫？" })).toBeVisible();
   await page.getByRole("button", { name: /有一段過去/ }).click();
   await expectDraft();

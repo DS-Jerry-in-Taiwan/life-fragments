@@ -52,7 +52,7 @@ export const SCREENS: Screen[] = [
       await home(page);
       await page
         .getByRole("navigation", { name: "主要導覽" })
-        .getByRole("button", { name: "讀一封信" })
+        .getByRole("link", { name: "讀一封信" })
         .click();
       await expect(page).toHaveURL(/\/read$/);
     },
@@ -108,7 +108,7 @@ export const SCREENS: Screen[] = [
       await expect(h1(page, /有一段生活/)).toBeVisible();
       // Fresh DB: no approved stories, so the empty state shows (V5-a: no demo stories).
       await expect(page.getByRole("heading", { name: "信箱還在等第一封信" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "讀一封範例信 →" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "讀一封範例信 →" })).toBeVisible();
     },
   },
   {
