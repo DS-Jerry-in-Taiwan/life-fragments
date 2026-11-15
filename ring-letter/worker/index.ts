@@ -1,5 +1,6 @@
 import handler from "vinext/server/fetch-handler";
 import { runRetention } from "../lib/server/retention";
+import { applySecurityHeaders, newNonce, nonceRequest } from "../lib/server/security-headers";
 import { refreshSession } from "../lib/server/session";
 
 /**
@@ -13,20 +14,31 @@ import { refreshSession } from "../lib/server/session";
  * dropped); a failure only skips the refresh.
  */
 async function withSessionRefresh(refresh: Promise<string | null>, response: Response) {
-  if (response.headers.getSetCookie().some((c) => c.startsWith("rl_session="))) return response;
+  if (response.headers.getSetCookie().some((c) => c.startsWith("rl_session="))) return;
   const cookie = await refresh;
-  if (!cookie) return response;
-  const refreshed = new Response(response.body, response);
-  refreshed.headers.append("Set-Cookie", cookie);
+  if (!cookie) return;
+  response.headers.append("Set-Cookie", cookie);
   // A response carrying a personal cookie must never be cached for others.
-  if (!refreshed.headers.has("Cache-Control")) refreshed.headers.set("Cache-Control", "private");
-  return refreshed;
+  if (!response.headers.has("Cache-Control")) response.headers.set("Cache-Control", "private");
 }
 
 const worker = {
+  /**
+   * Security headers (lib/server/security-headers.ts, #63): a per-request
+   * nonce goes to vinext as a CSP request header (it then puts it on every
+   * script it renders) and into the response's Report-Only policy. This
+   * Worker also runs under `npm run dev` (the Cloudflare Vite plugin loads
+   * wrangler.jsonc `main`), so e2e runs under the policy.
+   */
   async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext) {
     const refresh = refreshSession(request).catch(() => null);
-    return withSessionRefresh(refresh, await handler.fetch(request, env, ctx));
+    const nonce = newNonce();
+    const rendered = await handler.fetch(nonceRequest(request, nonce), env, ctx);
+    // Copy once: a fetch-handler response's headers may be immutable.
+    const response = new Response(rendered.body, rendered);
+    await withSessionRefresh(refresh, response);
+    applySecurityHeaders(response.headers, nonce, import.meta.env.DEV);
+    return response;
   },
 
   /**

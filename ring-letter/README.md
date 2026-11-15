@@ -31,6 +31,7 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run test:turnstile` | Turnstile siteverify 檢查的單元測試（mock fetch） |
 | `npm run test:e2e` | Playwright 全部瀏覽器測試：smoke、截圖比對、axe 無障礙掃描、QA（需先另開 `npm run dev`，並有 Docker） |
 | `npm run test:e2e:update` | 重新產生截圖基準 |
+| `npm run test:e2e:build` | 正式政策下的 CSP 檢查（`tests/e2e/csp-build.spec.ts`），對建置後的 Worker：先 `npm run build`、`npm start`，再 `TEST_ORIGIN=http://127.0.0.1:8788 npm run test:e2e:build` |
 
 `npm run dev` 和 `npm start` 共用 `.wrangler/state` 裡的本機 D1。這個目錄可以直接刪掉重建，刪掉後再跑一次 `npm run db:migrate:local` 即可。
 

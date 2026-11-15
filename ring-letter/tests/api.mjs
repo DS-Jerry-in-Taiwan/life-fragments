@@ -222,7 +222,7 @@ for(const type of ['past','present']){
  // A pre-V3-c session: created 40 days ago, 30-day cookie, last seen 40 days ago. Still live, upgraded to one year.
  const old=Date.now()-40*DAY;
  sql(`UPDATE sessions SET created=${old},last_seen=${old} WHERE hash=${q(h)}`);
- const p=await page(c);assert.equal(p.status,200);assert.equal(p.setCookie,refreshed(c),'a page visit re-issues the cookie for a year');assert.equal(p.cache,'private','and is not cacheable for others');
+ const p=await page(c);assert.equal(p.status,200);assert.equal(p.setCookie,refreshed(c),'a page visit re-issues the cookie for a year');assert.match(p.cache,/\b(private|no-store)\b/,'and is not cacheable for others (pages rendered with a CSP nonce are no-store, worker/index.ts)');
  const seen=lastSeen();assert.ok(seen>Date.now()-60000,'and moves last_seen to now');
  {const r=await mine(c);assert.equal(r.setCookie,refreshed(c),'API reads too');}
  assert.equal(lastSeen(),seen,'at most one last_seen write a day');
