@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 這個 repo 有兩個互不相干的部分：
 
 - **根目錄 `index.html` + `CNAME`**：GitHub Pages 靜態概念頁（`life.wetrytrysee.cc`），沒有建置流程，直接改 HTML。
-- **`ring-letter/`**：Ring letter 應用。Vinext（Vite 版 Next.js App Router，**beta**）+ React 19，跑在 Cloudflare Workers，資料庫是 D1（SQLite）+ Drizzle。線上版在使用者自己的 Cloudflare 帳號（`ringletter.wetrytrysee.cc`，v1.0.0 起，2026-11-12），`main` 有變更就由 `.github/workflows/deploy.yml` 自動部署；PR 由 `ci.yml` 檢查（typecheck、lint、單元測試、build、`test:api`／`test:retention`、e2e）。原本是用 OpenAI ChatGPT Sites 做的，Sites 腳手架（`.openai/`、`scripts/`、connector、`chatgpt-auth`、sites vite plugin）已全部移除。
+- **`ring-letter/`**：Ring letter 應用。Vinext 1.x（Vite 版 Next.js App Router，`package.json` 鎖確切版本，不用 `^`；升級時除了 dev 的測試，也要用 `npm start` 實際跑過建置後的 Worker，#69）+ React 19，跑在 Cloudflare Workers，資料庫是 D1（SQLite）+ Drizzle。線上版在使用者自己的 Cloudflare 帳號（`ringletter.wetrytrysee.cc`，v1.0.0 起，2026-11-12），`main` 有變更就由 `.github/workflows/deploy.yml` 自動部署；PR 由 `ci.yml` 檢查（typecheck、lint、單元測試、build、`test:api`／`test:retention`、e2e）。原本是用 OpenAI ChatGPT Sites 做的，Sites 腳手架（`.openai/`、`scripts/`、connector、`chatgpt-auth`、sites vite plugin）已全部移除。
 
 規劃文件一律記在 GitHub issue，不放進 repo，issue 內文就是設計紀錄：v1 搬遷（M0–M5，已定版）在 DS-Jerry-in-Taiwan/life-fragments#2，v2（V1–V6：前端拆分、REST、保留政策、Turnstile、管理介面、設計打磨）在 #4，收尾 spec 在 #30。`wetrytrysee.cc` 由 Cloudflare 管理；管理者是使用者本人與 tom82523（Access 政策與 `ADMIN_EMAILS` 兩邊都要列）。
 
@@ -18,7 +18,7 @@ UI 文案與錯誤訊息都是繁體中文。
 ```sh
 npm ci
 npm run db:migrate:local   # 第一次，或 drizzle/ 有新遷移時（wrangler d1 migrations apply）
-npm run dev                # vinext dev，port 5173（對外開放用 -- --hostname 0.0.0.0）
+npm run dev                # vinext dev，port 5173（對外開放用 `-- --host 0.0.0.0`；vinext 1.x 不再接受 `--hostname`）
 npm run build              # 產生 dist/，含 dist/server/wrangler.json
 npm start                  # 用 wrangler 在本機跑建置後的 Worker，port 8788
 npm run typecheck
@@ -38,7 +38,7 @@ npm run test:retention          # 保留政策（tests/retention.mjs），會清
 
 測試讀 `.wrangler/dev-admin-token`（dev server 每次啟動產生的祕密）來扮演管理者（見下方「管理者驗證」），所以要先啟動 dev server，也不能對 `npm start` 或正式環境跑：建置後的 Worker 沒有這條路，管理者測試會拿到 403。測試資料最後會自行刪除，但測試中途失敗時，資料會留在本機 D1，下次跑到最後一個檢查會失敗。這時刪掉 `.wrangler/state`，再跑一次 `npm run db:migrate:local`。
 
-`tests/retention.mjs` 用 Cloudflare Vite plugin 的 dev 專用 `/cdn-cgi/handler/scheduled?time=<ms>` 以未來時間觸發 Cron（「31 天後」、「一年後」），並用 `wrangler d1 execute --local` 檢查／插入少量回溯時間的資料（`tests/api.mjs` 也用同一招讀同意字串、改 `last_seen`）。未來時間的 Cron 會刪掉本機 D1 裡除了「永久版本且已核准」以外的**所有**故事、回饋、試寫，以及（「一年後」那次）所有 session（不只測試的），所以只對可丟棄的 `.wrangler/state` 跑。`npm start`（wrangler dev 跑建置後的 Worker）的 `/cdn-cgi/handler/scheduled` 在 wrangler 4.92 因 assets router 無法轉送 `ScheduledController` 而回 500，本機測 Cron 一律用 `npm run dev`。
+`tests/retention.mjs` 用 Cloudflare Vite plugin 的 dev 專用 `/cdn-cgi/handler/scheduled?time=<ms>` 以未來時間觸發 Cron（「31 天後」、「一年後」），並用 `wrangler d1 execute --local` 檢查／插入少量回溯時間的資料（`tests/api.mjs` 也用同一招讀同意字串、改 `last_seen`）。未來時間的 Cron 會刪掉本機 D1 裡除了「永久版本且已核准」以外的**所有**故事、回饋、試寫，以及（「一年後」那次）所有 session（不只測試的），所以只對可丟棄的 `.wrangler/state` 跑。`npm start`（wrangler dev 跑建置後的 Worker）也可以用同一個 `/cdn-cgi/handler/scheduled?time=<ms>` 手動觸發 Cron（回 `ok`，終端機印出 `retention {…}` 各表刪除筆數；wrangler 4.92 時因 workers-sdk#9882 回 500，4.99 起修好，#69），用來確認建置後的 `scheduled` 能跑；但 `test:retention` 需要 dev 的管理者 token，仍只對 `npm run dev` 跑。
 
 瀏覽器測試（Playwright，`tests/e2e/`）也對 **`npm run dev`** 跑，一律在官方 Playwright Docker 容器裡（`mcr.microsoft.com/playwright:v<版本>-noble`，版本跟著 `@playwright/test`；host 網路，所以只能在 Linux），本機 D1 要乾淨（同 `test:api`），細節見 `ring-letter/README.md`「瀏覽器測試與截圖基準」：
 

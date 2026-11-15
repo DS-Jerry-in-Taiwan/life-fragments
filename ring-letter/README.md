@@ -1,6 +1,6 @@
 # Ring letter
 
-匿名的跨時間故事閱讀與投稿網站。使用 [Vinext](https://github.com/cloudflare/vinext)（Vite 版 Next.js App Router，beta）+ React 19，部署在 Cloudflare Workers，資料庫為 Cloudflare D1 + Drizzle。
+匿名的跨時間故事閱讀與投稿網站。使用 [Vinext](https://github.com/cloudflare/vinext)1.x（Vite 版 Next.js App Router）+ React 19，部署在 Cloudflare Workers，資料庫為 Cloudflare D1 + Drizzle。
 
 正式站：<https://ringletter.wetrytrysee.cc>（`main` 有變更時由 GitHub Actions 自動部署）。產品決策、隱私與同意規則記錄在 `PROJECT_NOTES.md`；第一版（搬到自有 Cloudflare）的規劃與驗收在 GitHub issue #2，第二版在 issue #4（收尾 spec #30）。
 
@@ -20,7 +20,7 @@ npm run dev                # http://127.0.0.1:5173
 |---|---|
 | `npm run dev` | 開發伺服器（HMR，port 5173） |
 | `npm run build` | 建置到 `dist/`，含 `dist/server/wrangler.json` |
-| `npm start` | 用 Wrangler 在本機跑建置後的 Worker（port 8788） |
+| `npm start` | 用 Wrangler 在本機跑建置後的 Worker（port 8788）；`curl 'http://127.0.0.1:8788/cdn-cgi/handler/scheduled'` 可手動觸發每日 Cron（加 `?time=<ms>` 指定時間） |
 | `npm run typecheck` | TypeScript 型別檢查 |
 | `npm run lint` | ESLint（目前 0 個問題） |
 | `npm run db:generate` | 修改 `db/schema.ts` 後產生新的 `drizzle/` 遷移 |

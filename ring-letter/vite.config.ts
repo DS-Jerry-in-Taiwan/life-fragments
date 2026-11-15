@@ -57,7 +57,13 @@ function devAdminIdentity(): Plugin {
         const sentEmail = req.headers[EMAIL_HEADER];
         const cookieToken = /(?:^|;\s*)rl_dev_admin=([a-f0-9]+)/.exec(req.headers.cookie ?? "")?.[1];
 
+        // Node builds req.headers and req.headersDistinct lazily from
+        // rawHeaders and the header count it parsed, so both must exist
+        // before rawHeaders gets shorter (vinext reads headersDistinct too;
+        // same approach as vinext's own removeRequestHeaders()).
+        const distinct = req.headersDistinct;
         for (const name of Object.keys(req.headers)) if (drop(name)) delete req.headers[name];
+        for (const name of Object.keys(distinct)) if (drop(name)) delete distinct[name];
         for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {
           if (drop(req.rawHeaders[i])) req.rawHeaders.splice(i, 2);
         }
@@ -80,6 +86,7 @@ function devAdminIdentity(): Plugin {
         else if (devAdmin && matches(cookieToken)) email = devAdmin;
         if (email) {
           req.headers[IDENTITY] = email;
+          distinct[IDENTITY] = [email];
           req.rawHeaders.push(IDENTITY, email);
         }
         next();

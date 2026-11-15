@@ -49,7 +49,7 @@ jobs:
           npm run db:migrate:local
           # Bind IPv4 explicitly: on the runner `localhost` resolves to ::1,
           # but tests/api.mjs talks to 127.0.0.1.
-          npm run dev -- --hostname 127.0.0.1 > dev.log 2>&1 &
+          npm run dev -- --host 127.0.0.1 > dev.log 2>&1 &
           for i in $(seq 1 60); do
             curl -sf -o /dev/null http://127.0.0.1:5173/ && break
             sleep 2
@@ -81,7 +81,7 @@ jobs:
       - name: Start dev server
         run: |
           npm run db:migrate:local
-          npm run dev -- --hostname 127.0.0.1 > dev.log 2>&1 &
+          npm run dev -- --host 127.0.0.1 > dev.log 2>&1 &
           for i in $(seq 1 60); do
             curl -sf -o /dev/null http://127.0.0.1:5173/ && break
             sleep 2
