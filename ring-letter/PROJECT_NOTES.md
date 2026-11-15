@@ -44,14 +44,17 @@ Automated (issue #39, #4 §4.8's QA list), against `npm run dev` in the Playwrig
 
 Dependency note: @axe-core/playwright (pinned 4.14.0) is a devDependency, used only by tests/e2e/a11y.spec.ts and never bundled into the Worker. Why: a WCAG 2.x A/AA scan of every state in tests/e2e/states.ts on every PR, so an accessibility regression fails CI instead of waiting for manual QA. How: it is part of `npm run test:e2e` (CI's e2e job); `npm run test:e2e -- a11y.spec.ts` runs it alone. Violations fail the test, incomplete results are only logged. Exceptions live in EXCEPTIONS at the top of tests/e2e/a11y.spec.ts, one rule id narrowed to a node's HTML with the reason, never a whole rule; adding one needs that reason in the PR.
 
-實機待測（Jerry）, pending:
+實機與模擬結果（2026-11-15，#39 結案）:
 
-- [ ] iOS Safari: submit a letter (Turnstile included), 我的片段, /archive feedback.
-- [ ] Android Chrome: submit a letter (Turnstile included), 我的片段, /archive feedback.
-- [ ] 注音 / 倉頡: composing, then Enter to pick a candidate, in one-line inputs (title, era, mood, /admin search) doesn't submit; in textareas doesn't miscount.
-- [ ] The mood field's datalist: choosing a suggestion with Enter doesn't submit.
-- [ ] Windows (classic scrollbars): opening a modal (ConfirmDialog, the privacy notice) doesn't visibly shift the page.
-- [ ] A real desktop browser: Ctrl+click / middle-click on nav links and in-site buttons-as-links opens a new tab.
-- [ ] VoiceOver: 有回應到我 is read as a toggle with its pressed state, not as ✓; 「尚未開放」 is read on 留下回音 and 想參加人工媒合？; the skip link in Safari (needs Settings → Advanced → "Press Tab to highlight each item").
-- [ ] iOS: the 44px targets feel right (header nav, footer, phone lines, letter buttons).
-- [ ] Afterwards, in /admin, delete only the test stories created during device QA, one by one by their id. NEVER delete 0f6ab13c 「我想想」 — a real approved story.
+Jerry tested on his phone and replied 「都沒問題」; the rest was checked by a server-side Chromium run (Pixel 7 and iPhone 14 sizes, and 1280) from another session. Each item says which.
+
+- [x] Phone (Jerry, real device): submit a letter with Turnstile, 我的片段, /archive feedback: no problems. (Turnstile always demands an interactive challenge from headless browsers, so these flows rely on the real device.)
+- [x] 注音 / 倉頡 (emulated with CDP `imeSetComposition`): Enter while composing (keyCode 229 / 13) in title, era and mood sent nothing (0 submits); the textarea count stayed right (4／1,500, 10／1,500).
+- [~] The mood field's datalist: headless Chromium doesn't show the native list, so only an approximation was run (no submit on Enter). Not confirmed on a real device.
+- [x] Classic scrollbars: opening a modal shifts the page by 7.5px (hidden under the dark backdrop). Accepted for v2; v3 candidate: `scrollbar-gutter: stable`.
+- [x] Ctrl+click / middle-click on header links and in-page NavButton links opens a new tab (emulated, real Chromium engine).
+- [x] Accessibility tree (emulated, not VoiceOver itself): 有回應到我 is a pressed toggle; 想參加人工媒合？'s name includes 尚未開放; the skip link is the first Tab stop and moves focus to main#main.
+- [x] Tap targets ≥ 44px everywhere except: the chips (39.6px) and, at 390px, the header brand link 「☾ Ring letter」 (43.4px). Both accepted for v2; v3 candidates.
+- [x] Production data: the emulation left 1 anonymous session and 1 writing attempt (no story, no feedback); retention removes them. No test story was created; 0f6ab13c 「我想想」 (a real approved story) is intact and must never be deleted.
+
+v3 candidates from V5-d: scrollbar-gutter for modals; 44px chips; 44px header brand link at 390px.
