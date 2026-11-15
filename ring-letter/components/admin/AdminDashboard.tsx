@@ -3,7 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { AdminStory, AdminSummary, ModerationAction } from "../../lib/stories";
-import { useAction } from "../../lib/use-action";
+import { useAction, useBusyCursor } from "../../lib/use-action";
 import { useConfirm } from "../common/ConfirmDialog";
 import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
@@ -126,6 +126,7 @@ export default function AdminDashboard() {
   // The cards shown were listed under other filters (the new ones' first page
   // is on its way): nothing is ticked or sent until it arrives.
   const listing = stories.listedKey !== query;
+  useBusyCursor(listing);
   // Changing the filters clears the selection for good: returning to the
   // earlier filters must not bring its ticks back (adjust-state-during-render).
   if (selection.key !== query && selection.ids.size > 0)

@@ -23,7 +23,7 @@
   color: var(--gold);
 }
 .badge {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   border: 1px solid var(--line);
   padding: 8px 13px;
   border-radius: 30px;

@@ -1,6 +1,6 @@
 import styles from "./SectionIntro.module.css";
 
-/** The centred eyebrow, title and intro at the top of a screen. */
+/** The eyebrow, title and intro at the top of a screen (centred; left-aligned on phones). */
 export default function SectionIntro({
   eyebrow,
   title,

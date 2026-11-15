@@ -109,11 +109,7 @@
 }
 @media (max-width: 640px) {
   .eyebrow {
-    font-size: var(--text-2xs);
     margin-bottom: var(--space-5);
     letter-spacing: 0.1em;
-  }
-  .quiet {
-    font-size: var(--text-xs);
   }
 }

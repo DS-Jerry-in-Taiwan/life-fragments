@@ -15,7 +15,7 @@
   font-family: var(--font-display);
 }
 .phrase {
-  font: 11px Arial;
+  font: var(--text-sm) Arial;
   margin-left: var(--space-4);
 }
 .footer > div {
@@ -27,9 +27,10 @@
 }
 .footer button,
 .footer a {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   text-decoration: none;
-  padding: 0;
+  /* About 40px tall (was 20px): a tap-sized target (V5-c7). */
+  padding: var(--space-2) 0;
 }
 @media (max-width: 640px) {
   .footer {
@@ -39,8 +40,5 @@
   }
   .footer > div {
     margin-top: 15px;
-  }
-  .phrase {
-    font-size: var(--text-2xs);
   }
 }

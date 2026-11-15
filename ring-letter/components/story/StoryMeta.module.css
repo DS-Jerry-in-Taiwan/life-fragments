@@ -9,8 +9,3 @@
 .onPaper {
   color: #5a6460;
 }
-@media (max-width: 640px) {
-  .era {
-    font-size: var(--text-xs);
-  }
-}
