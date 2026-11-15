@@ -2,6 +2,10 @@
 * {
   box-sizing: border-box;
 }
+/* Native controls (select, date pickers, scrollbars) in their dark style. */
+:root {
+  color-scheme: dark;
+}
 /* Keep the title scale tied to its column, with explicit phrase boundaries. */
 html {
   line-break: strict;
@@ -40,6 +44,10 @@ button {
 }
 button:disabled {
   opacity: 0.45;
+  cursor: not-allowed;
+}
+/* Only while a request is in flight (lib/use-action.ts sets data-busy). */
+:root[data-busy] button:disabled {
   cursor: wait;
 }
 button:focus-visible,
