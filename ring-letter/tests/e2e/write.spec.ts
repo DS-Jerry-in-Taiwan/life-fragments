@@ -370,7 +370,7 @@ test("privacy notice is a modal: focus inside, Tab stays in, Esc closes, focus b
   await expect(opener, "焦點回到開啟的按鈕").toBeFocused();
 
   // 我了解了 closes it too, from the footer's link.
-  const footer = page.getByRole("contentinfo").getByRole("button", { name: "先前投稿資料說明" });
+  const footer = page.getByRole("contentinfo").getByRole("button", { name: "資料使用說明" });
   await footer.click();
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "我了解了" }).click();

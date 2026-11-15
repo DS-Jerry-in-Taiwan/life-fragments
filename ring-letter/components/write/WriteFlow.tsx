@@ -52,6 +52,8 @@ export default function WriteFlow() {
     // The uncontrolled inputs as typed so far, for the live body count.
     [typed, setTyped] = useState<Draft["fields"]>({}),
     [saved, setSaved] = useState(false),
+    // The form opened with text from a saved draft (shows 已帶回… once).
+    [restored, setRestored] = useState(false),
     [shownMode, setShownMode] = useState(mode),
     // Bumped on every refused submit, so a repeated identical error is
     // scrolled back into view too.
@@ -63,6 +65,7 @@ export default function WriteFlow() {
     setSource(draft?.source ?? "recollection");
     setFields(draft?.fields ?? {});
     setTyped(draft?.fields ?? {});
+    setRestored(!!draft?.body || Object.values(draft?.fields ?? {}).some(Boolean));
     if (next && draft?.attempt) setAttempt({ mode: next, id: draft.attempt });
     return !!draft?.attempt;
   }
@@ -198,6 +201,7 @@ export default function WriteFlow() {
       // That attempt is completed; the next letter needs a new one.
       clearDraft(mode as LetterType);
       setAttempt(null);
+      setRestored(false);
       autoStarted.current = null;
       setBody("");
       setTyped({});
@@ -271,6 +275,7 @@ export default function WriteFlow() {
             >
               ← 重新選擇寫法
             </button>
+            {restored && <p className="quiet">已帶回上次未送出的草稿，只暫存在這個分頁。</p>}
             <label htmlFor="title">給這封信一個名字（選填）</label>
             <input
               name="title"

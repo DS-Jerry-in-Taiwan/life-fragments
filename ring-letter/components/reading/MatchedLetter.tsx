@@ -67,7 +67,7 @@ export default function MatchedLetter({
           <dd>{letter.situation}</dd>
         </div>
         <div>
-          <dt>媒合理由</dt>
+          <dt>這類信的共同處</dt>
           <dd>{letter.matchReason}</dd>
         </div>
       </dl>

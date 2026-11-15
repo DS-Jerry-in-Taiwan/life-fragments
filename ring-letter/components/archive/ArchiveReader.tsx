@@ -65,7 +65,7 @@ export default function ArchiveReader() {
       <StatusMessage action={load} />
       <section className={styles.reading}>
         <SectionIntro
-          eyebrow="時光信箱"
+          eyebrow="公開信箱"
           title={
             <>
               <span className={styles.headingPhrase}>有一段生活，</span>
