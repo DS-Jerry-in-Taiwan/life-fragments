@@ -1,0 +1,10 @@
+/*
+ * Each phone line is a whole 44px tap target (#52): someone who needs it may
+ * be on a phone and not at their steadiest. The line box grows with it, so
+ * neighbouring targets never overlap.
+ */
+.line {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

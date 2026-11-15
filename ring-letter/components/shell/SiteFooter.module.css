@@ -29,8 +29,8 @@
 .footer a {
   font-size: var(--text-sm);
   text-decoration: none;
-  /* About 40px tall (was 20px): a tap-sized target (V5-c7). */
-  padding: var(--space-2) 0;
+  /* ≥ 44px tall (#52; V5-c7 made it 37.6px). */
+  padding: var(--space-3) 0;
 }
 @media (max-width: 640px) {
   .footer {
