@@ -41,6 +41,12 @@
   align-items: center;
   margin: var(--space-3) 0;
 }
+.batchActions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-6);
+  row-gap: var(--space-3);
+}
 .batchCount,
 .batchNote {
   font-size: var(--text-sm);
