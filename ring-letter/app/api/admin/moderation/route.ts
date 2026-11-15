@@ -13,15 +13,14 @@ import { parseBatchModeration } from "../../../../lib/server/validation";
 
 /**
  * Batch rejection or delete (#4 §5.2), body `{status: "rejected" | "delete",
- * items: [{id, statusAt, consentEvents}]}` (1–50 items; approval is never
- * batched: 400). Each item gets the single-story rules
+ * items: [{id, revision}]}` (1–50 items, lib/admin-contract.ts; approval is
+ * never batched: 400). Each item gets the single-story rules
  * (POST /api/admin/stories/:id/moderation), not all-or-nothing:
  * - rejected: only a live pending or approved story still at the listed
- *   statusAt and consent-event count is rejected (an expired story awaiting
- *   the retention job is `missing`);
+ *   revision is rejected (an expired story awaiting the retention job is
+ *   `missing`);
  * - delete: any existing story is deleted with its feedback and consent
- *   events (statusAt and consentEvents are not checked, as for a single
- *   delete).
+ *   events (the revision is not checked, as for a single delete).
  * One D1 batch applies every item and logs each applied one in admin_events
  * (lib/server/db/stories.ts moderateStories()):
  * `{results: [{id, ok, error?: "conflict" | "not_allowed" | "missing"}]}`,

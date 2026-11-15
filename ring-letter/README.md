@@ -29,6 +29,7 @@ npm run dev                # http://127.0.0.1:5173
 | `npm run test:retention` | 資料保留政策測試（需先另開 `npm run dev`；會清掉本機 D1 幾乎所有資料，放在 `test:api` 之後跑） |
 | `npm run test:auth` | Access JWT 驗證的單元測試 |
 | `npm run test:turnstile` | Turnstile siteverify 檢查的單元測試（mock fetch） |
+| `npm run test:admin` | 管理頁清單調和（`components/admin/reconcile.ts`）與審核 revision 的單元測試 |
 | `npm run test:e2e` | Playwright 全部瀏覽器測試：smoke、截圖比對、axe 無障礙掃描、QA（需先另開 `npm run dev`，並有 Docker） |
 | `npm run test:e2e:update` | 重新產生截圖基準 |
 | `npm run test:e2e:build` | 正式政策下的 CSP 檢查（`tests/e2e/csp-build.spec.ts`），對建置後的 Worker：先 `npm run build`、`npm start`，再 `TEST_ORIGIN=http://127.0.0.1:8788 npm run test:e2e:build` |

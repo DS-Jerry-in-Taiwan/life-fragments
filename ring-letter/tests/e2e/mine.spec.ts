@@ -234,14 +234,14 @@ test("StoryMeta on the archive's letter paper is ≥ 4.5:1", async ({ page, cont
     `${ORIGIN}/api/admin/stories?status=all&id=${encodeURIComponent(id)}`,
     { headers: adminHeaders() },
   );
-  const listed = (
-    (await found.json()).stories as { id: string; statusAt: number; consentEvents: number }[]
-  ).find((s) => s.id === id)!;
+  const listed = ((await found.json()).stories as { id: string; revision: string }[]).find(
+    (s) => s.id === id,
+  )!;
   const approve = await context.request.post(
     `${ORIGIN}/api/admin/stories/${encodeURIComponent(id)}/moderation`,
     {
       headers: { ...adminHeaders(), ...sameOrigin },
-      data: { status: "approved", statusAt: listed.statusAt, consentEvents: listed.consentEvents },
+      data: { status: "approved", revision: listed.revision },
     },
   );
   expect(approve.status()).toBe(200);

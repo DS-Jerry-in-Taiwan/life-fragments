@@ -1,3 +1,4 @@
+import { MAX_QUERY } from "../../lib/admin-contract";
 import type { AdminSummary } from "../../lib/stories";
 import chips from "../common/Chips.module.css";
 import { isStoryId, NO_FILTER, STATUS_FILTERS, type StoryFilter } from "./filters";
@@ -94,7 +95,7 @@ export default function StoryFilters({
           <input
             name="q"
             type="search"
-            maxLength={100}
+            maxLength={MAX_QUERY}
             defaultValue={filter.id || filter.q}
             disabled={disabled}
           />

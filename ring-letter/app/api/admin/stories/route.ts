@@ -18,8 +18,8 @@ export async function GET(req: Request) {
     withAdmin(req, async () => {
       const v = parseAdminStoryQuery(new URL(req.url).searchParams);
       if (!v.ok) return reply({ error: v.error }, 400);
-      const { results } = await listAdminStories(v.data, Date.now(), PAGE_SIZE + 1);
-      const { page, nextCursor } = paginate(results, (s) => [s.created, s.id]);
+      const stories = await listAdminStories(v.data, Date.now(), PAGE_SIZE + 1);
+      const { page, nextCursor } = paginate(stories, (s) => [s.created, s.id]);
       return reply({ stories: page, nextCursor });
     }),
   );

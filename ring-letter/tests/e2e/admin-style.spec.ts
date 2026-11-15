@@ -17,7 +17,7 @@ const STORY: AdminStory = {
   letterType: "present",
   created: SUBMITTED,
   status: "pending",
-  statusAt: SUBMITTED,
+  revision: "e2e-revision",
   shareRequests: 0,
   consentEvents: 1,
   consent: "v3-2026-11-12:adult,privacy,share",

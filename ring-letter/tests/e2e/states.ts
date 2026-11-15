@@ -68,7 +68,7 @@ export async function adminWithLists(page: Page) {
     ...STORIES[0],
     status: "pending",
     created: SUBMITTED,
-    statusAt: SUBMITTED,
+    revision: "e2e-revision",
     shareRequests: 1,
     consentEvents: 3,
     consent: "v3-2026-11-12:adult,privacy,share",

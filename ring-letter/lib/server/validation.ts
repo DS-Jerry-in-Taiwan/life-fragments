@@ -1,6 +1,18 @@
 import { z } from "zod";
-import { CONSENT_TERMS } from "../consent";
-import { decodeCursor } from "./cursor";
+import {
+  BATCH_ACTIONS,
+  calendarDay,
+  CONSENT_FILTERS,
+  DEFAULT_STATUS_FILTER,
+  EXPIRING_PATTERN,
+  isExpiringDays,
+  MAX_BATCH,
+  MAX_ID_LENGTH,
+  MAX_QUERY,
+  MODERATION_ACTIONS,
+  STATUS_FILTERS,
+} from "../admin-contract";
+import { decodeCursor, decodeRevision, type Revision } from "./cursor";
 import type { AdminEventFilter } from "./db/admin-events";
 import type { AdminFeedbackFilter } from "./db/feedback";
 import type { AdminStoryFilter } from "./db/stories";
@@ -150,40 +162,58 @@ export function parseSharing(b: unknown): Validated<{ share: boolean }> {
 
 // --- /api/admin/stories/:id/moderation ------------------------------------
 
+/** A story's revision as the admin story list showed it (lib/server/cursor.ts). */
+const revision = z
+  .string()
+  .max(200)
+  .transform(decodeRevision)
+  .refine((r): r is Revision => r !== undefined);
+
 const moderationSchema = z.object({
   id: z.string(),
-  status: z.enum(["approved", "rejected", "delete"]),
-  statusAt: z.number().int().nonnegative().optional(),
-  consentEvents: z.number().int().nonnegative().optional(),
+  status: z.enum(MODERATION_ACTIONS),
+  revision: revision.optional(),
+  // The fields revision replaced: a body from an admin page loaded before it
+  // must not pass as one that asks for no check.
+  statusAt: z.undefined(),
+  consentEvents: z.undefined(),
 });
 
 /**
- * `id` from the URL path; `status` and the optional `statusAt` and
- * `consentEvents` (the story's values as the admin story list showed them) from the
- * JSON body. Any other body field is ignored.
+ * `id` from the URL path; `status` and the optional `revision` (the story's,
+ * as the admin story list showed it) from the JSON body. The former
+ * `statusAt` / `consentEvents` fields are refused; any other body field is
+ * ignored.
  */
-export function parseModeration(id: unknown, b: unknown) {
+export function parseModeration(
+  id: unknown,
+  b: unknown,
+): Validated<{ id: string; status: (typeof MODERATION_ACTIONS)[number]; revision?: Revision }> {
   const body = typeof b === "object" && b !== null ? (b as Record<string, unknown>) : {};
-  return check(
+  const v = check(
     moderationSchema,
-    { id, status: body.status, statusAt: body.statusAt, consentEvents: body.consentEvents },
+    {
+      id,
+      status: body.status,
+      revision: body.revision,
+      statusAt: body.statusAt,
+      consentEvents: body.consentEvents,
+    },
     "無效操作",
   );
+  if (!v.ok) return v;
+  const { status, revision: r } = v.data;
+  return { ok: true, data: { id: v.data.id, status, revision: r } };
 }
 
 // --- POST /api/admin/moderation (batch) ---------------------------------------
 
-/** At most this many stories per batch request (#4 §5.2). */
-export const MAX_BATCH = 50;
-
-const batchItem = z.object({
-  id: z.string().min(1).max(200),
-  statusAt: z.number().int().nonnegative(),
-  consentEvents: z.number().int().nonnegative(),
-});
+const batchItem = z
+  .object({ id: z.string().min(1).max(MAX_ID_LENGTH), revision })
+  .transform(({ id, revision: r }) => ({ id, ...r }));
 
 const batchSchema = z.object({
-  status: z.enum(["rejected", "delete"]),
+  status: z.enum(BATCH_ACTIONS),
   items: z
     .array(batchItem)
     .min(1)
@@ -194,9 +224,10 @@ const batchSchema = z.object({
 export type BatchModeration = z.output<typeof batchSchema>;
 
 /**
- * `{status: "rejected" | "delete", items: [{id, statusAt, consentEvents}]}`,
- * 1–50 items with distinct ids (unknown item fields are dropped). Approval is
- * never batched: every story must be read before it goes public.
+ * `{status: "rejected" | "delete", items: [{id, revision}]}`, 1–50 items
+ * with distinct ids (unknown item fields are dropped; each item comes out
+ * as its id and decoded revision). Approval is never batched: every story
+ * must be read before it goes public.
  */
 export function parseBatchModeration(b: unknown): Validated<BatchModeration> {
   if (typeof b === "object" && b !== null && (b as Record<string, unknown>).status === "approved")
@@ -208,7 +239,6 @@ export function parseBatchModeration(b: unknown): Validated<BatchModeration> {
 
 const BAD_FILTER = "無效的篩選條件。";
 const BAD_CURSOR = "無效的分頁位置，請重新載入。";
-export const MAX_QUERY = 100;
 const TAIPEI_OFFSET = 8 * 60 * 60 * 1000;
 
 /** Query parameters as an object; empty values count as absent. */
@@ -218,17 +248,14 @@ function queryObject(params: URLSearchParams) {
 
 /** Start of the calendar day `YYYY-MM-DD` in Taipei (UTC+8, no DST), in ms; null if not a real date. */
 function taipeiDayStart(day: string) {
-  const [y, m, d] = day.split("-").map(Number);
-  const utc = Date.UTC(y, m - 1, d);
-  const back = new Date(utc);
-  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== m - 1 || back.getUTCDate() !== d)
-    return null;
-  return utc - TAIPEI_OFFSET;
+  const date = calendarDay(day);
+  if (!date) return null;
+  const [y, m, d] = date;
+  return Date.UTC(y, m - 1, d) - TAIPEI_OFFSET;
 }
 
 const dayParam = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
   .transform(taipeiDayStart)
   .refine((t): t is number => t !== null);
 
@@ -241,18 +268,18 @@ function parseCursor<S extends z.ZodTypeAny>(
   return check(shape, decodeCursor(cursor), BAD_CURSOR);
 }
 
-const textParam = z.string().max(200);
+const textParam = z.string().max(MAX_ID_LENGTH);
 
 const adminStoriesSchema = z
   .object({
-    status: z.enum(["pending", "approved", "rejected", "private", "all"]).default("pending"),
+    status: z.enum(STATUS_FILTERS).default(DEFAULT_STATUS_FILTER),
     reshare: z.literal("1").optional(),
-    consent: z.enum(CONSENT_TERMS).optional(),
+    consent: z.enum(CONSENT_FILTERS).optional(),
     expiring: z
       .string()
-      .regex(/^\d{1,3}$/)
+      .regex(EXPIRING_PATTERN)
       .transform(Number)
-      .refine((n) => n >= 1 && n <= 365)
+      .refine(isExpiringDays)
       .optional(),
     q: z.string().optional(),
     from: dayParam.optional(),
