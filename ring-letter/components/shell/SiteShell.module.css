@@ -18,6 +18,32 @@
     radial-gradient(2px 2px at 88% 73%, #d1ceae88 50%, transparent);
   background-size: 700px 700px;
 }
+/* Off-screen (above the sky, which clips it) until it has focus. */
+.skip {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-3);
+  left: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  background: var(--bg);
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+/* Focused only as the skip link's target; a ring around the whole page
+   would say nothing. */
+.main:focus {
+  outline: none;
+}
 .main {
   position: relative;
   z-index: 1;
