@@ -51,6 +51,10 @@ for (const [path] of TITLES) {
     if (path === "/admin") await asAdmin(context);
     await page.goto(path);
     await hydrated(page);
+    // /admin's controls are disabled until its lists load; the Tab after the
+    // skip link would pass over them into the footer.
+    if (path === "/admin")
+      await expect(page.getByRole("button", { name: "重新整理" })).toBeEnabled();
     expect(await onScreen(page), "平常看不到").toBe(false);
 
     await page.keyboard.press("Tab");
