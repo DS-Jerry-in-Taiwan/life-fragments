@@ -133,12 +133,17 @@ function lowContrast(page: Page) {
       for (let a: Element | null = el; a && a !== document.documentElement; a = a.parentElement)
         chain.unshift(a);
       let bg = sky;
+      // Text faded with `opacity` on itself or an ancestor shows lighter:
+      // fold the effective opacity into the text colour's alpha.
+      let opacity = 1;
       for (const a of chain) {
-        const c = parse(getComputedStyle(a).backgroundColor);
+        const cs = getComputedStyle(a);
+        opacity *= Number(cs.opacity);
+        const c = parse(cs.backgroundColor);
         if (c && c[3] > 0) bg = over(c, bg);
       }
       const fgRaw = parse(style.color)!;
-      const fg = over(fgRaw, bg);
+      const fg = over([fgRaw[0], fgRaw[1], fgRaw[2], fgRaw[3] * opacity], bg);
       const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
       const ratio = (hi + 0.05) / (lo + 0.05);
       const size = parseFloat(style.fontSize);
@@ -157,20 +162,22 @@ function lowContrast(page: Page) {
   }, SKY_LIGHTEST) as Promise<{ measured: number; low: Low[] }>;
 }
 
-test.describe("contrast: text ≥ 4.5:1, large text ≥ 3:1", () => {
-  test.use({ viewport: WIDTHS.mobile });
-  for (const state of STATES) {
-    test(`contrast: ${state.name}`, async ({ page, context }) => {
-      if (state.admin) await asAdmin(context);
-      await state.open(page, context);
-      await settle(page);
-      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
-      const { measured, low } = await lowContrast(page);
-      expect(measured, "應量到文字").toBeGreaterThan(3);
-      expect(low).toEqual([]);
-    });
-  }
-});
+// Both widths axe scans: its gradient results are incomplete at each.
+for (const [label, viewport] of Object.entries(WIDTHS))
+  test.describe(`contrast ${label}: text ≥ 4.5:1, large text ≥ 3:1`, () => {
+    test.use({ viewport });
+    for (const state of STATES) {
+      test(`contrast ${viewport.width}: ${state.name}`, async ({ page, context }) => {
+        if (state.admin) await asAdmin(context);
+        await state.open(page, context);
+        await settle(page);
+        await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+        const { measured, low } = await lowContrast(page);
+        expect(measured, "應量到文字").toBeGreaterThan(3);
+        expect(low).toEqual([]);
+      });
+    }
+  });
 
 // ---------------------------------------------------------------------------
 // Keyboard only: Tab / Shift+Tab / Enter / Space / Esc, no clicks.
@@ -624,4 +631,15 @@ test("not open: 尚未開放 is in the accessibility tree on both entries", asyn
   // Not hidden from assistive tech anywhere up the tree.
   for (const tag of await page.getByText("尚未開放", { exact: true }).all())
     expect(await tag.evaluate((el) => !!el.closest('[aria-hidden="true"]'))).toBe(false);
+});
+
+// Same kind of control as the archive's feedback summary (#33): both ≥44px.
+test("/read scenario summary is a 44px click target", async ({ page }) => {
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/read");
+    await hydrated(page);
+    const box = await page.locator("summary", { hasText: "想讀特定情境？" }).boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
 });

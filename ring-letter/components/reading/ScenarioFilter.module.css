@@ -7,6 +7,8 @@
   cursor: pointer;
   color: var(--gold);
   padding: 10px 0;
+  /* A 44px click target, like the archive's feedback summary (V5-d, #39). */
+  min-height: 44px;
 }
 .buttons {
   display: grid;
