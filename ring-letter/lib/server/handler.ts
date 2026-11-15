@@ -23,10 +23,10 @@ const FORBIDDEN = "只有管理者可以使用。";
 /** Body limit (characters) for the public routes. */
 export const MAX_BODY = 12000;
 
-/** Body limit for one admin decision, `{status, statusAt?, consentEvents?}`. */
+/** Body limit for one admin decision, `{status, revision?}`. */
 export const MAX_MODERATION_BODY = 4000;
 
-/** Body limit for a batch admin decision: up to 50 `{id, statusAt, consentEvents}` items. */
+/** Body limit for a batch admin decision: up to 50 `{id, revision}` items. */
 export const MAX_BATCH_MODERATION_BODY = 12000;
 
 /** Read handlers: any failure becomes a 503 with the read message. */

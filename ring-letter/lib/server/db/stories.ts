@@ -7,6 +7,8 @@ import {
   MAX_SHARE_REQUESTS,
   PERMANENT_CONSENT_VERSIONS,
 } from "../../consent";
+import { BATCH_REJECTABLE_STATUSES, type BatchAction, type BatchError } from "../../admin-contract";
+import { encodeRevision, type Revision } from "../cursor";
 import { insertConsentEvent, keptForLimit } from "./consent-events";
 import { ADMIN_EVENT_INSERT, AGE, DAY, db, ITEM_IDS } from "./index";
 
@@ -51,7 +53,7 @@ const EXPIRES_AT = `(${EXPIRES_FROM}+${AGE})`;
 const SHARE_REQUESTS =
   "(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id AND e.action='share')";
 
-/** SQL: the story's consent events, all actions (the admin sends it back with a decision). */
+/** SQL: the story's consent events, all actions (part of its revision, lib/server/cursor.ts). */
 const CONSENT_EVENTS = "(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id)";
 
 /** SQL: the story's terms (lib/consent.ts CONSENT_TERMS): 'v3' for a PERMANENT version, 'v2' for every other. */
@@ -251,34 +253,32 @@ export async function withdrawStory(id: string, owner: string, now: number) {
  * at time `?2`, is still live there (an expired story awaiting the retention
  * job must not get a new window, or become permanent by approval) and is
  * unchanged since the admin read it: `?4` its statusAt, `?5` its
- * consent-event count (NULL: not checked). Private stories (no share consent)
- * never match, so they cannot be approved.
+ * consent-event count, the revision the admin was shown (both NULL: not
+ * checked). Private stories (no share consent) never match, so they cannot
+ * be approved.
  */
 const MODERATABLE = `id=?3 AND status IN ('pending','approved','rejected') AND ${liveAt("?2")}
          AND (?4 IS NULL OR COALESCE(status_at,created)=?4)
          AND (?5 IS NULL OR (SELECT COUNT(*) FROM consent_events e WHERE e.story=?3)=?5)`;
 
-/** The statusAt and consentEvents the admin was shown; each is checked only when given. */
-export type Expected = { statusAt?: number; consentEvents?: number };
-
-/** A live story's statusAt and consentEvents (as the admin story list shows them), or null. */
+/** A live story's revision (as the admin story list shows it, decoded), or null. */
 function storyRevision(id: string, now: number) {
   return db()
     .prepare(
       `SELECT COALESCE(status_at,created) AS statusAt,${CONSENT_EVENTS} AS consentEvents FROM stories WHERE id=? AND ${LIVE}`,
     )
     .bind(id, now)
-    .first<{ statusAt: number; consentEvents: number }>();
+    .first<Revision>();
 }
 
 /**
  * An admin decision on one story (POST /api/admin/stories/:id/moderation):
  * - "ok": applied, or already the story's status (then nothing changes and
  *   nothing is logged);
- * - "stale": `expected` was given and the story changed since (e.g. the
- *   author stopped sharing and asked again in between; the event count
- *   catches changes within the same millisecond, which leave statusAt as it
- *   was);
+ * - "stale": `expected` (the revision the admin was shown) was given and
+ *   the story changed since (e.g. the author stopped sharing and asked again
+ *   in between; the event count catches changes within the same
+ *   millisecond, which leave statusAt as it was);
  * - "refused": no such live story, or a private one.
  *
  * A real change sets status_at (restarting the 30-day window of non-approved
@@ -291,9 +291,9 @@ export async function decideStory(
   id: string,
   status: "approved" | "rejected",
   now: number,
-  expected: Expected,
+  expected: Revision | undefined,
 ): Promise<"ok" | "stale" | "refused"> {
-  const args = [status, now, id, expected.statusAt ?? null, expected.consentEvents ?? null];
+  const args = [status, now, id, expected?.statusAt ?? null, expected?.consentEvents ?? null];
   const d = db();
   const [, decided] = await d.batch([
     d
@@ -316,8 +316,8 @@ export async function decideStory(
   const current = await storyRevision(id, now);
   const changed =
     current &&
-    ((expected.statusAt !== undefined && current.statusAt !== expected.statusAt) ||
-      (expected.consentEvents !== undefined && current.consentEvents !== expected.consentEvents));
+    expected &&
+    (current.statusAt !== expected.statusAt || current.consentEvents !== expected.consentEvents);
   return changed ? "stale" : "refused";
 }
 
@@ -340,19 +340,19 @@ export async function adminDeleteStory(email: string, id: string, now: number) {
 
 /**
  * SQL: stories among the batch items `?1` (JSON [{id, statusAt,
- * consentEvents}]) that may be rejected or taken down at time `?2` — pending
- * or approved, and live — and are unchanged since the admin listed them (same
- * statusAt and consent-event count).
+ * consentEvents}], their decoded revisions) that may be rejected or taken
+ * down at time `?2` — pending or approved (BATCH_REJECTABLE_STATUSES), and
+ * live — and are unchanged since the admin listed them (same statusAt and
+ * consent-event count).
  */
-const BATCH_REJECTABLE = `id IN ${ITEM_IDS} AND status IN ('pending','approved') AND ${liveAt("?2")}
+const BATCH_REJECTABLE = `id IN ${ITEM_IDS} AND status IN (${BATCH_REJECTABLE_STATUSES.map((s) => `'${s}'`).join(",")}) AND ${liveAt("?2")}
        AND EXISTS (SELECT 1 FROM json_each(?1) j WHERE json_extract(j.value,'$.id')=stories.id
          AND json_extract(j.value,'$.statusAt')=COALESCE(stories.status_at,stories.created)
          AND json_extract(j.value,'$.consentEvents')=(SELECT COUNT(*) FROM consent_events e WHERE e.story=stories.id))`;
 
-export type BatchItem = { id: string; statusAt: number; consentEvents: number };
-export type BatchItemError = "conflict" | "not_allowed" | "missing";
-export type BatchResult =
-  { id: string; ok: true } | { id: string; ok: false; error: BatchItemError };
+/** A batch item: the story id and its revision as listed (decoded). */
+export type BatchItem = { id: string } & Revision;
+export type BatchResult = { id: string; ok: true } | { id: string; ok: false; error: BatchError };
 
 /**
  * The batch items' live stories as they are at `now`, to tell why an item
@@ -364,7 +364,7 @@ function storyRevisions(items: string, now: number) {
       `SELECT id,status,COALESCE(status_at,created) AS statusAt,${CONSENT_EVENTS} AS consentEvents FROM stories WHERE id IN ${ITEM_IDS} AND ${liveAt("?2")}`,
     )
     .bind(items, now)
-    .all<{ id: string; status: string; statusAt: number; consentEvents: number }>();
+    .all<{ id: string; status: string } & Revision>();
 }
 
 /**
@@ -374,7 +374,7 @@ function storyRevisions(items: string, now: number) {
  *   as decideStory(…, "rejected") (always a real change here), logged as
  *   'reject';
  * - delete: every existing story among the items is deleted as by
- *   adminDeleteStory() (statusAt and consentEvents are not checked), logged
+ *   adminDeleteStory() (revisions are not checked), logged
  *   as 'delete_story'.
  * The changed ids come back from the change itself (RETURNING); for the
  * others a read afterwards tells why, in request order: missing (no such
@@ -382,11 +382,13 @@ function storyRevisions(items: string, now: number) {
  */
 export async function moderateStories(
   email: string,
-  status: "rejected" | "delete",
+  status: BatchAction,
   items: BatchItem[],
   now: number,
 ): Promise<BatchResult[]> {
-  const json = JSON.stringify(items);
+  const json = JSON.stringify(
+    items.map(({ id, statusAt, consentEvents }) => ({ id, statusAt, consentEvents })),
+  );
   const d = db();
   const results =
     status === "delete"
@@ -421,7 +423,7 @@ export async function moderateStories(
   return items.map(({ id, statusAt, consentEvents }): BatchResult => {
     if (done.has(id)) return { id, ok: true };
     const found = current.get(id);
-    const error: BatchItemError = !found
+    const error: BatchError = !found
       ? "missing"
       : found.statusAt !== statusAt || found.consentEvents !== consentEvents
         ? "conflict"
@@ -569,12 +571,12 @@ export type AdminStoryFilter = {
 /**
  * One page of stories still visible under the LIVE rule, matching `f`,
  * newest first (created, then id, descending), at most `limit` rows. Each row
- * has what the admin card shows and sends back (statusAt, shareRequests,
+ * has what the admin card shows and sends back (revision, shareRequests,
  * consentEvents), its consent string, its terms ('v2' | 'v3', TERMS),
  * expiresAt (NULL when it never expires) and feedbackCount (its feedback
  * from the last 30 days, what GET /api/admin/feedback?story= lists).
  */
-export function listAdminStories(f: AdminStoryFilter, now: number, limit: number) {
+export async function listAdminStories(f: AdminStoryFilter, now: number, limit: number) {
   const where = [LIVE];
   const args: (string | number)[] = [now];
   const add = (condition: string, ...values: (string | number)[]) => {
@@ -601,14 +603,19 @@ export function listAdminStories(f: AdminStoryFilter, now: number, limit: number
   // The page is picked first (inner query), so the per-story counts run only
   // for its rows. Parameters bind in text order: the feedback cutoff in the
   // outer SELECT, then the filters, then the LIMIT.
-  return db()
+  const { results } = await db()
     .prepare(
       `SELECT id,title,body,era,source,status,consent,created,letter_type AS letterType,mood,reflection,COALESCE(status_at,created) AS statusAt,${SHARE_REQUESTS} AS shareRequests,${CONSENT_EVENTS} AS consentEvents,${TERMS} AS terms,${EXPIRES_AT} AS expiresAt,(SELECT COUNT(*) FROM feedback f WHERE f.story=stories.id AND f.created>?) AS feedbackCount
        FROM (SELECT * FROM stories WHERE ${where.join(" AND ")} ORDER BY created DESC,id DESC LIMIT ?) AS stories
        ORDER BY created DESC,id DESC`,
     )
     .bind(now - AGE, ...args, limit)
-    .all<{ id: string; created: number; expiresAt: number | null }>();
+    .all<{ id: string; created: number; expiresAt: number | null } & Revision>();
+  // The revision replaces statusAt: a client sends it back as it is.
+  return results.map(({ statusAt, ...story }) => ({
+    ...story,
+    revision: encodeRevision({ statusAt, consentEvents: story.consentEvents }),
+  }));
 }
 
 /** Live stories per status. */

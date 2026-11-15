@@ -15,8 +15,6 @@ export type Story = {
   reflection?: string;
   /** 我的片段: how many more times this story may ask to be shared (#4 §6.1). */
   shareRequestsLeft?: number;
-  /** Admin list: last status change, sent back with a decision (409 if it changed since). */
-  statusAt?: number;
   /** Admin list: share requests after submission, and consent events in all. */
   shareRequests?: number;
   consentEvents?: number;
@@ -36,7 +34,11 @@ export type Feedback = {
 export type AdminStory = Story & {
   status: string;
   created: number;
-  statusAt: number;
+  /**
+   * Opaque: the story's state as listed, sent back with a decision so it is
+   * refused (409, or a batch "conflict") if the story changed since.
+   */
+  revision: string;
   shareRequests: number;
   consentEvents: number;
   /** "<version>:<flags>"; the version decides the retention terms. */
@@ -80,7 +82,7 @@ export type WritingMetric = {
   shares: number;
 };
 
-export type ModerationAction = "approved" | "rejected" | "delete";
+export type { ModerationAction } from "./admin-contract";
 
 export const STATUS_NAME: Record<string, string> = {
   pending: "等待審閱",

@@ -1,13 +1,11 @@
-import { MAX_BATCH } from "../../lib/api-client";
+import { type BatchAction, canReject, MAX_BATCH } from "../../lib/admin-contract";
 import type { AdminStory } from "../../lib/stories";
 import chips from "../common/Chips.module.css";
 import admin from "./AdminDashboard.module.css";
 
-/** 不通過或下架 applies to these only (as for a single story); 永久刪除 to any. */
-export const canReject = (s: AdminStory) => s.status === "pending" || s.status === "approved";
-
 /**
- * Batch actions on the ticked cards (#4 §5.2). Never approval: every story
+ * Batch actions on the ticked cards (#4 §5.2; the rules are
+ * lib/admin-contract.ts, which the server applies too). Never approval: every story
  * must be read before it goes public. 全選 ticks the loaded cards only (the
  * first MAX_BATCH when more are loaded: 勾選前 50 篇). 不通過或下架 sends
  * only the ticked pending / approved ones and is disabled, with the reason,
@@ -33,7 +31,7 @@ export default function BatchBar({
   /** Ticks the loaded cards, at most MAX_BATCH. */
   onSelectAll: () => void;
   onClear: () => void;
-  onModerate: (status: "rejected" | "delete") => void;
+  onModerate: (status: BatchAction) => void;
 }) {
   const rejectable = selected.filter(canReject).length;
   const rejectTooMany = rejectable > MAX_BATCH;

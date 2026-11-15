@@ -13,11 +13,12 @@ import { parseModeration } from "../../../../../../lib/server/validation";
 // production; withAdmin() re-checks the Access token and ADMIN_EMAILS.
 
 /**
- * Body `{status: "approved" | "rejected" | "delete", statusAt?: number,
- * consentEvents?: number}`. Private stories can't be approved (400). With
- * `statusAt` / `consentEvents` (the values the admin story list showed), an
- * approval or rejection of a story that changed since is refused with 409;
- * delete ignores them. A story past its retention window (expired, not yet
+ * Body `{status: "approved" | "rejected" | "delete", revision?: string}`
+ * (lib/server/validation.ts parseModeration(); the former statusAt /
+ * consentEvents fields are a 400). Private stories can't be approved (400).
+ * With `revision` (as the admin story list showed it), an approval or
+ * rejection of a story that changed since is refused with 409; delete
+ * ignores it. A story past its retention window (expired, not yet
  * deleted by the daily job) is treated as missing: 400, never 409.
  *
  * Every applied operation is logged in admin_events with the verified admin
@@ -35,13 +36,13 @@ export async function POST(req: Request, { params }: IdContext) {
         if (!parsed.ok) return parsed.response;
         const v = parseModeration((await params).id, parsed.body);
         if (!v.ok) return reply({ error: v.error }, 400);
-        const { id, status, statusAt, consentEvents } = v.data;
+        const { id, status, revision } = v.data;
         const now = Date.now();
         if (status === "delete") {
           await adminDeleteStory(email, id, now);
           return reply({ ok: true });
         }
-        const decided = await decideStory(email, id, status, now, { statusAt, consentEvents });
+        const decided = await decideStory(email, id, status, now, revision);
         if (decided === "stale")
           return reply({ error: "這篇的狀態剛剛改變了，請重新整理後再審閱。" }, 409);
         if (decided === "refused") return reply({ error: "文章不存在，或作者未同意分享" }, 400);
