@@ -1,5 +1,4 @@
 "use client";
-import { usePathname } from "next/navigation";
 import NavButton from "./NavButton";
 import styles from "./SiteHeader.module.css";
 
@@ -11,7 +10,6 @@ const NAV = [
 ] as const;
 
 export default function SiteHeader() {
-  const pathname = usePathname();
   return (
     <header className={styles.header}>
       <NavButton to="/" className={styles.brand}>
@@ -23,7 +21,7 @@ export default function SiteHeader() {
       </NavButton>
       <nav className={styles.nav} aria-label="主要導覽">
         {NAV.map(([to, label]) => (
-          <NavButton key={to} to={to} className={pathname === to ? styles.active : ""}>
+          <NavButton key={to} to={to}>
             {label}
           </NavButton>
         ))}
