@@ -17,14 +17,14 @@
   color: var(--muted);
 }
 @media (max-width: 640px) {
+  /* Phones: the whole intro reads from the left, like the forms, cards and
+     notes under it and the home hero (V5-c7; the title used to stay centred
+     over a left-aligned paragraph). */
   .sectionIntro {
     padding: var(--space-10) 0 var(--space-5);
+    text-align: left;
   }
   .sectionIntro h1 {
     font-size: 29px;
-  }
-  .sectionIntro > p:last-child {
-    font-size: var(--text-base);
-    text-align: left;
   }
 }
