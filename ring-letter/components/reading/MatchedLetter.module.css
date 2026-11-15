@@ -22,7 +22,7 @@
   margin-top: var(--space-4);
 }
 .metadata dt {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: #5a6460;
 }
 .metadata dd {

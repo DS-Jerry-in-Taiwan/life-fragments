@@ -116,7 +116,8 @@
   position: absolute;
   bottom: 2px;
   left: 32%;
-  font-size: var(--text-xs);
+  /* Decoration (the illustration is aria-hidden): may stay below 12px. */
+  font-size: 11px;
   letter-spacing: 0.18em;
   color: #aab7bc;
 }

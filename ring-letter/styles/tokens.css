@@ -22,16 +22,18 @@
   --serif: "Noto Serif TC", "Songti TC", serif;
   --font-display: Georgia, serif;
 
-  /* Font sizes: body text and labels */
-  --text-3xs: 9px;
-  --text-2xs: 10px;
-  --text-xs: 11px;
+  /* Font sizes: body text and labels. Readable text is never below
+     --text-sm (12px, V5-c7); the old 11px --text-xs is retired. */
   --text-sm: 12px;
   --text-md: 13px;
   --text-base: 14px;
   --text-lg: 15px;
   --text-xl: 16px;
   --text-2xl: 17px;
+  /* Only for aria-hidden decoration (HeroIllustration), never for text
+     anyone has to read. */
+  --text-3xs: 9px;
+  --text-2xs: 10px;
   /* Font sizes: headings */
   --heading-xs: 23px;
   --heading-sm: 24px;
