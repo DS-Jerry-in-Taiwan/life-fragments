@@ -12,7 +12,7 @@ export default function ScenarioFilter({
   return (
     <details className={styles.scenarioFilter}>
       <summary>想讀特定情境？（選填）</summary>
-      <div className={styles.buttons} aria-label="選擇信件情境">
+      <div className={styles.buttons} role="group" aria-label="選擇信件情境">
         <button className="secondary" aria-pressed={scenario === null} onClick={() => filter(null)}>
           隨機遇見
         </button>

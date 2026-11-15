@@ -22,7 +22,7 @@ npm run dev                # vinext dev，port 5173（對外開放用 -- --hostn
 npm run build              # 產生 dist/，含 dist/server/wrangler.json
 npm start                  # 用 wrangler 在本機跑建置後的 Worker，port 8788
 npm run typecheck
-npm run lint               # 已知 1 個既存錯誤（MatchExperience 的 setState-in-effect）
+npm run lint               # 應為 0 個問題
 npm run db:generate        # 改 db/schema.ts 後產生 drizzle/ 遷移
 npm run test:auth          # lib/server/access-jwt.ts 單元測試（node --test，Node 原生剝除 TS 型別）
 npm run test:turnstile     # lib/server/turnstile-siteverify.ts 單元測試（同上，mock fetch）

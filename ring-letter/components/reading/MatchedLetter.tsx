@@ -5,21 +5,26 @@ import paper from "../story/StoryPaper.module.css";
 import FormLink from "./FormLink";
 import styles from "./MatchedLetter.module.css";
 
-/** The letter being read, with 有回應到我 / 再讀一封 / 留下回音. */
+/** The letter being read, with 有回應到我 (toggles) / 再讀一封 / 留下回音. */
 export default function MatchedLetter({
   letter,
   resonated,
   onResonate,
   nextLetter,
+  ref,
 }: {
   letter: MatchLetter;
   resonated: string[];
   onResonate: () => void;
   nextLetter: () => void;
+  /** The article, focused when another letter is shown (MatchExperience). */
+  ref?: React.Ref<HTMLElement>;
 }) {
   return (
     <StoryPaper
       className={styles.matchedLetter}
+      ref={ref}
+      tabIndex={-1}
       data-letter-id={letter.id}
       data-scenario={letter.scenario}
       label={letter.isExample ? "範例信 · 虛構示範" : "經授權的去識別化信件"}

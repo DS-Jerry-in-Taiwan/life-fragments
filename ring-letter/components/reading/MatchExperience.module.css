@@ -4,9 +4,13 @@
   padding: 48px 0 64px;
   border-top: 1px solid var(--line);
 }
-.intro h2 {
+/* The page's h1, set as the section heading it was before (base.css h2). */
+.intro h1 {
   font-size: var(--heading-xl);
   margin-bottom: var(--space-5);
+  line-height: 1.6;
+  letter-spacing: normal;
+  text-wrap: balance;
 }
 .intro > p {
   color: var(--muted);
@@ -14,11 +18,18 @@
 .intro :global(.eyebrow) {
   color: var(--gold);
 }
+/* Holds the letter's place until it is picked after mount (no layout jump). */
+.letterPlaceholder {
+  min-height: 784px;
+}
 @media (max-width: 640px) {
   .matchExperience {
     padding: 36px 0 44px;
   }
-  .intro h2 {
+  .intro h1 {
     font-size: var(--heading-lg);
+  }
+  .letterPlaceholder {
+    min-height: 970px;
   }
 }
