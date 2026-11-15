@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { Story } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
@@ -20,12 +20,20 @@ import styles from "./ArchiveReader.module.css";
  * live in /read.
  */
 export default function ArchiveReader() {
-  const action = useAction();
-  const { setError, setNotice } = action;
+  // The banner at the top is only for loading the list; the feedback box
+  // shows its own errors and results (V5-c6, #33).
+  const load = useAction();
+  const feedback = useAction();
+  const { setError } = load;
   const [stories, setStories] = useState<Story[]>([]),
     [index, setIndex] = useState(0),
-    [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
+    [state, setState] = useState<"loading" | "loaded" | "failed">("loading"),
+    // Bumped when the reader turns to another story; not on the first one.
+    [shown, setShown] = useState(0);
+  const article = useRef<HTMLElement>(null);
   const current = stories.length ? stories[index % stories.length] : null;
+  // 再讀一封 only when there is another story to turn to.
+  const more = stories.length > 1;
   useEffect(() => {
     api
       .listApprovedStories()
@@ -39,9 +47,22 @@ export default function ArchiveReader() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Same as /read (MatchExperience): bring the new story into view and move
+  // focus to it, so keyboard and screen-reader users land on it too.
+  useEffect(() => {
+    const el = article.current;
+    if (!shown || !el) return;
+    el.focus({ preventScroll: true });
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+  }, [shown]);
+  function next() {
+    setIndex((i) => i + 1);
+    setShown((n) => n + 1);
+  }
   return (
     <>
-      <StatusMessage action={action} />
+      <StatusMessage action={load} />
       <section className={styles.reading}>
         <SectionIntro
           eyebrow="時光信箱"
@@ -82,31 +103,39 @@ export default function ArchiveReader() {
         )}
         {current && (
           <>
-            <StoryPaper label="真人投稿 · 經作者同意" mark="✦">
+            <StoryPaper
+              label="真人投稿 · 經作者同意"
+              mark="✦"
+              ref={article}
+              tabIndex={-1}
+              data-story-id={current.id}
+            >
               <StoryMeta story={current} onPaper />
               <h2>{current.title}</h2>
               <div className={paper.body}>{current.body}</div>
               <StoryExtra story={current} />
             </StoryPaper>
             <div className={styles.actions}>
-              <button
-                className="secondary"
-                onClick={() => {
-                  setIndex(index + 1);
-                  setNotice("");
-                  setError("");
-                }}
-              >
-                再讀一封 →
-              </button>
+              {more && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    next();
+                    feedback.setNotice("");
+                    feedback.setError("");
+                  }}
+                >
+                  再讀一封 →
+                </button>
+              )}
               <NavButton to="/write" className="text-btn">
                 留下我的片段
               </NavButton>
             </div>
             <ReaderFeedback
               storyId={current.id}
-              action={action}
-              onMore={() => setIndex(index + 1)}
+              action={feedback}
+              onMore={more ? next : undefined}
             />
           </>
         )}

@@ -1,20 +1,23 @@
 .feedbackBox {
   margin-top: var(--space-8);
   border: 1px solid var(--line);
-  padding: 20px 25px;
+  /* The summary's own 10px makes up the rest of the 20px above it. */
+  padding: 10px 25px 20px;
   color: var(--muted);
   font-size: var(--text-md);
 }
+/* A click target at least 44px tall (#4 V5-c1 公開信箱 4). */
 .feedbackBox summary {
   cursor: pointer;
   color: var(--ink);
-  padding: 2px;
+  padding: 10px 2px;
+  min-height: 44px;
 }
 .feedbackBox[open] summary {
   margin-bottom: var(--space-5);
 }
 @media (max-width: 640px) {
   .feedbackBox {
-    padding: 18px;
+    padding: 8px 18px 18px;
   }
 }
