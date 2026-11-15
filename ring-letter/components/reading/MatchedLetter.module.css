@@ -47,8 +47,15 @@
   font-size: var(--text-md);
 }
 /* `button` keeps this above `.secondary:hover` (utilities.css) in any file order. */
+/* Pressed is a check mark and a solid ink border, not only a shade (#52). */
 .actions button[aria-pressed="true"] {
   background: #d9d1bc;
+  border-color: var(--paperink);
+}
+.actions button[aria-pressed="true"]::before {
+  content: "✓";
+  content: "✓" / "";
+  margin-right: var(--space-2);
 }
 @media (max-width: 640px) {
   .actions {

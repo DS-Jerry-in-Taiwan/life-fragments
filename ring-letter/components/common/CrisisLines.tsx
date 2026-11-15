@@ -6,6 +6,8 @@
  * Returns block-level sentences (`.sentence` spans) for the caller to put
  * inside its own <p>, so they take that paragraph's size and colour.
  */
+import styles from "./CrisisLines.module.css";
+
 const LINES = [
   { number: "1925", name: "安心專線", note: "（24 小時）" },
   { number: "1995", name: "生命線", note: "" },
@@ -18,7 +20,7 @@ export default function CrisisLines() {
       <span className="sentence">如果你現在很難受，可以撥打這些專線：</span>
       {LINES.map((line) => (
         <span className="sentence" key={line.number}>
-          <a href={`tel:${line.number}`}>
+          <a className={styles.line} href={`tel:${line.number}`}>
             {line.number} {line.name}
           </a>
           {line.note}
