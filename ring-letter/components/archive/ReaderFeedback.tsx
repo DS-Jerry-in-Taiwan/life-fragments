@@ -1,15 +1,20 @@
 "use client";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { FeedbackKind } from "../../lib/stories";
 import type { Action } from "../../lib/use-action";
 import CheckboxField from "../common/CheckboxField";
 import chips from "../common/Chips.module.css";
+import StatusMessage from "../common/StatusMessage";
 import Turnstile, { type TurnstileHandle } from "../common/Turnstile";
 import reader from "./ArchiveReader.module.css";
 import styles from "./ReaderFeedback.module.css";
 
-/** Optional reader feedback on the story being shown (consent first). */
+/**
+ * Optional reader feedback on the story being shown. Its buttons stay
+ * disabled, described by the consent line, until that is ticked; errors and
+ * results show inside the box, next to the buttons (V5-c6, #33).
+ */
 export default function ReaderFeedback({
   storyId,
   action,
@@ -17,21 +22,21 @@ export default function ReaderFeedback({
 }: {
   storyId: string;
   action: Action;
-  /** 想繼續讀 also turns to the next story. */
-  onMore: () => void;
+  /** 想繼續讀 also turns to the next story; absent when there is only one. */
+  onMore?: () => void;
 }) {
-  const { busy, setError, setNotice } = action;
+  const { busy, setNotice } = action;
   const [feedbackConsent, setFeedbackConsent] = useState(false),
     [note, setNote] = useState(""),
     [sent, setSent] = useState<string[]>([]),
     // Turnstile loads once the box is opened, not for every reader.
     [opened, setOpened] = useState(false);
   const turnstile = useRef<TurnstileHandle>(null);
+  const consentId = useId();
+  // Until the consent is ticked, every button points at it.
+  const describedBy = feedbackConsent ? undefined : consentId;
   function react(kind: FeedbackKind) {
-    if (!feedbackConsent) {
-      setError("請先勾選同意保存本次體驗回饋。你也可以不留回饋，直接閱讀下一篇。");
-      return;
-    }
+    if (!feedbackConsent) return;
     return action.run(async () => {
       try {
         await api.sendFeedback(storyId, kind, note, () => turnstile.current!.getToken());
@@ -41,7 +46,7 @@ export default function ReaderFeedback({
       setNotice(kind === "report" ? "已收到問題回報，管理者會查看。" : "謝謝，你的回饋已保存。");
       setSent([...sent, storyId + kind]);
       setNote("");
-      if (kind === "more") {
+      if (kind === "more" && onMore) {
         onMore();
         setNotice("翻到另一段故事。");
       }
@@ -63,8 +68,10 @@ export default function ReaderFeedback({
         checked={feedbackConsent}
         onChange={(e) => setFeedbackConsent(e.target.checked)}
       >
-        我已滿 18 歲，同意保存本次回饋供團隊測試分析，提供 30
-        天存取，過期不再顯示並於後續清理。可在「我的片段」刪除。
+        <span id={consentId}>
+          我已滿 18 歲，同意保存本次回饋供團隊測試分析，提供 30
+          天存取，過期不再顯示並於後續清理。可在「我的片段」刪除。
+        </span>
       </CheckboxField>
       <div className={chips.chips}>
         {(
@@ -74,7 +81,12 @@ export default function ReaderFeedback({
             ["more", "想繼續讀"],
           ] as const
         ).map(([k, t]) => (
-          <button disabled={busy || sent.includes(storyId + k)} key={k} onClick={() => react(k)}>
+          <button
+            disabled={!feedbackConsent || busy || sent.includes(storyId + k)}
+            aria-describedby={describedBy}
+            key={k}
+            onClick={() => react(k)}
+          >
             {sent.includes(storyId + k) ? "✓ 已記錄" : t}
           </button>
         ))}
@@ -92,15 +104,22 @@ export default function ReaderFeedback({
       <div className={reader.actions}>
         <button
           className="secondary"
-          disabled={busy || !note.trim()}
+          disabled={!feedbackConsent || busy || !note.trim()}
+          aria-describedby={describedBy}
           onClick={() => react("comment")}
         >
           送出回饋
         </button>
-        <button className="text-btn" disabled={busy} onClick={() => react("report")}>
+        <button
+          className="text-btn"
+          disabled={!feedbackConsent || busy}
+          aria-describedby={describedBy}
+          onClick={() => react("report")}
+        >
           回報這篇有問題
         </button>
       </div>
+      <StatusMessage action={action} />
     </details>
   );
 }
