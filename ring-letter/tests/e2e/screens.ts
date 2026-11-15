@@ -132,7 +132,7 @@ export const SCREENS: Screen[] = [
     name: "privacy",
     open: async (page) => {
       await home(page);
-      await footer(page, "先前投稿資料說明").click();
+      await footer(page, "資料使用說明").click();
     },
     ready: async (page) => {
       await expect(page.getByRole("dialog", { name: "讓文字安心留下" })).toBeVisible();

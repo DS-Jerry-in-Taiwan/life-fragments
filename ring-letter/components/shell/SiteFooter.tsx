@@ -16,8 +16,8 @@ export default function SiteFooter({
         Ring letter <span className={styles.phrase}>把片刻，留給時間。</span>
       </span>
       <div>
-        <NavButton to="/mine">先前投稿與撤回</NavButton>
-        <button onClick={onOpenPrivacy}>先前投稿資料說明</button>
+        <NavButton to="/mine">我的片段</NavButton>
+        <button onClick={onOpenPrivacy}>資料使用說明</button>
         <a href={CONTACT_MAILTO}>聯絡：{CONTACT_EMAIL}</a>
         {admin ? (
           <NavButton to="/admin">管理信箱</NavButton>

@@ -50,7 +50,7 @@ test("nav: header and footer links have their addresses", async ({ page }) => {
   for (const [to, label] of NAV) {
     await expectLink(nav(page).getByRole("link", { name: label, exact: true }), to);
   }
-  await expectLink(footer(page).getByRole("link", { name: "先前投稿與撤回" }), "/mine");
+  await expectLink(footer(page).getByRole("link", { name: "我的片段", exact: true }), "/mine");
   // Not a NavButton: a full page load, so Cloudflare Access can sign in.
   await expectLink(footer(page).getByRole("link", { name: "管理者登入" }), "/admin");
 });
@@ -112,7 +112,7 @@ test("nav: a plain click navigates without reloading the page", async ({ page })
   await expect(page.getByRole("heading", { level: 1, name: "先讀一封，不必先寫" })).toBeVisible();
   expect(await kept(), "沒有整頁重新載入").toBe(true);
 
-  await footer(page).getByRole("link", { name: "先前投稿與撤回" }).click();
+  await footer(page).getByRole("link", { name: "我的片段", exact: true }).click();
   await expect(page).toHaveURL(/\/mine$/);
   await expect(page.getByRole("heading", { level: 1, name: "我的片段" })).toBeVisible();
   expect(await kept()).toBe(true);
@@ -164,7 +164,7 @@ test("nav: the current page's header link is aria-current", async ({ page }) => 
 
   // The footer's /mine link is the current page there too.
   await open(page, "/mine");
-  await expect(footer(page).getByRole("link", { name: "先前投稿與撤回" })).toHaveAttribute(
+  await expect(footer(page).getByRole("link", { name: "我的片段", exact: true })).toHaveAttribute(
     "aria-current",
     "page",
   );

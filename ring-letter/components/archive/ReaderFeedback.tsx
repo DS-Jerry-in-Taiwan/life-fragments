@@ -70,7 +70,7 @@ export default function ReaderFeedback({
       >
         <span id={consentId}>
           我已滿 18 歲，同意保存本次回饋供團隊測試分析，提供 30
-          天存取，過期不再顯示並於後續清理。可在「我的片段」刪除。
+          天存取，過期不再顯示並於後續清理。可用「我的片段」的「刪除我的所有資料」刪除。
         </span>
       </CheckboxField>
       <div className={chips.chips}>

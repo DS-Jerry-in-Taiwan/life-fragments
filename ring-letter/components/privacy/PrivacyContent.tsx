@@ -48,7 +48,10 @@ export default function PrivacyContent({ page = false }: { page?: boolean }) {
         <span className="sentence">
           投稿的瀏覽器會記得你到最後一次造訪後一年，期間每次回來都會再延長。
         </span>
-        <span className="sentence">你可隨時在「我的片段」查看並刪除這個瀏覽器的投稿及回饋。</span>
+        <span className="sentence">你可隨時在「我的片段」查看並撤回這個瀏覽器的投稿。</span>
+        <span className="sentence">
+          回饋與試寫紀錄無法逐筆刪除，可用「我的片段」的「刪除我的所有資料」連同投稿一起刪除。
+        </span>
         <span className="sentence">
           使用共用裝置時，請記得到「我的片段」登出；登出後投稿仍保留，但不會再出現在這個瀏覽器，之後再投稿會以新的身分開始。
         </span>
