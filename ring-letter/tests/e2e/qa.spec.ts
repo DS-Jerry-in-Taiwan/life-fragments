@@ -118,7 +118,9 @@ function lowContrast(page: Page) {
         .map((n) => n.textContent ?? "")
         .join("")
         .trim();
-      if (!own || !/[\p{L}\p{N}]/u.test(own)) continue;
+      // Symbols count too (×, ✓): they can carry meaning. Decoration is
+      // excluded by aria-hidden below.
+      if (!own) continue;
       if (el.closest('[aria-hidden="true"], noscript, [inert]')) continue;
       if (el.closest("button:disabled, input:disabled, fieldset:disabled")) continue;
       // While a modal is open, only it is shown at full strength.
@@ -132,18 +134,24 @@ function lowContrast(page: Page) {
       const chain: Element[] = [];
       for (let a: Element | null = el; a && a !== document.documentElement; a = a.parentElement)
         chain.unshift(a);
-      let bg = sky;
-      // Text faded with `opacity` on itself or an ancestor shows lighter:
-      // fold the effective opacity into the text colour's alpha.
-      let opacity = 1;
-      for (const a of chain) {
-        const cs = getComputedStyle(a);
-        opacity *= Number(cs.opacity);
-        const c = parse(cs.backgroundColor);
-        if (c && c[3] > 0) bg = over(c, bg);
-      }
+      // Each element with `opacity` is a group: its own background, its
+      // descendants and the text are composed first, then blended over what
+      // lies under the group by that opacity. Render the background pixel
+      // and the text pixel that way, from the outermost ancestor in.
       const fgRaw = parse(style.color)!;
-      const fg = over([fgRaw[0], fgRaw[1], fgRaw[2], fgRaw[3] * opacity], bg);
+      const layers = chain.map((a) => {
+        const cs = getComputedStyle(a);
+        return { bg: parse(cs.backgroundColor), opacity: Number(cs.opacity) };
+      });
+      const render = (k: number, under: number[], text: boolean): number[] => {
+        if (k === layers.length) return text ? over(fgRaw, under) : under;
+        const { bg: own, opacity } = layers[k];
+        const inner = own && own[3] > 0 ? over(own, under) : under;
+        const done = render(k + 1, inner, text);
+        return under.map((u, i) => done[i] * opacity + u * (1 - opacity));
+      };
+      const bg = render(0, sky, false);
+      const fg = render(0, sky, true);
       const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
       const ratio = (hi + 0.05) / (lo + 0.05);
       const size = parseFloat(style.fontSize);
@@ -503,8 +511,10 @@ for (const reduce of [true, false]) {
       .getByRole("link", { name: "公開信箱" })
       .click();
     await expect(page).toHaveURL(/\/archive$/);
-    expect(await scrolls()).toContain(`scrollTo:${want}`);
-    expect((await scrolls()).filter((s) => !s.endsWith(want))).toEqual([]);
+    // Read once: scrolls() drains the record.
+    const navScrolls = await scrolls();
+    expect(navScrolls).toContain(`scrollTo:${want}`);
+    expect(navScrolls.filter((s) => !s.endsWith(want))).toEqual([]);
 
     // /archive: 再讀一封 scrolls to the next story.
     await archiveWithStories(page);
