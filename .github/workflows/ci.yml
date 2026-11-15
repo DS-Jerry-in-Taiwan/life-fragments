@@ -1,6 +1,6 @@
 # PR checks for ring-letter: typecheck, lint, unit tests, build, the API
 # integration and retention tests and the Playwright e2e run, each against `npm run dev`
-# with a fresh local D1.
+# with a fresh local D1, plus the CSP check against the built Worker (`npm start`).
 # No Cloudflare credentials are used here.
 name: CI
 
@@ -90,6 +90,20 @@ jobs:
 
       - name: Playwright smoke + visual
         run: npm run test:e2e || { echo "--- dev server log"; cat dev.log; exit 1; }
+
+      # The same CSP walk under the production policy (no 'unsafe-eval' or
+      # inline <style>, which only dev needs): tests/e2e/csp-build.spec.ts
+      # against the built Worker (#63). Runs after the dev suite, which
+      # leaves the shared local D1 empty again.
+      - name: CSP check against the built Worker
+        run: |
+          npm run build
+          npm start > start.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:8788/ && break
+            sleep 2
+          done
+          TEST_ORIGIN=http://127.0.0.1:8788 npm run test:e2e:build || { echo "--- worker log"; cat start.log; exit 1; }
 
       - name: Upload Playwright report and diffs
         if: failure()
