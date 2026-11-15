@@ -53,7 +53,7 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   const posted = page.waitForRequest(
     (r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/me/stories",
   );
-  await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+  await page.getByRole("button", { name: "留下這封信 →" }).click();
   expect((await posted).headers()["x-turnstile-token"], "投稿帶 Turnstile token").toBe(
     TURNSTILE_TOKEN,
   );
@@ -369,7 +369,7 @@ test("write: one start per chooser click; a second letter after submit works", a
     await page.getByLabel("現在的感覺").fill("平靜");
     await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
     await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
-    await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+    await page.getByRole("button", { name: "留下這封信 →" }).click();
     await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
   };
   await page.getByRole("button", { name: /今天，/ }).click();
@@ -478,7 +478,7 @@ test("write: the unsent letter survives a reload and other pages, under the same
   // Sent: that type's draft is gone; the next letter starts empty, with a new attempt.
   await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
   await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
-  await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+  await page.getByRole("button", { name: "留下這封信 →" }).click();
   await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
   expect((await storage(page)).session["ring-letter:draft:present"]).toBeNull();
   expect((await storage(page)).session["ring-letter:draft:past"]).not.toBeNull();
@@ -1187,9 +1187,9 @@ test("write: a Turnstile refusal after the retry keeps the letter in the form", 
         }))
       : route.continue(),
   );
-  await page.getByRole("button", { name: "留下這封信 ↗" }).click();
+  await page.getByRole("button", { name: "留下這封信 →" }).click();
   await expect(page.getByRole("alert")).toContainText("人機驗證沒有通過，請再試一次。");
   expect(posts, "重取 token 重送一次").toBe(2);
   await expect(page.getByLabel("剛剛發生了什麼？")).toHaveValue(text);
-  await expect(page.getByRole("button", { name: "留下這封信 ↗" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "留下這封信 →" })).toBeEnabled();
 });

@@ -8,7 +8,7 @@ import { SCREENS } from "./screens";
 // privacy notice as a real modal. The fixture erases what each test sent.
 
 const h1 = (page: Page, name: string) => page.getByRole("heading", { level: 1, name });
-const submitButton = (page: Page) => page.getByRole("button", { name: "留下這封信 ↗" });
+const submitButton = (page: Page) => page.getByRole("button", { name: "留下這封信 →" });
 
 async function open(page: Page, name: "write-past" | "write-present") {
   const screen = SCREENS.find((s) => s.name === name)!;

@@ -299,7 +299,7 @@ export default function WriteFlow() {
             <ConsentFields onOpenPrivacy={openPrivacy} />
             <Turnstile action="submit" ref={turnstile} className={styles.turnstile} />
             <button className={`primary ${styles.submit}`} disabled={busy}>
-              {busy ? "正在儲存…" : "留下這封信 ↗"}
+              {busy ? "正在儲存…" : "留下這封信 →"}
             </button>
             {error && (
               <div role="alert" ref={formError} className={styles.error}>
