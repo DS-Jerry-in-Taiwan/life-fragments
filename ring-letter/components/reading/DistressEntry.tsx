@@ -1,5 +1,5 @@
 import NavButton from "../shell/NavButton";
-import FormLink from "./FormLink";
+import FormLink, { NotOpenTag } from "./FormLink";
 import styles from "./DistressEntry.module.css";
 
 /** 寫一封信, plus the (not yet open) manual matching form. */
@@ -13,10 +13,11 @@ export default function DistressEntry() {
         回想一段經歷，或記下現在的感受。你可以選擇只保存，或同意審閱後匿名分享。
       </p>
       <details className={styles.manualMatch}>
-        <summary>想參加人工媒合？</summary>
+        <summary>
+          想參加人工媒合？ <NotOpenTag />
+        </summary>
         <p className="quiet">
-          投稿不會自動報名媒合。人工媒合另需確認收信與文字後續使用的意願；開放後約需 1–3
-          天處理，不保證一定有相似的信。
+          投稿不會自動報名媒合。人工媒合開放後，會另外確認收信與文字後續使用的意願，也不保證一定有相似的信。
         </p>
         <FormLink kind="distress" className="secondary">
           前往人工媒合表單
