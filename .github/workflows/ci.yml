@@ -42,6 +42,7 @@ jobs:
       - run: npm run lint -- --max-warnings=0
       - run: npm run test:auth
       - run: npm run test:turnstile
+      - run: npm run test:admin
       - run: npm run build
 
       - name: API integration and retention tests

@@ -1,5 +1,6 @@
 // The only place the frontend talks to the API (#4 §4.5). Components call
 // these functions and never see the REST routes (#4 §5) behind them.
+import type { BatchAction, BatchResult } from "./admin-contract";
 import type {
   AdminEvent,
   AdminFeedback,
@@ -232,42 +233,28 @@ export async function listAdminEvents(admin: string, cursor?: string | null) {
 }
 
 /**
- * `listed`: the story's statusAt and consentEvents as the admin list showed them,
- * so the decision is refused (409) if the story changed since (e.g. the
- * author asked again).
+ * `revision`: the story's as the admin list showed it, so the decision is
+ * refused (409) if the story changed since (e.g. the author asked again).
  */
-export async function moderateStory(
-  id: string,
-  status: ModerationAction,
-  listed?: { statusAt?: number; consentEvents?: number },
-) {
-  await post(`/api/admin/stories/${segment(id)}/moderation`, {
-    status,
-    statusAt: listed?.statusAt,
-    consentEvents: listed?.consentEvents,
-  });
+export async function moderateStory(id: string, status: ModerationAction, revision?: string) {
+  await post(`/api/admin/stories/${segment(id)}/moderation`, { status, revision });
 }
 
-/** At most this many stories per batch (POST /api/admin/moderation; lib/server/validation.ts). */
-export const MAX_BATCH = 50;
-
-/** Why one story of a batch was left as it was. */
-export type BatchError = "conflict" | "not_allowed" | "missing";
-export type BatchResult = { id: string; ok: boolean; error?: BatchError };
+export { MAX_BATCH, type BatchError, type BatchResult } from "./admin-contract";
 
 /**
  * 不通過或下架 / 永久刪除 for up to MAX_BATCH stories at once (never approval).
- * Each item carries its statusAt and consentEvents as the list showed them;
- * every story gets the single-story rules, so the results (in request order)
- * can mix done and refused ones.
+ * Each item carries its revision as the list showed it; every story gets the
+ * single-story rules, so the results (in request order) can mix done and
+ * refused ones.
  */
 export async function moderateStories(
-  status: "rejected" | "delete",
-  items: { id: string; statusAt: number; consentEvents: number }[],
+  status: BatchAction,
+  items: { id: string; revision: string }[],
 ) {
   const { results } = await post<{ results: BatchResult[] }>("/api/admin/moderation", {
     status,
-    items: items.map(({ id, statusAt, consentEvents }) => ({ id, statusAt, consentEvents })),
+    items: items.map(({ id, revision }) => ({ id, revision })),
   });
   return results;
 }

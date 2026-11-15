@@ -1,15 +1,27 @@
 // The admin story filters (#4 §5.2) live in the URL (/admin?status=approved&q=…),
 // so a reload, back/forward or a shared link restores them. The names and
-// values are GET /api/admin/stories' own, passed through unchanged.
+// values are GET /api/admin/stories' own, passed through unchanged; their
+// rules are lib/admin-contract.ts, which the server validates with too.
 
-import type { AdminStory } from "../../lib/stories";
+import {
+  calendarDay,
+  CONSENT_FILTERS,
+  DEFAULT_STATUS_FILTER,
+  EXPIRING_PATTERN,
+  isExpiringDays,
+  MAX_ID_LENGTH,
+  MAX_QUERY,
+  STATUS_FILTERS as STATUS_VALUES,
+  type StatusFilter,
+} from "../../lib/admin-contract";
+import type { ConsentTerms } from "../../lib/consent";
 
-export type StatusFilter = "pending" | "approved" | "rejected" | "private" | "all";
+export type { StatusFilter };
 
 export type StoryFilter = {
   status: StatusFilter;
   reshare: boolean;
-  consent: "" | "v2" | "v3";
+  consent: "" | ConsentTerms;
   /** Expiring within this many days ("" = any). */
   expiring: string;
   q: string;
@@ -18,22 +30,24 @@ export type StoryFilter = {
   id: string;
 };
 
-export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
-  { value: "pending", label: "等待審閱" },
-  { value: "approved", label: "已匿名分享" },
-  { value: "rejected", label: "暫不分享" },
-  { value: "private", label: "未公開保存" },
-  { value: "all", label: "全部" },
-];
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  pending: "等待審閱",
+  approved: "已匿名分享",
+  rejected: "暫不分享",
+  private: "未公開保存",
+  all: "全部",
+};
 
-const STATUSES = new Set(STATUS_FILTERS.map((s) => s.value));
+export const STATUS_FILTERS: { value: StatusFilter; label: string }[] = STATUS_VALUES.map(
+  (value) => ({ value, label: STATUS_LABELS[value] }),
+);
 
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const STATUSES = new Set<string>(STATUS_VALUES);
+const CONSENTS = new Set<string>(CONSENT_FILTERS);
+
 /** A real calendar date YYYY-MM-DD, else "". */
 function day(value: string | null) {
-  if (!value || !DAY_RE.test(value)) return "";
-  const d = new Date(value + "T00:00:00Z");
-  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value ? value : "";
+  return value && calendarDay(value) ? value : "";
 }
 
 /**
@@ -42,23 +56,23 @@ function day(value: string | null) {
  * reversed date range is swapped, q is cut to 100 characters.
  */
 export function parseFilter(params: URLSearchParams): StoryFilter {
-  const status = params.get("status") as StatusFilter;
-  const consent = params.get("consent");
+  const status = params.get("status") ?? "";
+  const consent = params.get("consent") ?? "";
   const expiring = params.get("expiring") ?? "";
-  const days = /^\d{1,3}$/.test(expiring) ? Number(expiring) : 0;
+  const days = EXPIRING_PATTERN.test(expiring) ? Number(expiring) : 0;
   let from = day(params.get("from")),
     to = day(params.get("to"));
   if (from && to && from > to) [from, to] = [to, from];
   const id = params.get("id") ?? "";
   return {
-    status: STATUSES.has(status) ? status : "pending",
+    status: STATUSES.has(status) ? (status as StatusFilter) : DEFAULT_STATUS_FILTER,
     reshare: params.get("reshare") === "1",
-    consent: consent === "v2" || consent === "v3" ? consent : "",
-    expiring: days >= 1 && days <= 365 ? String(days) : "",
-    q: [...(params.get("q") ?? "")].slice(0, 100).join(""),
+    consent: CONSENTS.has(consent) ? (consent as ConsentTerms) : "",
+    expiring: isExpiringDays(days) ? String(days) : "",
+    q: [...(params.get("q") ?? "")].slice(0, MAX_QUERY).join(""),
     from,
     to,
-    id: id.length <= 200 ? id : "",
+    id: id.length <= MAX_ID_LENGTH ? id : "",
   };
 }
 
@@ -68,7 +82,7 @@ export const NO_FILTER: StoryFilter = parseFilter(new URLSearchParams());
 /** The filter as a query string, without defaults (pending, unticked, empty). */
 export function filterQuery(f: StoryFilter) {
   const q = new URLSearchParams();
-  if (f.status !== "pending") q.set("status", f.status);
+  if (f.status !== DEFAULT_STATUS_FILTER) q.set("status", f.status);
   if (f.reshare) q.set("reshare", "1");
   if (f.consent) q.set("consent", f.consent);
   if (f.expiring) q.set("expiring", f.expiring);
@@ -107,18 +121,3 @@ export function scrollToStory(id: string) {
 }
 
 export const storyAnchor = (id: string) => "story-" + id;
-
-/**
- * Whether a story fetched again after a moderation still belongs on a list
- * with these filters. A decision can change its status and, by moving
- * status_at, its expiry; the server's rules (GET /api/admin/stories) are
- * applied to the fields that can change. q, dates and id can't.
- */
-export function stillListed(s: AdminStory, f: StoryFilter, now = Date.now()) {
-  if (f.status !== "all" && s.status !== f.status) return false;
-  if (f.reshare && !(s.shareRequests > 0)) return false;
-  if (f.consent && s.terms !== f.consent) return false;
-  if (f.expiring && (s.expiresAt === null || s.expiresAt > now + Number(f.expiring) * DAY))
-    return false;
-  return true;
-}

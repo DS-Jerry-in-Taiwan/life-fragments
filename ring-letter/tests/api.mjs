@@ -60,6 +60,10 @@ const shareOff=(id,cookie,o)=>sharing(id,{share:false},cookie,o);
 const feedback=(data,cookie,o={})=>call('POST','/api/feedback',{data,cookie,...withToken(o)});
 const adminGet=(admin=true,headers={})=>call('GET','/api/admin/summary',{admin,headers});
 const moderate=(id,data,{cookie='',admin=false,source=origin}={})=>call('POST','/api/admin/stories/'+encodeURIComponent(id)+'/moderation',{data,cookie,admin,source});
+/** A revision as the admin list makes them (lib/server/cursor.ts), and other base64url JSON. */
+const b64u=(v)=>Buffer.from(JSON.stringify(v)).toString('base64url');
+const rev=(statusAt,consentEvents)=>b64u([statusAt,consentEvents]);
+const unrev=(r)=>JSON.parse(Buffer.from(r,'base64url').toString());
 const batchModerate=(data,{admin=true,source=origin,headers={}}={})=>call('POST','/api/admin/moderation',{data,admin,source,headers});
 const deleteFeedback=(id,{admin=true,source=origin,headers={}}={})=>call('DELETE','/api/admin/feedback/'+encodeURIComponent(id),{admin,source,headers});
 const adminList=(path,params={},{admin=true,headers={}}={})=>call('GET','/api/admin/'+path+'?'+new URLSearchParams(params),{admin,headers});
@@ -90,7 +94,7 @@ for(const source of [ATTACKER,OTHER_PORT,null]){
  assert.equal((await start({},'',{source})).status,403);
  assert.equal((await shareOff('x','',{source})).status,403);
  assert.equal((await moderate('x',{status:'approved'},{admin:true,source})).status,403);
- assert.equal((await batchModerate({status:'delete',items:[{id:'x',statusAt:1,consentEvents:0}]},{source})).status,403);
+ assert.equal((await batchModerate({status:'delete',items:[{id:'x',revision:rev(1,0)}]},{source})).status,403);
  assert.equal((await deleteFeedback('x',{source})).status,403);
 }
 for(const source of [OTHER_PORT,null]){
@@ -136,7 +140,7 @@ for(const path of ['summary','stories','feedback','events']){
  assert.deepEqual((await adminList(path,{},{admin:false})).data,{error:'只有管理者可以使用。'},path);
  assert.equal((await adminList(path,{},{admin:false,headers:{'cf-access-authenticated-user-email':'dev-admin@localhost'}})).status,403,path);
 }
-assert.deepEqual((await batchModerate({status:'delete',items:[{id:'x',statusAt:1,consentEvents:0}]},{admin:false})).data,{error:'只有管理者可以使用。'});
+assert.deepEqual((await batchModerate({status:'delete',items:[{id:'x',revision:rev(1,0)}]},{admin:false})).data,{error:'只有管理者可以使用。'});
 assert.deepEqual((await deleteFeedback('x',{admin:false})).data,{error:'只有管理者可以使用。'});
 
 const a=await session(), b=await session();assert.equal(a.status,200);assert.ok(a.cookie);assert.ok(b.cookie);
@@ -410,37 +414,47 @@ for(const type of ['past','present']){
   assert.equal(events(id).length,before+rs.filter(r=>r.status===200).length,'one event per applied change');
   assert.deepEqual((await withdraw(id,other)).data,{ok:true});
  }
- // Moderation with the statusAt the admin list showed: refused (409) once the story changed since,
+ // Moderation with the revision the admin list showed: refused (409) once the story changed since,
  // e.g. the author stopped sharing and asked again between loading the list and deciding.
  const STALE='這篇的狀態剛剛改變了，請重新整理後再審閱。';
- const listedAt=(await queued(v2p)).statusAt;
- assert.equal(typeof listedAt,'number','the admin list shows statusAt');
+ const listedRev=(await queued(v2p)).revision;
+ assert.equal(typeof listedRev,'string','the admin list shows a revision');
+ assert.ok(!('statusAt' in (await queued(v2p))),'statusAt is folded into the revision');
  ok(await shareOff(v2p,other),'private',2);
- err(await moderate(v2p,{status:'approved',statusAt:listedAt},{admin:true}),409,STALE);
+ err(await moderate(v2p,{status:'approved',revision:listedRev},{admin:true}),409,STALE);
  ok(await shareOn(v2p,other),'pending',1);
- err(await moderate(v2p,{status:'approved',statusAt:listedAt},{admin:true}),409,STALE);
- err(await moderate(v2p,{status:'rejected',statusAt:listedAt},{admin:true}),409,STALE);
+ err(await moderate(v2p,{status:'approved',revision:listedRev},{admin:true}),409,STALE);
+ err(await moderate(v2p,{status:'rejected',revision:listedRev},{admin:true}),409,STALE);
  assert.equal(row(v2p).status,'pending','a refused decision changes nothing');
- const relisted=(await queued(v2p)).statusAt;
- assert.ok(relisted>listedAt);
- assert.equal((await moderate(v2p,{status:'approved',statusAt:relisted},{admin:true})).status,200);
+ const relisted=(await queued(v2p)).revision;
+ assert.notEqual(relisted,listedRev);
+ assert.equal((await moderate(v2p,{status:'approved',revision:relisted},{admin:true})).status,200);
  assert.ok(await isPublic(v2p));
- err(await moderate(v2p,{status:'rejected',statusAt:relisted},{admin:true}),409,STALE,'the approval itself changed it');
- for(const bad of ['1',-1,1.5,null])err(await moderate(v2p,{status:'rejected',statusAt:bad},{admin:true}),400,'無效操作');
- // Unchanged private story: still the private-consent 400; delete ignores statusAt.
- err(await moderate(v2a,{status:'approved',statusAt:(await queued(v2a)).statusAt},{admin:true}),400,'文章不存在，或作者未同意分享');
- err(await moderate('no-such-story',{status:'approved',statusAt:1},{admin:true}),400,'文章不存在，或作者未同意分享');
- // A change within the same millisecond leaves statusAt as listed; the consent-event count still differs.
+ err(await moderate(v2p,{status:'rejected',revision:relisted},{admin:true}),409,STALE,'the approval itself changed it');
+ for(const bad of ['','not a revision',1,null,{},rev(1,-1),rev(1.5,0),rev('1',0),b64u([1]),b64u([1,0,0]),b64u({statusAt:1,consentEvents:0})])
+  err(await moderate(v2p,{status:'rejected',revision:bad},{admin:true}),400,'無效操作',JSON.stringify(bad));
+ // The fields the revision replaced are refused, not ignored: a body from an admin page loaded
+ // before the change must not pass as one that asks for no check.
+ {const r=(await queued(v2p)).revision;
+  for(const old of [{statusAt:1},{consentEvents:0},{statusAt:1,consentEvents:0},{revision:r,statusAt:1},{revision:r,consentEvents:0}])
+   err(await moderate(v2p,{status:'rejected',...old},{admin:true}),400,'無效操作',JSON.stringify(old));
+  assert.equal(row(v2p).status,'approved');}
+ // Unchanged private story: still the private-consent 400; delete ignores the revision.
+ err(await moderate(v2a,{status:'approved',revision:(await queued(v2a)).revision},{admin:true}),400,'文章不存在，或作者未同意分享');
+ err(await moderate('no-such-story',{status:'approved',revision:rev(1,0)},{admin:true}),400,'文章不存在，或作者未同意分享');
+ // A change within the same millisecond leaves statusAt as listed; the revision still differs
+ // (it covers the consent-event count).
  {
   ok(await shareOff(v2p,other),'private',1);ok(await shareOn(v2p,other),'pending',0);
   const listed=await queued(v2p);
-  assert.equal(typeof listed.consentEvents,'number');
-  sql(`INSERT INTO consent_events(story,action,consent_version,created) VALUES (${q(v2p)},'unshare',${q(V3)},${listed.statusAt}),(${q(v2p)},'share',${q(V3)},${listed.statusAt})`);
-  err(await moderate(v2p,{status:'approved',statusAt:listed.statusAt,consentEvents:listed.consentEvents},{admin:true}),409,STALE);
-  for(const bad of ['1',-1,1.5,null])err(await moderate(v2p,{status:'approved',consentEvents:bad},{admin:true}),400,'無效操作');
+  const at=row(v2p).statusAt;
+  sql(`INSERT INTO consent_events(story,action,consent_version,created) VALUES (${q(v2p)},'unshare',${q(V3)},${at}),(${q(v2p)},'share',${q(V3)},${at})`);
+  assert.equal(row(v2p).statusAt,at,'status_at as listed');
+  err(await moderate(v2p,{status:'approved',revision:listed.revision},{admin:true}),409,STALE);
   assert.equal(row(v2p).status,'pending');
   const again=await queued(v2p);
-  assert.equal((await moderate(v2p,{status:'approved',statusAt:again.statusAt,consentEvents:again.consentEvents},{admin:true})).status,200);
+  assert.notEqual(again.revision,listed.revision,'the same millisecond, another revision');
+  assert.equal((await moderate(v2p,{status:'approved',revision:again.revision},{admin:true})).status,200);
  }
  // Erase-all takes the history with it.
  assert.equal((await erase(c)).status,200);
@@ -540,8 +554,9 @@ for(const type of ['past','present']){
    assert.equal(byId.a2.expiresAt,now-25*DAY+30*DAY,'v2: 30 days after created');
    assert.equal(byId.r1.expiresAt,now-26*DAY+30*DAY,'v3 not approved: 30 days after the status change');
    assert.deepEqual([byId.a1.terms,byId.a2.terms,byId.l1.terms],['v3','v2','v2']);
-   assert.deepEqual([byId.p2.shareRequests,byId.p2.consentEvents,byId.p2.statusAt,byId.p2.consent],[1,2,now-HOUR-1,consentOf.v3s],'card fields, consent string');
-   for(const k of ['id','title','body','era','source','status','consent','created','letterType','mood','reflection','statusAt','shareRequests','consentEvents','terms','expiresAt'])assert.ok(k in byId.p1,k);
+   assert.deepEqual([byId.p2.shareRequests,byId.p2.consentEvents,byId.p2.revision,byId.p2.consent],[1,2,rev(now-HOUR-1,2),consentOf.v3s],'card fields (revision: status_at and the consent-event count), consent string');
+   for(const k of ['id','title','body','era','source','status','consent','created','letterType','mood','reflection','revision','shareRequests','consentEvents','terms','expiresAt'])assert.ok(k in byId.p1,k);
+   assert.ok(!('statusAt' in byId.p1),'statusAt is folded into the revision');
   }
 
   // q is taken literally: %, _, quotes and backslashes are not patterns.
@@ -634,9 +649,9 @@ for(const type of ['past','present']){
   const listed=async()=>Object.fromEntries((await list({q:MB,status:'all'})).data.stories.map(x=>[x.id.slice(P.length),x]));
   {
    const s=(await listed()).s1, id=P+'s1';
-   assert.equal((await moderate(id,{status:'approved',statusAt:s.statusAt,consentEvents:s.consentEvents},{admin:true})).status,200);
+   assert.equal((await moderate(id,{status:'approved',revision:s.revision},{admin:true})).status,200);
    assert.equal((await moderate(id,{status:'approved'},{admin:true})).status,200,'repeating a decision still succeeds');
-   assert.equal((await moderate(id,{status:'rejected',statusAt:s.statusAt},{admin:true})).status,409);
+   assert.equal((await moderate(id,{status:'rejected',revision:s.revision},{admin:true})).status,409);
    assert.equal((await moderate(id,{status:'rejected'},{admin:true})).status,200);
    assert.equal((await moderate(P+'k4',{status:'approved'},{admin:true})).status,400,'private: never approved');
    assert.equal((await moderate(id,{status:'delete'},{admin:true})).status,200);
@@ -646,28 +661,30 @@ for(const type of ['past','present']){
 
   // --- Batch moderation: per-item results, never all-or-nothing.
   const SECOND={'x-dev-admin-email':'Second-Admin@Example.test'};
-  const item=(s,patch={})=>({id:s.id,statusAt:s.statusAt,consentEvents:s.consentEvents,...patch});
+  const item=(s,patch={})=>({id:s.id,revision:s.revision,...patch});
+  /** The item with its listed revision moved by `dt` ms and `de` consent events. */
+  const moved=(s,dt,de)=>{const [t,e]=unrev(s.revision);return item(s,{revision:rev(t+dt,e+de)});};
   {
    const L=await listed(), one=[item(L.k1)];
    assert.deepEqual((await batchModerate({status:'approved',items:one})).data,{error:'核准必須逐篇閱讀原文，不能批次操作。'});
    assert.equal((await batchModerate({status:'approved',items:[item(L.k4)]})).status,400);
-   for(const data of [null,[],{},{status:'rejected'},{status:'rejected',items:[]},{status:'publish',items:one},{status:'rejected',items:Array.from({length:51},(_,i)=>({id:'x'+i,statusAt:1,consentEvents:0}))},{status:'rejected',items:[...one,...one]},{status:'delete',items:[{id:L.k1.id}]},{status:'delete',items:[{...one[0],statusAt:'1'}]},{status:'delete',items:[{...one[0],id:''}]}])
+   for(const data of [null,[],{},{status:'rejected'},{status:'rejected',items:[]},{status:'publish',items:one},{status:'rejected',items:Array.from({length:51},(_,i)=>({id:'x'+i,revision:rev(1,0)}))},{status:'rejected',items:[...one,...one]},{status:'delete',items:[{id:L.k1.id}]},{status:'delete',items:[{...one[0],revision:rev('1',0)}]},{status:'delete',items:[{...one[0],revision:''}]},{status:'delete',items:[{...one[0],revision:7}]},{status:'delete',items:[{...one[0],id:''}]},{status:'rejected',items:[{id:L.k1.id,statusAt:unrev(L.k1.revision)[0],consentEvents:unrev(L.k1.revision)[1]}]}])
     assert.deepEqual([(await batchModerate(data)).status,(await batchModerate(data)).data],[400,{error:'無效操作'}],JSON.stringify(data)?.slice(0,80));
    assert.equal((await call('POST','/api/admin/moderation',{raw:'{}',type:'text/plain',admin:true})).status,415);
-   assert.equal((await batchModerate({status:'rejected',items:Array.from({length:50},(_,i)=>({id:P+'none-'+i,statusAt:1,consentEvents:0}))})).status,200,'50 items allowed');
-   const r=await batchModerate({status:'rejected',adminEmail:'forged@example.test',email:'forged@example.test',items:[item(L.k1,{email:'forged@example.test'}),item(L.k2),item(L.k3,{statusAt:L.k3.statusAt+1}),item(L.k4),item(L.k5),item(L.k6,{consentEvents:L.k6.consentEvents+1}),{id:P+'missing',statusAt:1,consentEvents:0}]},{headers:SECOND});
+   assert.equal((await batchModerate({status:'rejected',items:Array.from({length:50},(_,i)=>({id:P+'none-'+i,revision:rev(1,0)}))})).status,200,'50 items allowed');
+   const r=await batchModerate({status:'rejected',adminEmail:'forged@example.test',email:'forged@example.test',items:[item(L.k1,{email:'forged@example.test'}),item(L.k2),moved(L.k3,1,0),item(L.k4),item(L.k5),moved(L.k6,0,1),{id:P+'missing',revision:rev(1,0)}]},{headers:SECOND});
    assert.equal(r.status,200);
    assert.deepEqual(r.data,{results:[{id:P+'k1',ok:true},{id:P+'k2',ok:true},{id:P+'k3',ok:false,error:'conflict'},{id:P+'k4',ok:false,error:'not_allowed'},{id:P+'k5',ok:false,error:'not_allowed'},{id:P+'k6',ok:false,error:'conflict'},{id:P+'missing',ok:false,error:'missing'}]});
    const after=await listed();
    assert.deepEqual(['k1','k2','k3','k4','k5','k6'].map(k=>after[k].status),['rejected','rejected','pending','private','rejected','pending']);
-   assert.equal(after.k5.statusAt,L.k5.statusAt,'a refused item is not touched');
-   assert.ok(after.k1.statusAt>=now&&after.k2.statusAt>=now,'status_at set');
+   assert.equal(after.k5.revision,L.k5.revision,'a refused item is not touched');
+   assert.ok(unrev(after.k1.revision)[0]>=now&&unrev(after.k2.revision)[0]>=now,'status_at set');
    assert.equal(sql(`SELECT approved_at AS t FROM stories WHERE id=${q(P+'k2')}`)[0].t,null,'taken down: approved_at cleared');
    assert.ok(!(await stories()).data.stories.some(x=>x.id===P+'k2'),'and off the public list');
    assert.deepEqual(events(['k1','k2','k3','k4','k5','k6','missing'].map(k=>P+k)),['k1','k2'].map(k=>`second-admin@example.test reject story ${k}`),'only the successes are logged, under the verified identity (lowercased), never a body value');
-   // Batch delete: any status, with feedback and consent events; statusAt is not checked (as for a single delete).
+   // Batch delete: any status, with feedback and consent events; the revision is not checked (as for a single delete).
    sql(`INSERT INTO feedback(id,owner,story,kind,note,created) VALUES (${q(P+'fb-k3')},'v6-test',${q(P+'k3')},'report','',${now})`);
-   const d=await batchModerate({status:'delete',items:[item(after.k3,{statusAt:1}),item(after.k4),item(after.k1),{id:P+'missing',statusAt:1,consentEvents:0}]});
+   const d=await batchModerate({status:'delete',items:[item(after.k3,{revision:rev(1,0)}),item(after.k4),item(after.k1),{id:P+'missing',revision:rev(1,0)}]});
    assert.deepEqual(d.data,{results:[{id:P+'k3',ok:true},{id:P+'k4',ok:true},{id:P+'k1',ok:true},{id:P+'missing',ok:false,error:'missing'}]});
    assert.equal(sql(`SELECT COUNT(*) AS n FROM stories WHERE id IN (${['k1','k3','k4'].map(k=>q(P+k)).join(',')})`)[0].n,0);
    assert.equal(sql(`SELECT COUNT(*) AS n FROM feedback WHERE story=${q(P+'k3')}`)[0].n,0,'with their feedback');
@@ -683,10 +700,10 @@ for(const type of ['past','present']){
    insert([row('ex1',MB+' 過期待刪','pending','v3s',now-40*DAY,statusAt)]);
    sql(`INSERT INTO consent_events(story,action,consent_version,created) VALUES (${q(id)},'submit',${q(V3)},${now-40*DAY})`);
    const MISSING='文章不存在，或作者未同意分享';
-   for(const data of [{status:'approved'},{status:'approved',statusAt,consentEvents:1},{status:'rejected'},{status:'rejected',statusAt,consentEvents:1}]){
+   for(const data of [{status:'approved'},{status:'approved',revision:rev(statusAt,1)},{status:'rejected'},{status:'rejected',revision:rev(statusAt,1)}]){
     const r=await moderate(id,data,{admin:true});assert.deepEqual([r.status,r.data],[400,{error:MISSING}],JSON.stringify(data));
    }
-   assert.deepEqual((await batchModerate({status:'rejected',items:[{id,statusAt,consentEvents:1}]})).data,{results:[{id,ok:false,error:'missing'}]});
+   assert.deepEqual((await batchModerate({status:'rejected',items:[{id,revision:rev(statusAt,1)}]})).data,{results:[{id,ok:false,error:'missing'}]});
    assert.deepEqual(sql(`SELECT status,status_at AS t,approved_at AS a FROM stories WHERE id=${q(id)}`),[{status:'pending',t:statusAt,a:null}],'unchanged');
    assert.deepEqual(events([id]),[],'nothing logged');
   }

@@ -1,6 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { type BatchAction, canReject } from "../../lib/admin-contract";
 import * as api from "../../lib/api-client";
 import type { AdminStory, AdminSummary, ModerationAction } from "../../lib/stories";
 import { useAction, useBusyCursor } from "../../lib/use-action";
@@ -8,7 +9,7 @@ import { useConfirm } from "../common/ConfirmDialog";
 import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import { useShell } from "../shell/ShellContext";
-import BatchBar, { canReject } from "./BatchBar";
+import BatchBar from "./BatchBar";
 import EventLog from "./EventLog";
 import FeedbackList from "./FeedbackList";
 import {
@@ -16,10 +17,16 @@ import {
   NO_FILTER,
   parseFilter,
   scrollToStory,
-  stillListed,
   type StoryFilter,
   taipeiDate,
 } from "./filters";
+import {
+  afterBatchRefetch,
+  afterRefusal,
+  isRefusal,
+  movedBatchNotice,
+  planBatch,
+} from "./reconcile";
 import StoryFilters from "./StoryFilters";
 import StoryList from "./StoryList";
 import SummaryBar from "./SummaryBar";
@@ -28,16 +35,6 @@ import WritingMetrics from "./WritingMetrics";
 import styles from "./AdminDashboard.module.css";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
-
-/** A batch item left as it was: the note on its card, and its part of the notice. */
-const BATCH_ERROR: Record<api.BatchError, { note: string; count: string }> = {
-  conflict: { note: "未處理：這篇剛剛改變了，請再看一次。", count: "剛剛改變了" },
-  not_allowed: { note: "未處理：這個狀態不能不通過。", count: "這個狀態不能不通過" },
-  missing: { note: "未處理：已不存在。", count: "已不存在" },
-};
-/** An unknown or missing reason (an older or newer API) still gets a note. */
-const batchError = (r: api.BatchResult) =>
-  (r.error && BATCH_ERROR[r.error]) || { note: "未處理，請再看一次。", count: "原因不明" };
 
 /** 《a》《b》《c》等: the first few titles for a batch confirm. */
 function someTitles(stories: AdminStory[], n = 3) {
@@ -197,7 +194,7 @@ export default function AdminDashboard() {
     return action.run(async () => {
       note(s.id);
       try {
-        await api.moderateStory(s.id, status, status === "delete" ? undefined : s);
+        await api.moderateStory(s.id, status, status === "delete" ? undefined : s.revision);
         if (currentQuery.current !== started) {
           // The filters changed meanwhile (back/forward): reload that list instead.
           stories.reload();
@@ -214,16 +211,15 @@ export default function AdminDashboard() {
       } catch (e) {
         // 409: changed since listed; 400: e.g. expired meanwhile. Look at this
         // one story again instead of reloading the list (filters, scroll).
-        if (!(e instanceof api.ApiError) || (e.status !== 409 && e.status !== 400)) throw e;
-        const current = await api.getAdminStory(s.id);
-        if (!current) {
-          stories.remove(s.id);
-          setNotice(`《${s.title}》已不在系統中（可能已過期或被刪除），已從清單移除。`);
-        } else if (e.status === 409) {
-          stories.replace(current);
-          note(s.id, "這篇剛剛改變了，請再看一次。");
-          setNotice("這篇剛剛改變了，請再看一次。");
-        } else throw e;
+        if (!(e instanceof api.ApiError) || !isRefusal(e.status)) throw e;
+        const outcome = afterRefusal(s.title, e.status, await api.getAdminStory(s.id));
+        if (outcome.kind === "rethrow") throw e;
+        if (outcome.kind === "remove") stories.remove(s.id);
+        else {
+          stories.replace(outcome.story);
+          note(s.id, outcome.note);
+        }
+        setNotice(outcome.notice);
         await refreshSummary();
         return;
       }
@@ -247,11 +243,11 @@ export default function AdminDashboard() {
    * The outcome is applied as soon as the POST answers: deleted cards leave
    * the list, and so do rejected ones unless the status filter lists
    * rejected stories (暫不分享 or 全部), where they are fetched again. Refused
-   * ones stay ticked with the reason on the card and are fetched again (new
-   * statusAt / consentEvents for the next try); gone ones leave. A fetch that
-   * fails keeps the card as it was, with a note.
+   * ones stay ticked with the reason on the card and are fetched again (a new
+   * revision for the next try); gone ones leave. A fetch that fails keeps the
+   * card as it was, with a note. The list changes are reconcile.ts'.
    */
-  async function moderateSelected(status: "rejected" | "delete") {
+  async function moderateSelected(status: BatchAction) {
     if (batching.current || listing) return;
     const targets = status === "delete" ? selected : selected.filter(canReject);
     if (targets.length === 0) return;
@@ -277,104 +273,64 @@ export default function AdminDashboard() {
     });
     // The filters changed (back / forward) while asking: that selection is gone.
     if (!ok || moved() || batching.current) return;
-    // Rejected stories are fetched again on a list that can show them (and
-    // leave it if other filters, e.g. expiring, no longer match); any other
-    // list drops them at once.
-    const keepRejected = filter.status === "rejected" || filter.status === "all";
     batching.current = true;
     void action
       .run(async () => {
         for (const s of targets) note(s.id);
         const results = await api.moderateStories(status, targets);
-        const done = results.filter((r) => r.ok).map((r) => r.id);
-        const failed = results.filter((r) => !r.ok);
+        const plan = planBatch(status, results, filter.status);
+        const logged = plan.done.length > 0;
 
         if (moved()) {
           // The filters changed meanwhile (back/forward): this outcome belongs
           // to the earlier list, so the current one is loaded again instead.
           stories.reload();
-          if (done.length) {
+          if (logged) {
             setEventsKey((k) => k + 1);
             if (status === "delete") setFeedbackKey((k) => k + 1);
           }
-          setNotice(
-            `${status === "delete" ? "已永久刪除" : "已不通過或下架"} ${done.length} 篇` +
-              (failed.length ? `；${failed.length} 篇未處理` : "") +
-              "。清單已依目前的篩選重新載入。",
-          );
+          setNotice(movedBatchNotice(status, results));
           await refreshSummary();
           return;
         }
         // The outcome first, so a failing fetch below can't leave it unshown.
-        const refetchDone = status === "rejected" && keepRejected;
-        const leaving = refetchDone ? [] : done;
-        for (const id of leaving) stories.remove(id);
-        for (const r of failed) note(r.id, batchError(r).note);
+        for (const id of plan.remove) stories.remove(id);
+        for (const [id, text] of Object.entries(plan.notes)) note(id, text);
         // Only the refused ones stay ticked.
         select(
           targets.map((s) => s.id),
           false,
         );
-        select(
-          failed.map((r) => r.id),
-          true,
-        );
-        const verb = status === "delete" ? "已永久刪除" : "已不通過或下架";
-        const counts = new Map<string, number>();
-        for (const r of failed) {
-          const { count } = batchError(r);
-          counts.set(count, (counts.get(count) ?? 0) + 1);
-        }
-        const summaryText =
-          `${verb} ${done.length} 篇` +
-          (failed.length
-            ? `；${failed.length} 篇未處理（${[...counts].map(([c, n]) => `${n} 篇${c}`).join("、")}）`
-            : "");
-        setNotice(summaryText + "。");
-        if (done.length) {
+        select(plan.ticked, true);
+        setNotice(plan.summary + "。");
+        if (logged) {
           // Logged: the operation log reloads. Only a delete takes feedback with it.
           setEventsKey((k) => k + 1);
           if (status === "delete") {
-            if (feedbackStory && done.includes(feedbackStory.id)) setFeedbackStory(null);
+            if (feedbackStory && plan.done.includes(feedbackStory.id)) setFeedbackStory(null);
             setFeedbackKey((k) => k + 1);
           }
         }
 
-        // Then fetch again what stays on the list: rejected ones shown here, and every refused one.
-        const again = [...(refetchDone ? done : []), ...failed.map((r) => r.id)];
+        // Then fetch again what stays on the list.
         const [counted, ...fetched] = await Promise.allSettled([
           refreshSummary(),
-          ...again.map((id) => api.getAdminStory(id)),
+          ...plan.refetch.map((id) => api.getAdminStory(id)),
         ]);
         if (moved()) {
           stories.reload();
           if (counted.status === "rejected") throw counted.reason;
           return;
         }
-        const isFailed = new Set(failed.map((r) => r.id));
-        let removed = 0,
-          stale = 0;
-        fetched.forEach((f, i) => {
-          const id = again[i];
-          if (f.status === "rejected") {
-            stale++;
-            const reason = isFailed.has(id)
-              ? batchError(failed.find((r) => r.id === id)!).note
-              : "";
-            note(id, `${reason}（未能重新載入這篇，請按「重新整理」。）`);
-          } else if (f.value && (isFailed.has(id) || stillListed(f.value, filter)))
-            // Refused ones stay to show why; decided ones only while the filters match.
-            stories.replace(f.value);
-          else {
-            stories.remove(id);
-            if (isFailed.has(id)) removed++;
-          }
-        });
-        let text = summaryText;
-        if (removed)
-          text += removed === failed.length ? "，已從清單移除" : `，其中 ${removed} 篇已從清單移除`;
-        if (stale) text += `；${stale} 篇未能重新載入，請按「重新整理」`;
-        setNotice(text + "。");
+        const outcome = afterBatchRefetch(
+          plan,
+          fetched as PromiseSettledResult<AdminStory | null>[],
+          filter,
+        );
+        for (const [id, text] of Object.entries(outcome.notes)) note(id, text);
+        for (const story of outcome.replace) stories.replace(story);
+        for (const id of outcome.remove) stories.remove(id);
+        setNotice(outcome.notice);
         if (counted.status === "rejected") throw counted.reason;
       })
       .finally(() => {
