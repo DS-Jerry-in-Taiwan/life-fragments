@@ -12,10 +12,10 @@ export default function StoryPaper({
   ...data
 }: {
   className?: string;
-  /** Top-left line, e.g. 真人投稿 · 經作者同意. */
-  label: React.ReactNode;
+  /** Top-left line, e.g. 真人投稿 · 經作者同意. Leave out (with `mark`) when the caller shows it above the paper (/read's envelope line). */
+  label?: React.ReactNode;
   /** Top-right mark: ✦ or the scenario. */
-  mark: React.ReactNode;
+  mark?: React.ReactNode;
   children: React.ReactNode;
   /** Shown below the closing · · ·. */
   after?: React.ReactNode;
@@ -30,10 +30,12 @@ export default function StoryPaper({
       tabIndex={tabIndex}
       {...data}
     >
-      <div className={styles.top}>
-        <span>{label}</span>
-        <span>{mark}</span>
-      </div>
+      {(label || mark) && (
+        <div className={styles.top}>
+          <span>{label}</span>
+          <span>{mark}</span>
+        </div>
+      )}
       {children}
       <div className={styles.end} aria-hidden="true">
         · · ·

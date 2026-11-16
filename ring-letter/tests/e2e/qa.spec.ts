@@ -238,8 +238,6 @@ test.describe("keyboard only", () => {
     await expect(letter).toBeFocused();
     await expect(letter).not.toHaveAttribute("data-letter-id", first!);
 
-    await tabTo(page, "想讀特定情境？");
-    await page.keyboard.press("Enter");
     await expect(page.getByRole("group", { name: "選擇信件情境" })).toBeVisible();
     await tabTo(page, "感情");
     await page.keyboard.press("Enter");
@@ -644,13 +642,16 @@ test("not open: 尚未開放 is in the accessibility tree on both entries", asyn
     expect(await tag.evaluate((el) => !!el.closest('[aria-hidden="true"]'))).toBe(false);
 });
 
-// Same kind of control as the archive's feedback summary (#33): both ≥44px.
-test("/read scenario summary is a 44px click target", async ({ page }) => {
+// v3 D2: the scenarios are always-visible chips, each a 44px target (was a 43.4px summary).
+test("/read scenario chips are 44px click targets", async ({ page }) => {
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/read");
     await hydrated(page);
-    const box = await page.locator("summary", { hasText: "想讀特定情境？" }).boundingBox();
-    expect(box!.height).toBeGreaterThanOrEqual(44);
+    const chips = page.getByRole("group", { name: "選擇信件情境" }).getByRole("button");
+    await expect(chips).toHaveCount(5);
+    for (const chip of await chips.all())
+      expect((await chip.boundingBox())!.height, await chip.innerText()).toBeGreaterThanOrEqual(44);
+    await expect(page.locator("summary", { hasText: "想讀特定情境？" })).toHaveCount(0);
   }
 });

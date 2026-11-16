@@ -1,27 +1,15 @@
 .matchingExplanation {
-  max-width: 700px;
-  margin: 0 auto;
+  max-width: var(--measure);
   padding: 0 0 var(--space-12);
 }
 .matchingExplanation h2 {
-  font-size: var(--heading-md);
+  font-size: var(--type-title);
 }
 .matchingExplanation p {
   color: var(--muted);
-  font-size: var(--text-lg);
+  font-size: var(--type-body);
   line-height: 2;
 }
 .entry {
-  margin-top: var(--space-8);
-}
-@media (max-width: 640px) {
-  .matchingExplanation {
-    padding-bottom: var(--space-8);
-  }
-  .matchingExplanation h2 {
-    font-size: var(--heading-xs);
-  }
-  .matchingExplanation p {
-    font-size: var(--text-base);
-  }
+  margin-top: var(--space-6);
 }

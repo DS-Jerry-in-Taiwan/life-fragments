@@ -4,7 +4,6 @@ export default function BottomNote() {
   return (
     <section className={styles.bottomNote}>
       <div>
-        <span className={styles.tinyStar} aria-hidden="true">✦</span>
         <p>讓真實的片段留下來</p>
       </div>
       <p>

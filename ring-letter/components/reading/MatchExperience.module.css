@@ -1,22 +1,22 @@
+/* One 680px reading column (DESIGN.md Layout). */
 .matchExperience {
-  max-width: 700px;
+  max-width: var(--measure);
   margin: auto;
-  padding: 48px 0 64px;
-  border-top: 1px solid var(--line);
+  padding: var(--space-10) 0 64px;
 }
-/* The page's h1, set as the section heading it was before (base.css h2). */
+/* Headline (DESIGN.md Typography). */
 .intro h1 {
-  font-size: var(--heading-xl);
-  margin-bottom: var(--space-5);
-  line-height: 1.6;
+  font-size: var(--type-headline);
+  margin-bottom: var(--space-2);
+  line-height: 1.5;
   letter-spacing: normal;
-  text-wrap: balance;
 }
 .intro > p {
   color: var(--muted);
+  margin-bottom: var(--space-1);
 }
-.intro :global(.eyebrow) {
-  color: var(--gold);
+.intro :global(.quiet) {
+  margin-top: 0;
 }
 /* Holds the letter's place until it is picked after mount (no layout jump). */
 .letterPlaceholder {
@@ -24,10 +24,10 @@
 }
 @media (max-width: 640px) {
   .matchExperience {
-    padding: 36px 0 44px;
+    padding: var(--space-6) 0 var(--space-10);
   }
   .intro h1 {
-    font-size: var(--heading-lg);
+    font-size: 26px;
   }
   .letterPlaceholder {
     min-height: 970px;

@@ -185,7 +185,7 @@ test("read: one h1, the scenario buttons are a named group", async ({ page }) =>
   await hydrated(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("先讀一封，不必先寫");
-  await page.getByText("想讀特定情境？（選填）").click();
+  await expect(page.getByText("想讀特定情境？（選填）")).toBeVisible();
   const group = page.getByRole("group", { name: "選擇信件情境" });
   await expect(group).toBeVisible();
   await expect(group.getByRole("button", { name: "隨機遇見" })).toHaveAttribute(
@@ -221,7 +221,6 @@ test("read: 再讀一封 and a scenario bring the new letter into view and focus
   await expectTopInView();
 
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-  await page.getByText("想讀特定情境？（選填）").click();
   await page
     .getByRole("group", { name: "選擇信件情境" })
     .getByRole("button", { name: "家人關係" })

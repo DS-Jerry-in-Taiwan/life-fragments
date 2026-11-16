@@ -1,53 +1,44 @@
+/* One column of steps beside its heading (DESIGN.md Layout: wide column). */
 .how {
-  padding: 70px 0 80px;
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: var(--space-6) 56px;
+  padding: var(--space-10) 0 64px;
+  background: linear-gradient(var(--line), var(--line)) no-repeat top / 100% 1px;
 }
 .how h2 {
-  font-size: var(--heading-lg);
-  margin-bottom: 30px;
+  font-size: var(--type-title);
+  line-height: 1.5;
+  margin: 0;
 }
-.how > div {
+.how ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 55px;
-}
-.how article {
-  min-width: 0;
+  gap: 22px;
+  max-width: 36em;
 }
 .how h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) 10px;
   font-size: 18px;
-  margin: var(--space-4) 0 var(--space-3);
+  color: var(--gold);
+  margin: 0;
+}
+.how h3 :global(.tag-not-open) {
+  font-family: var(--sans);
 }
 .how p {
-  font-size: var(--text-md);
+  margin: var(--space-1) 0 0;
+  font-size: var(--type-small);
   color: var(--muted);
   line-height: 1.9;
 }
 @media (max-width: 1000px) {
-  .how > div {
-    gap: 25px;
-  }
-}
-@media (max-width: 640px) {
   .how {
-    padding: var(--space-10) 0;
-  }
-  .how h2 {
-    font-size: var(--heading-xs);
-  }
-  .how > div {
-    display: block;
-  }
-  .how article {
-    padding: var(--space-5) 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .how h3 {
-    margin: var(--space-2) 0;
-  }
-  .how p {
-    margin-bottom: 0;
-  }
-  .how > div p {
-    font-size: var(--text-base);
+    grid-template-columns: minmax(0, 1fr);
   }
 }

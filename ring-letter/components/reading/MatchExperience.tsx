@@ -51,7 +51,6 @@ export default function MatchExperience() {
   return (
     <section className={styles.matchExperience} id="match-experience" aria-labelledby="match-title">
       <div className={styles.intro}>
-        <p className="eyebrow">跨時間的相遇</p>
         <h1 id="match-title">先讀一封，不必先寫</h1>
         <p>先讓一封信來到你面前。想換個故事，就再讀一封。</p>
         <p className="quiet">

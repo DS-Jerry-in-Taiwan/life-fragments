@@ -1,3 +1,4 @@
+import Arrow from "../common/Arrow";
 import NavButton from "../shell/NavButton";
 import styles from "./MatchingExplanation.module.css";
 
@@ -16,7 +17,7 @@ export default function MatchingExplanation() {
       </p>
       <div className={styles.entry}>
         <NavButton to="/read" className="primary">
-          先讀一封 <span aria-hidden="true">→</span>
+          先讀一封 <Arrow />
         </NavButton>
       </div>
     </section>

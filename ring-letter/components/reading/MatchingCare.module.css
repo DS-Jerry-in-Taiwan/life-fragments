@@ -1,8 +1,8 @@
 .matchingCare {
-  border-top: 1px solid var(--line);
+  background: linear-gradient(var(--line), var(--line)) no-repeat top / 100% 1px;
   padding-top: var(--space-6);
   color: var(--muted);
-  font-size: var(--text-md);
+  font-size: var(--type-small);
   line-height: 1.9;
 }
 .matchingCare p {

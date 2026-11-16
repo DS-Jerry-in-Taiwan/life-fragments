@@ -1,77 +1,104 @@
-.matchedLetter {
-  animation: letter-arrive var(--duration-letter) ease-out;
-}
-/* Focus is moved here after 再讀一封 / a scenario change; its ring is
-   StoryPaper's. */
-@keyframes letter-arrive {
-  from {
-    opacity: 0.5;
-    transform: translateY(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.metadata {
-  margin: 0 0 var(--space-7);
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid #34424a25;
-}
-.metadata > div + div {
-  margin-top: var(--space-4);
-}
-.metadata dt {
-  font-size: var(--text-sm);
-  color: #5a6460;
-}
-.metadata dd {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-base);
-  line-height: 1.9;
-  overflow-wrap: anywhere;
-}
-.actions {
+/* Above the paper, on the night sky (DESIGN.md Letter paper). */
+.envelope {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-7);
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  padding-bottom: 10px;
+  font-size: var(--type-label);
+  color: var(--muted);
 }
-.actions :global(.secondary) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+/* The one allowed arrival: fade in and settle 6px (DESIGN.md motion). */
+.matchedLetter {
+  animation: letter-arrive var(--duration-letter) var(--ease-out);
+}
+@keyframes letter-arrive {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px);
+  }
+}
+/* `article` keeps these above StoryPaper's own padding in any file order. */
+article.matchedLetter {
+  padding: var(--space-10) var(--space-12) var(--space-8);
+  border-top: 0;
+  /* When another letter is brought into view, keep the envelope line above
+     it in view too (it also absorbs the 6px of the arrival animation). */
+  scroll-margin-top: var(--space-10);
+}
+.situation,
+.postscript {
+  margin: 0;
+  font-size: var(--type-small);
+  color: var(--paper-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) 14px;
+}
+.situation dd,
+.postscript dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.situation {
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--paper-line);
+}
+.postscript {
+  margin-top: var(--space-6);
+  padding-top: 18px;
+  border-top: 1px dashed var(--paper-line);
+}
+.postscript dd {
   color: var(--paperink);
-  border-color: #33424966;
-  padding: 10px 14px;
-  font-size: var(--text-md);
 }
-/* `button` keeps this above `.secondary:hover` (utilities.css) in any file order. */
-/* Pressed is a check mark and a solid ink border, not only a shade (#52). */
-.actions button[aria-pressed="true"] {
-  background: #d9d1bc;
+/* Letter (DESIGN.md Typography): 18px, line height 2.05. `div` outranks StoryPaper's .body. */
+div.body {
+  font-size: var(--type-letter);
+  line-height: 2.05;
+}
+.mark {
+  margin-top: var(--space-5);
+}
+/* On the paper: ink text and a 3.5:1 edge (DESIGN.md paper-control). */
+.mark :global(.secondary) {
+  min-height: var(--target);
+  padding: 0 18px;
+  font-size: var(--type-body);
+  color: var(--paperink);
+  border-color: var(--paper-control);
+}
+.mark :global(.secondary):hover {
+  background: transparent;
   border-color: var(--paperink);
 }
-.actions button[aria-pressed="true"]::before {
+/* Pressed is a check mark and a solid ink border, not only a shade (#52). */
+.mark button[aria-pressed="true"] {
+  background: var(--paperink);
+  color: var(--paper);
+  border-color: var(--paperink);
+}
+.mark button[aria-pressed="true"]::before {
   content: "✓";
   content: "✓" / "";
   margin-right: var(--space-2);
 }
-@media (max-width: 640px) {
-  .actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .actions :global(.secondary) {
-    width: 100%;
-  }
-  /* `article` keeps this above StoryPaper's phone padding in any file order. */
-  article.matchedLetter {
-    padding: 26px 20px;
-  }
+/* What comes next, after the letter (DESIGN.md: The Read First Rule). */
+.next {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-6);
 }
-@media (prefers-reduced-motion: reduce) {
-  .matchedLetter {
-    animation: none;
+@media (max-width: 640px) {
+  article.matchedLetter {
+    padding: var(--space-7) 22px var(--space-6);
+  }
+  .next :global(.primary) {
+    flex: 1 1 100%;
   }
 }
