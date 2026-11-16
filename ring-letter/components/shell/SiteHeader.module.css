@@ -79,3 +79,11 @@
     padding: 0 6px;
   }
 }
+/* Windows high contrast: box-shadow isn't drawn and every link gets the
+   same colour, so the current page needs a real underline. */
+@media (forced-colors: active) {
+  .nav a[aria-current="page"] {
+    text-decoration: underline 2px;
+    text-underline-offset: 6px;
+  }
+}

@@ -199,3 +199,15 @@ test("nav: the active header link has the ink colour and a 2px gold underline", 
   });
   expect((await style(other)).color).toBe("rgb(168, 181, 188)"); // --muted
 });
+
+test("nav: in forced colours the current page is still underlined", async ({ page }) => {
+  // Windows high contrast drops box-shadow and gives every link one colour.
+  await page.emulateMedia({ forcedColors: "active" });
+  await open(page, "/read");
+  const line = (name: string) =>
+    nav(page)
+      .getByRole("link", { name })
+      .evaluate((el) => getComputedStyle(el).textDecorationLine);
+  expect(await line("讀一封信")).toBe("underline");
+  expect(await line("公開信箱")).toBe("none");
+});
