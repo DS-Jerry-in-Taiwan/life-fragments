@@ -29,15 +29,14 @@ test("copy: home says human matching is not open yet", async ({ page }) => {
   await gone(page, ["1–3 天", "測試期間由真人人工媒合", "大約需要"]);
 });
 
-// #77: the home page promises matching and replies only "once it opens".
-test("copy: home says matching and replies come once they open", async ({ page }) => {
+// #77 (Jerry, final): the hero no longer promises matching at all; step 03
+// says replies come once they open.
+test("copy: home doesn't promise matching; replies come once they open", async ({ page }) => {
   await open(page, "/");
-  await expect(
-    page.getByText("人工媒合開放後，我們會試著讓一封相似的信回應現在的你。"),
-  ).toBeVisible();
   await expect(page.getByText(/^開放後，你可以回覆那封信，寫給幾年前的那個人；/)).toBeVisible();
   await gone(page, [
     "如果有相似的過去經歷，我們會試著讓那封信回應現在的你。",
+    "人工媒合開放後，我們會試著讓一封相似的信回應現在的你。",
     "你可以回覆那封信，寫給幾年前的那個人。",
   ]);
 });
