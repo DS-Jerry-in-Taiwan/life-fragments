@@ -73,6 +73,7 @@ export default function ReaderFeedback({
           天存取，過期不再顯示並於後續清理。可用「我的片段」的「刪除我的所有資料」刪除。
         </span>
       </CheckboxField>
+      {!feedbackConsent && <p className={styles.hint}>勾選上面的同意後，就可以選一個。</p>}
       <div className={chips.chips}>
         {(
           [

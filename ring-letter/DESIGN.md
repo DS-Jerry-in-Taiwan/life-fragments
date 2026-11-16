@@ -18,6 +18,7 @@ colors:
   placeholder: "#93a1a8"
   danger: "#f2b8a8"
   line: "#ffffff17"
+  backdrop: "#06131be6"
   paper-line: "#2f3b4126"
 typography:
   display:
@@ -155,6 +156,7 @@ components:
 - **控制項邊線** (control-border)：夜空上的按鈕、chips、輸入欄邊框，在三段夜空上 3.5–4.6:1。
 - **輸入欄底** (field) 與 **提示字** (placeholder)：輸入欄底色；提示字 6.8:1，文字 14.3:1。
 - **細線** (line) 與 **信紙細線** (paper-line)：分隔線，只做裝飾，不用來標示可點的東西。
+- **夜幕** (backdrop)：對話框（隱私說明、確認框）背後的遮罩，加 7px 模糊；對話框本身用夜空底 (night-low) 與控制項邊線。
 - **警示** (danger)：只用在不可復原的動作，例如永久刪除（7.9–10.3:1）。
 
 ### Named Rules

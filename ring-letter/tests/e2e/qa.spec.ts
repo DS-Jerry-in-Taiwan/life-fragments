@@ -518,7 +518,7 @@ for (const reduce of [true, false]) {
     // /archive: 再讀一封 scrolls to the next story.
     await archiveWithStories(page);
     await scrolls();
-    await page.getByRole("button", { name: "再讀一封 →" }).click();
+    await page.getByRole("button", { name: "再讀一封", exact: true }).click();
     await expect(page.locator("article[data-story-id]")).toBeFocused();
     expect(await scrolls()).toEqual([`scrollIntoView:${want}`]);
     if (reduce) expect((await moving(page)).transitions).toEqual([]);

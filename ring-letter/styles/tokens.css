@@ -39,6 +39,8 @@
   /* Dividers only; never the only edge of something you can press. */
   --line: #ffffff17;
   --surface: #ffffff05;
+  /* Behind a modal dialog. */
+  --backdrop: #06131be6;
   --hover: #ffffff0a;
 
   /* Fonts: Noto Serif TC for letters and headings, Noto Sans TC for the
