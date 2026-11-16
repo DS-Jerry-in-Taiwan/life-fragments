@@ -180,16 +180,22 @@ test("nav: the current page's header link is aria-current", async ({ page }) => 
   await expectCurrent(page, "/archive");
 });
 
-test("nav: the active header link looks as before", async ({ page }) => {
+test("nav: the active header link has the ink colour and a 2px gold underline", async ({
+  page,
+}) => {
   await open(page, "/read");
   const active = nav(page).getByRole("link", { name: "讀一封信" });
   const other = nav(page).getByRole("link", { name: "公開信箱" });
   const style = (l: Locator) =>
     l.evaluate((el) => {
       const s = getComputedStyle(el);
-      return { color: s.color, border: s.borderBottomColor, decoration: s.textDecorationLine };
+      return { color: s.color, underline: s.boxShadow, decoration: s.textDecorationLine };
     });
-  const gold = "rgb(220, 201, 155)";
-  expect(await style(active)).toEqual({ color: gold, border: gold, decoration: "none" });
-  expect((await style(other)).color).not.toBe(gold);
+  // DESIGN.md Navigation (v3 D1).
+  expect(await style(active)).toEqual({
+    color: "rgb(232, 229, 220)", // --ink
+    underline: "rgb(220, 201, 155) 0px -2px 0px 0px inset", // --gold
+    decoration: "none",
+  });
+  expect((await style(other)).color).toBe("rgb(168, 181, 188)"); // --muted
 });

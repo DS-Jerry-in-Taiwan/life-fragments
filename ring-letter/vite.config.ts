@@ -96,7 +96,7 @@ function devAdminIdentity(): Plugin {
 }
 
 /**
- * Self-hosted Noto Serif TC (@fontsource, imported at the top of
+ * Self-hosted Noto Serif TC and Noto Sans TC (@fontsource, imported at the top of
  * app/globals.css). Each unicode-range slice must stay its own file: the
  * browser then downloads only the slices a page's characters fall in.
  * - Never inline a font as a data: URI (Vite inlines assets under 4 KB),

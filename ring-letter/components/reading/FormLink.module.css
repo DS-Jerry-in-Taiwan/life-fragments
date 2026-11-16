@@ -8,17 +8,7 @@
   font-size: var(--text-md);
   color: var(--muted);
 }
-/* On the letter paper (MatchedLetter's actions); #5a6460 on --paper is 5.4:1. */
+/* On the letter paper (MatchedLetter's actions): 5.8:1 (DESIGN.md paper-muted). */
 .onPaper {
-  color: #5a6460;
-}
-.tag {
-  display: inline-block;
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  padding: 0 var(--space-2);
-  border: 1px dashed currentColor;
-  border-radius: 4px;
-  color: inherit;
-  white-space: nowrap;
+  color: var(--paper-muted);
 }

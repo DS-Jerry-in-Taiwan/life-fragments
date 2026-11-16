@@ -69,7 +69,8 @@ test.describe("200% zoom (640 × 400 at 2×)", () => {
     await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
     await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
     const send = page.getByRole("button", { name: "留下這封信 →" });
-    await send.scrollIntoViewIfNeeded();
+    // Centred: scrollIntoViewIfNeeded stops at a fractional edge (1.85 line heights).
+    await send.evaluate((el) => el.scrollIntoView({ block: "center" }));
     await expect(send).toBeInViewport({ ratio: 1 });
     await send.click();
     await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();

@@ -286,7 +286,7 @@ test("read: the focus ring on the letter paper is the ink colour, not gold", asy
     ink: getComputedStyle(el.closest("article")!).color,
   }));
   expect(focusVisible).toBe(true);
-  expect(ink).toBe("rgb(51, 66, 73)"); // --paperink #334249
+  expect(ink).toBe("rgb(47, 59, 65)"); // --paperink #2f3b41
   expect(outline).toBe(ink);
 });
 

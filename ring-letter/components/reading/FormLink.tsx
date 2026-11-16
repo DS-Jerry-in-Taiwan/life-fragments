@@ -3,7 +3,7 @@ import styles from "./FormLink.module.css";
 
 /** Marks an entry that isn't open yet, on the entry itself (#51). */
 export function NotOpenTag() {
-  return <span className={styles.tag}>尚未開放</span>;
+  return <span className="tag-not-open">尚未開放</span>;
 }
 
 /**

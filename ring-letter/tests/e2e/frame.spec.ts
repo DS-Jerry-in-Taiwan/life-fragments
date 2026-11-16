@@ -250,10 +250,17 @@ for (const [label, viewport] of Object.entries(WIDTHS)) {
   });
 }
 
-test("the header's ☾ is hidden from assistive tech", async ({ page }) => {
+test("the header's crescent is drawn and hidden from assistive tech", async ({ page }) => {
   await page.goto("/");
-  const moon = page.getByRole("banner").getByText("☾", { exact: true });
-  await expect(moon).toHaveAttribute("aria-hidden", "true");
+  // A CSS crescent (DESIGN.md: no ☾ character as an icon), with no text.
+  const moon = page
+    .getByRole("banner")
+    .getByRole("link")
+    .first()
+    .locator('[aria-hidden="true"]')
+    .first();
+  await expect(moon).toHaveText("");
+  await expect(page.getByRole("banner").getByText("☾")).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("link").first()).toHaveAccessibleName(
     /^Ring letter/,
   );
