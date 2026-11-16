@@ -19,7 +19,6 @@ export default function Hero() {
         </h1>
         <div className={styles.intro}>
           <p>在 Ring letter，你可以回想一段過去，也可以記錄今天的感受。</p>
-          <p>人工媒合開放後，我們會試著讓一封相似的信回應現在的你。</p>
           <p>你也可以先讀，不必先寫。</p>
         </div>
         <div className={styles.actions}>
