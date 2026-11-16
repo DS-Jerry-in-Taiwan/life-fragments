@@ -136,7 +136,7 @@ test("撤回: the result is in view and focused, 正在處理… moves nothing; 
   const withdraw = card(page, second).getByRole("button", { name: "撤回並刪除" });
   const eraseAll = page.getByRole("button", { name: "刪除我的所有資料" });
   for (const b of [withdraw, eraseAll])
-    expect(await b.evaluate((el) => getComputedStyle(el).minHeight)).toBe("45px");
+    expect(await b.evaluate((el) => getComputedStyle(el).minHeight)).toBe("44px");
   expect(await eraseAll.evaluate((el) => el.classList.contains("danger"))).toBe(true);
   const look = (l: Locator) =>
     l.evaluate((el) => {

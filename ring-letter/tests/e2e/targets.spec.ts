@@ -71,9 +71,9 @@ test("pressed: 有回應到我 shows a check mark and an ink border", async ({ p
 
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
-  const after = await look();
-  expect(after.mark).toContain("✓");
-  expect(after.border).toBe("rgb(51, 66, 73)"); // --paperink
+  expect((await look()).mark).toContain("✓");
+  // The border eases over --duration-fast; read it once it has settled.
+  await expect.poll(async () => (await look()).border).toBe("rgb(47, 59, 65)"); // --paperink
   // The mark is decoration: the accessible name stays the same.
   await expect(page.getByRole("button", { name: "有回應到我", exact: true })).toBeVisible();
 

@@ -13,9 +13,7 @@ export default function SiteHeader() {
   return (
     <header className={styles.header}>
       <NavButton to="/" className={styles.brand}>
-        <span className={styles.logo} aria-hidden="true">
-          ☾
-        </span>{" "}
+        <span className={styles.logo} aria-hidden="true" />
         Ring letter
         <span className={styles.brandSmall}>時光來信</span>
       </NavButton>

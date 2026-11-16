@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 UI 文案與錯誤訊息都是繁體中文。
 
-改 UI 前先讀 `ring-letter/DESIGN.md`（視覺規則：顏色 token 與對比值、字級、版面、元件、動效）與 `ring-letter/PRODUCT.md`（誰在用、語氣、不做的事）。v3 D1（#71）起程式依 `DESIGN.md` 實作，在那之前 `styles/tokens.css` 仍是 v2 的值。
+改 UI 前先讀 `ring-letter/DESIGN.md`（視覺規則：顏色 token 與對比值、字級、版面、元件、動效）與 `ring-letter/PRODUCT.md`（誰在用、語氣、不做的事）。`styles/tokens.css` 是它的 token（D1，#71）；元件 CSS 不寫色碼，`npm run lint` 先跑 `tests/no-raw-hex.mjs`（還有寫死色碼的舊檔列在 `tests/raw-hex-allowlist.json`，數量只能減少）。
 
 ## 指令（在 `ring-letter/` 下執行，需 Node ≥ 22.18）
 

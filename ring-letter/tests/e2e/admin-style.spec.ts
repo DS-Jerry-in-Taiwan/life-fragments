@@ -71,19 +71,19 @@ for (const [label, viewport] of Object.entries(WIDTHS)) {
       await expect(reject).toHaveClass(/(^|\s)secondary(\s|$)/);
       await expect(remove).toHaveClass(/(^|\s)danger(\s|$)/);
       for (const button of [reject, remove]) {
-        // Not inside a chip row (Chips.module.css styles `.chips button`), nor pill-shaped.
+        // Not inside a chip row (Chips.module.css styles `.chips button`).
         expect(
           await button.evaluate((b) => !!b.parentElement?.className.match(/chips/)),
           "批次操作不應放在 chip 列",
         ).toBe(false);
-        expect(
-          await button.evaluate((b) => parseFloat(getComputedStyle(b).borderTopLeftRadius)),
-        ).toBeLessThan(25);
       }
-      // .secondary has its border and padding; .danger is the underlined link.
-      await expect(reject).toHaveCSS("padding-left", "22px");
-      await expect(remove).toHaveCSS("text-decoration-line", "underline");
-      await expect(remove).toHaveCSS("border-top-style", "none");
+      // DESIGN.md Buttons (v3 D1): .secondary is the ghost pill, .danger the
+      // outlined danger pill; both ≥ 44px.
+      await expect(reject).toHaveCSS("padding-left", "24px");
+      await expect(reject).toHaveCSS("border-top-color", "rgb(115, 132, 140)"); // --control-border
+      await expect(remove).toHaveCSS("text-decoration-line", "none");
+      await expect(remove).toHaveCSS("border-top-style", "solid");
+      await expect(remove).toHaveCSS("color", "rgb(242, 184, 168)"); // --danger
       // 全選 / 取消全選 stay chips.
       const all = group.getByRole("button", { name: "取消全選" });
       expect(await all.evaluate((b) => !!b.parentElement?.className.match(/chips/))).toBe(true);

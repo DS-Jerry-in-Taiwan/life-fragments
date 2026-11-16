@@ -1,44 +1,50 @@
 .footer {
   position: relative;
   z-index: 1;
-  max-width: 1144px;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 26px 32px;
+  padding: var(--space-6) var(--gutter) var(--space-10);
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 18px;
-  border-top: 1px solid var(--line);
-  font-size: var(--text-md);
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  /* A divider that stops at the content edge (DESIGN.md Layout). */
+  background: linear-gradient(var(--line), var(--line)) no-repeat center top / calc(100% - 2 * var(--gutter)) 1px;
+  font-size: var(--type-small);
   color: var(--muted);
 }
 .footer > span {
-  font-family: var(--font-display);
+  font-family: var(--serif);
 }
 .phrase {
-  font: var(--text-sm) Arial;
+  font-family: var(--sans);
   margin-left: var(--space-4);
 }
 .footer > div {
   display: flex;
   flex-wrap: wrap;
-  /* Links and buttons have different line boxes: line their text up. */
-  align-items: baseline;
-  gap: 18px;
+  align-items: center;
+  gap: 0 var(--space-5);
 }
 .footer button,
 .footer a {
-  font-size: var(--text-sm);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  font-size: var(--type-small);
   text-decoration: none;
-  /* ≥ 44px tall (#52; V5-c7 made it 37.6px). */
-  padding: var(--space-3) 0;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.footer button:hover,
+.footer a:hover {
+  color: var(--ink);
 }
 @media (max-width: 640px) {
   .footer {
     display: block;
-    padding: 22px;
-    font-size: var(--text-sm);
   }
   .footer > div {
-    margin-top: 15px;
+    margin-top: var(--space-2);
   }
 }

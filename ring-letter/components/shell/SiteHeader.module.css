@@ -1,32 +1,37 @@
 .header {
   position: relative;
   z-index: 1;
-  max-width: 1240px;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
   margin: auto;
-  padding: 30px 48px;
+  padding: var(--space-4) var(--gutter);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
+  gap: var(--space-2) var(--space-4);
 }
+/* The one type size outside the scale (DESIGN.md Typography). */
 .brand {
-  font-family: var(--font-display);
-  font-size: var(--heading-md);
-  letter-spacing: 0.02em;
+  font-family: var(--serif);
+  font-size: var(--type-brand);
+  min-height: var(--target);
   display: flex;
   align-items: center;
   gap: 10px;
   white-space: nowrap;
 }
+/* A drawn crescent, not the ☾ character. */
 .logo {
-  font-size: 35px;
-  color: var(--gold);
-  line-height: 1;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-round);
+  box-shadow: inset -5px 1px 0 0 var(--gold);
+  transform: rotate(-20deg);
 }
 .brandSmall {
-  font:
-    var(--text-sm) Arial,
-    sans-serif;
+  font-family: var(--sans);
+  font-size: var(--type-label);
   letter-spacing: 0.15em;
   color: var(--muted);
   border-left: 1px solid var(--line);
@@ -36,48 +41,41 @@
 .nav {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-6);
+  gap: var(--space-1);
 }
 .nav a {
-  font-size: var(--text-md);
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: var(--type-body);
   color: var(--muted);
-  /* ≥ 44px tall with its 1px underline (#52; was 42.4px). */
-  padding: 10px 0;
-  border-bottom: 1px solid transparent;
+  /* The current page: a 2px gold underline (DESIGN.md Navigation). */
+  box-shadow: inset 0 -2px transparent;
+  transition: color var(--duration-fast) var(--ease-out);
 }
-.nav a[aria-current="page"],
 .nav a:hover {
-  color: var(--gold);
-  border-color: var(--gold);
+  color: var(--ink);
+}
+.nav a[aria-current="page"] {
+  color: var(--ink);
+  box-shadow: inset 0 -2px var(--gold);
 }
 @media (max-width: 1000px) {
-  .header {
-    padding: var(--space-6);
-  }
   .brandSmall {
     display: none;
   }
 }
 @media (max-width: 640px) {
   .header {
-    padding: 19px 20px;
-    flex-wrap: wrap;
-    gap: 13px;
-  }
-  .brand {
-    font-size: var(--heading-xs);
-  }
-  .logo {
-    font-size: var(--heading-xl);
+    padding-block: var(--space-2);
   }
   .nav {
-    gap: 22px;
     width: 100%;
-    justify-content: flex-end;
+    justify-content: space-between;
   }
   .nav a {
-    font-size: var(--text-sm);
-    /* ≥ 44px tall with its 1px underline (#52; V5-c7 made it 42.6px). */
-    padding: 11px 0;
+    font-size: var(--type-small);
+    padding: 0 6px;
   }
 }

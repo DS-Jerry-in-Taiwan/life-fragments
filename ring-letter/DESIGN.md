@@ -118,7 +118,7 @@ components:
 
 # Design System: Ring letter
 
-> 規格先行（v3 D0，#70）。這份文件描述方向 D「夜空精修」的**目標狀態**，由 #71（D1）起實作；在那之前，`styles/tokens.css` 仍是 v2 的值。可操作的 prototype：https://claude.ai/artifact/CGEcTzN71uWR6Et4Czr2Un 。產品脈絡（誰在用、語氣、不做的事）在同目錄的 `PRODUCT.md`，這裡只談視覺。
+> 方向 D「夜空精修」（v3，#61）。D1（#71）已把 token、字體、共用元件（按鈕、chips、尚未開放標籤、勾選列）與外框（夜空、頁首、頁尾、焦點、選取色）換成這份規格；各頁的版面由 D2–D5 逐頁搬過來，舊的字級 token（`--text-*`、`--heading-*`）在 D6 移除。可操作的 prototype：https://claude.ai/artifact/CGEcTzN71uWR6Et4Czr2Un 。產品脈絡（誰在用、語氣、不做的事）在同目錄的 `PRODUCT.md`，這裡只談視覺。
 
 ## Overview
 

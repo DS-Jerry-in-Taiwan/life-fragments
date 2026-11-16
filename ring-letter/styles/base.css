@@ -16,11 +16,16 @@ html {
 }
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--night);
   color: var(--ink);
-  font-family: Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
-  font-size: var(--text-xl);
-  line-height: 1.8;
+  font-family: var(--sans);
+  font-size: var(--type-body);
+  line-height: 1.85;
+  caret-color: var(--gold);
+}
+::selection {
+  background: var(--gold);
+  color: var(--on-gold);
 }
 button,
 input,
@@ -57,7 +62,7 @@ select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--gold);
-  outline-offset: 5px;
+  outline-offset: 3px;
 }
 a {
   color: inherit;
@@ -100,45 +105,53 @@ label:not(.check) {
   display: block;
   font-size: var(--text-md);
   margin-bottom: var(--space-2);
-  color: #d2d7d6;
+  color: var(--ink);
 }
 input:not([type="checkbox"]),
 textarea,
 select {
   width: 100%;
-  background: #10222b;
+  background: var(--field);
   color: var(--ink);
-  /* ≥ 3:1 against the field (4.0) and the lightest sky beside it (#1d3440, 3.2): WCAG 1.4.11, V5-c4. */
-  border: 1px solid #8b9d9fc4;
-  border-radius: var(--radius-sm);
+  /* ≥ 3:1 against the field and every sky stop beside it (WCAG 1.4.11; DESIGN.md control-border). */
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-field);
   padding: 13px 15px;
   min-height: 48px;
   font-size: var(--text-lg);
   margin-bottom: 22px;
 }
+/* A select is one line: 48px like the fields, whatever the font's line box
+   (Noto Sans TC's is taller than Arial's and made it 51px). */
+select {
+  height: 48px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
 textarea {
   resize: vertical;
   line-height: 1.9;
 }
-/* ≥ 4.5:1 on the field's #10222b (V5-c4). */
+/* 6.8:1 on the field (DESIGN.md placeholder). */
 input::placeholder,
 textarea::placeholder {
-  color: #7f919b;
+  color: var(--placeholder);
 }
 /*
  * While a modal <dialog> is open (ConfirmDialog, PrivacyDialog) the page
- * under it doesn't scroll. With classic (always-shown) scrollbars this shifts
- * the page by the scrollbar's width (7.5px measured, V5-d), mostly hidden by
- * the dark backdrop. Accepted for v2; `scrollbar-gutter: stable` is the v3
- * fix (not used yet: with Playwright's hidden scrollbars it reserves an
- * empty strip and changes every baseline).
+ * under it doesn't scroll. `scrollbar-gutter: stable` keeps the space the
+ * classic (always-shown) scrollbar took, so the page doesn't shift sideways
+ * (7.5px in V5-d). Set only while the modal is open: overlay scrollbars
+ * reserve nothing, so pages without a modal render as before.
  */
 :root:has(dialog:modal) {
   overflow: hidden;
+  scrollbar-gutter: stable;
 }
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
     transition: none !important;
+    animation: none !important;
   }
 }

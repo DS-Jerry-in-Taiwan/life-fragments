@@ -9,7 +9,7 @@
     "dev": "vinext dev --port 5173",
     "build": "vinext build",
     "start": "wrangler dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --port 8788 --inspector-port 0",
-    "lint": "eslint .",
+    "lint": "node tests/no-raw-hex.mjs && eslint .",
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
@@ -23,6 +23,7 @@
     "test:retention": "node tests/retention.mjs"
   },
   "dependencies": {
+    "@fontsource/noto-sans-tc": "5.3.1",
     "@fontsource/noto-serif-tc": "5.3.1",
     "drizzle-orm": "0.45.2",
     "next": "16.3.4",
