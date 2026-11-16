@@ -172,7 +172,7 @@ export const STATES: State[] = [
     open: async (page) => {
       await page.goto("/read");
       await hydrated(page);
-      await page.locator("summary", { hasText: "想讀特定情境？" }).click();
+      // The scenario chips are always visible (v3 D2: no disclosure).
       await expect(page.getByRole("group", { name: "選擇信件情境" })).toBeVisible();
       await page.getByRole("button", { name: "有回應到我" }).click();
       await expect(page.getByRole("button", { name: "有回應到我" })).toHaveAttribute(

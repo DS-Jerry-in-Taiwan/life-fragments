@@ -16,16 +16,23 @@ test("not open: 留下回音 on the letter is text marked 尚未開放, not a co
 }) => {
   await open(page, "/read");
   const paper = page.locator("[data-letter-id]");
-  const echo = paper.locator('[data-form="echo"]');
+  const echo = page.locator('[data-form="echo"]');
   await expect(echo).toHaveText("留下回音尚未開放");
   await expect(echo).toBeVisible();
   // Nothing to press: no link, no button, not in the Tab order.
-  await expect(paper.getByRole("link", { name: /留下回音/ })).toHaveCount(0);
-  await expect(paper.getByRole("button", { name: /留下回音/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /留下回音/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /留下回音/ })).toHaveCount(0);
   expect(await echo.evaluate((el) => el.querySelector("a, button, [tabindex]"))).toBeNull();
-  // The other two actions are unchanged.
+  // v3 D2 reading order: 有回應到我 is on the paper; 再讀一封 and 留下回音
+  // come after the letter (DESIGN.md: The Read First Rule).
   await expect(paper.getByRole("button", { name: "有回應到我" })).toBeVisible();
-  await expect(paper.getByRole("button", { name: "再讀一封" })).toBeVisible();
+  const next = page.getByRole("button", { name: "再讀一封" });
+  await expect(next).toBeVisible();
+  await expect(paper.getByRole("button", { name: "再讀一封" })).toHaveCount(0);
+  const below = async (a: typeof next, b: typeof next) =>
+    (await a.boundingBox())!.y >= (await b.boundingBox())!.y + (await b.boundingBox())!.height;
+  expect(await below(next, paper), "再讀一封 在信之後").toBe(true);
+  expect(await below(echo, paper), "留下回音 在信之後").toBe(true);
 });
 
 test("not open: 想參加人工媒合？ says 尚未開放 before it is opened", async ({ page }) => {

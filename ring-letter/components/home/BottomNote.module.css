@@ -2,31 +2,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 25px;
+  gap: var(--space-6);
   padding: var(--space-7) 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  font-size: var(--text-md);
+  background: linear-gradient(var(--line), var(--line)) no-repeat top / 100% 1px;
+  font-size: var(--type-small);
   color: var(--muted);
 }
 .bottomNote > div:first-child {
-  display: flex;
-  gap: var(--space-5);
-  align-items: center;
   color: var(--ink);
+  font-family: var(--serif);
+  font-size: var(--type-body);
 }
 .bottomNote p {
   margin: 0;
 }
-.tinyStar {
-  font-size: 28px;
-  color: var(--gold);
-}
 .badge {
-  font-size: var(--text-sm);
+  font-size: var(--type-label);
   border: 1px solid var(--line);
-  padding: 8px 13px;
-  border-radius: 30px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .badge span {
@@ -46,14 +40,6 @@
     padding: var(--space-6) 0;
   }
   .bottomNote > div:first-child {
-    margin-bottom: 10px;
-    gap: 15px;
-  }
-  .bottomNote > p {
-    padding-left: 37px;
-    font-size: var(--text-sm);
-  }
-  .tinyStar {
-    font-size: 22px;
+    margin-bottom: var(--space-2);
   }
 }

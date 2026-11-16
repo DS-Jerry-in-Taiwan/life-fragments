@@ -6,7 +6,7 @@ import styles from "./DistressEntry.module.css";
 export default function DistressEntry() {
   return (
     <div className={styles.distressEntry}>
-      <NavButton to="/write" className="primary">
+      <NavButton to="/write" className="secondary">
         寫一封信
       </NavButton>
       <p className="quiet">

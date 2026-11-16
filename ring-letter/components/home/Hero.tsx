@@ -1,3 +1,4 @@
+import Arrow from "../common/Arrow";
 import NavButton from "../shell/NavButton";
 import HeroIllustration from "./HeroIllustration";
 import styles from "./Hero.module.css";
@@ -6,9 +7,6 @@ export default function Hero() {
   return (
     <section className={styles.hero}>
       <div className={styles.copy}>
-        <p className="eyebrow">
-          <span /> 匿名文字分享 · 回憶與此刻
-        </p>
         <h1>
           <span className={styles.headlineSentence}>
             <span>寫下你的</span>
@@ -26,10 +24,10 @@ export default function Hero() {
         </div>
         <div className={styles.actions}>
           <NavButton to="/read" className="primary">
-            先讀一封 <span aria-hidden="true">→</span>
+            先讀一封 <Arrow />
           </NavButton>
-          <NavButton to="/write" className="text-btn">
-            我想寫一封 <span aria-hidden="true">→</span>
+          <NavButton to="/write" className="secondary">
+            我想寫一封
           </NavButton>
         </div>
         <p className="quiet">不必認識彼此，也不必立刻回應。</p>
