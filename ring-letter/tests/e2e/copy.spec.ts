@@ -50,7 +50,12 @@ test("copy: /read sample letters have no 媒合理由", async ({ page }) => {
 
 test("copy: /archive is 公開信箱 everywhere", async ({ page }) => {
   await open(page, "/archive");
-  await expect(page.getByRole("main").getByText("公開信箱", { exact: true })).toBeVisible();
+  // v3 D3: no eyebrow on the page (DESIGN.md); the name is the tab title and
+  // the current header link.
+  await expect(page).toHaveTitle("公開信箱｜Ring letter");
+  await expect(
+    page.getByRole("navigation", { name: "主要導覽" }).getByRole("link", { name: "公開信箱" }),
+  ).toHaveAttribute("aria-current", "page");
   await gone(page, ["時光信箱"]);
 });
 

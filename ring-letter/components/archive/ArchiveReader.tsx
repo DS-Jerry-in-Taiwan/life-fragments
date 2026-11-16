@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import * as api from "../../lib/api-client";
 import type { Story } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
-import SectionIntro from "../common/SectionIntro";
+import Arrow from "../common/Arrow";
 import StatusMessage from "../common/StatusMessage";
 import NavButton from "../shell/NavButton";
 import StoryExtra from "../story/StoryExtra";
@@ -64,26 +64,24 @@ export default function ArchiveReader() {
     <>
       <StatusMessage action={load} />
       <section className={styles.reading}>
-        <SectionIntro
-          eyebrow="公開信箱"
-          title={
-            <>
-              <span className={styles.headingPhrase}>有一段生活，</span>
-              <span className={styles.headingPhrase}>在這裡等你。</span>
-            </>
-          }
-        >
-          {state === "loading"
-            ? "正在查看信箱…"
-            : state === "failed"
-              ? "暫時打不開信箱，請稍後再試。"
-              : current
-                ? "以下是作者同意分享、經審閱的真實片段。"
-                : "這裡只放作者同意分享、經審閱的真實片段。"}
-        </SectionIntro>
+        <div className={styles.intro}>
+          <h1>
+            <span className={styles.headingPhrase}>有一段生活，</span>
+            <span className={styles.headingPhrase}>在這裡等你。</span>
+          </h1>
+          <p>
+            {state === "loading"
+              ? "正在查看信箱…"
+              : state === "failed"
+                ? "暫時打不開信箱，請稍後再試。"
+                : current
+                  ? "以下是作者同意分享、經審閱的真實片段。"
+                  : "這裡只放作者同意分享、經審閱的真實片段。"}
+          </p>
+        </div>
         {state === "loaded" && !current && (
           <div className={styles.empty}>
-            <span aria-hidden="true">☾</span>
+            <span className={styles.moon} aria-hidden="true" />
             <h2>信箱還在等第一封信</h2>
             <p>
               <span className="sentence">還沒有公開的片段。</span>
@@ -93,7 +91,7 @@ export default function ArchiveReader() {
             </p>
             <div className={styles.actions}>
               <NavButton to="/read" className="secondary">
-                讀一封範例信 →
+                讀一封範例信 <Arrow />
               </NavButton>
               <NavButton to="/write" className="text-btn">
                 留下我的片段
@@ -103,13 +101,8 @@ export default function ArchiveReader() {
         )}
         {current && (
           <>
-            <StoryPaper
-              label="真人投稿 · 經作者同意"
-              mark="✦"
-              ref={article}
-              tabIndex={-1}
-              data-story-id={current.id}
-            >
+            <p className={styles.envelope}>真人投稿 · 經作者同意</p>
+            <StoryPaper ref={article} tabIndex={-1} data-story-id={current.id}>
               <StoryMeta story={current} onPaper />
               <h2>{current.title}</h2>
               <div className={paper.body}>{current.body}</div>
@@ -118,14 +111,14 @@ export default function ArchiveReader() {
             <div className={styles.actions}>
               {more && (
                 <button
-                  className="secondary"
+                  className="primary"
                   onClick={() => {
                     next();
                     feedback.setNotice("");
                     feedback.setError("");
                   }}
                 >
-                  再讀一封 →
+                  再讀一封 <Arrow />
                 </button>
               )}
               <NavButton to="/write" className="text-btn">

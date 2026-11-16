@@ -69,7 +69,7 @@ test("nav: the links inside the pages have their addresses", async ({ page }) =>
   );
 
   await open(page, "/archive");
-  await expectLink(page.getByRole("link", { name: "讀一封範例信 →" }), "/read");
+  await expectLink(page.getByRole("link", { name: "讀一封範例信", exact: true }), "/read");
   await expectLink(page.getByRole("link", { name: "留下我的片段" }), "/write");
 
   await open(page, "/mine");

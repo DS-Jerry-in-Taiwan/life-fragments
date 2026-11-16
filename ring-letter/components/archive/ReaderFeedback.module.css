@@ -1,23 +1,30 @@
 .feedbackBox {
   margin-top: var(--space-8);
   border: 1px solid var(--line);
-  /* The summary's own 10px makes up the rest of the 20px above it. */
-  padding: 10px 25px 20px;
+  border-radius: var(--radius-container);
+  padding: var(--space-1) var(--space-6) var(--space-5);
   color: var(--muted);
-  font-size: var(--text-md);
+  font-size: var(--type-small);
 }
 /* A click target at least 44px tall (#4 V5-c1 公開信箱 4). */
 .feedbackBox summary {
   cursor: pointer;
   color: var(--ink);
-  padding: 10px 2px;
-  min-height: 44px;
+  min-height: var(--target);
+  display: flex;
+  align-items: center;
 }
 .feedbackBox[open] summary {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-3);
+}
+/* Why the chips below are dashed: they wait for the consent (DESIGN.md Chips). */
+.hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-label);
+  color: var(--muted);
 }
 @media (max-width: 640px) {
   .feedbackBox {
-    padding: 8px 18px 18px;
+    padding: var(--space-1) var(--space-4) var(--space-4);
   }
 }

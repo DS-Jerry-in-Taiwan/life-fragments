@@ -69,7 +69,7 @@ test("archive: 再讀一封 brings the next story into view and focuses it", asy
       )
       .toBe(true);
 
-  await page.getByRole("button", { name: "再讀一封 →" }).click();
+  await page.getByRole("button", { name: "再讀一封", exact: true }).click();
   await expect(letter).toHaveAttribute("data-story-id", STORIES[1].id);
   await expect(letter).toBeFocused();
   await topInView();
@@ -77,7 +77,7 @@ test("archive: 再讀一封 brings the next story into view and focuses it", asy
   expect(await letter.evaluate((el) => el.matches(":focus-visible"))).toBe(false);
 
   // From the keyboard, the focused letter shows a visible ring; it wraps around.
-  await page.getByRole("button", { name: "再讀一封 →" }).focus();
+  await page.getByRole("button", { name: "再讀一封", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(letter).toHaveAttribute("data-story-id", STORIES[0].id);
   await expect(letter).toBeFocused();
@@ -162,7 +162,7 @@ test("archive: feedback errors and results show inside the feedback box", async 
   await expect(box.getByRole("status")).toHaveText("翻到另一段故事。");
 
   // 再讀一封 clears the box's message.
-  await page.getByRole("button", { name: "再讀一封 →" }).click();
+  await page.getByRole("button", { name: "再讀一封", exact: true }).click();
   await expect(letter).toHaveAttribute("data-story-id", STORIES[0].id);
   await expect(page.getByRole("status")).toHaveCount(0);
 });

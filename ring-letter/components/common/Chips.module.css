@@ -31,4 +31,5 @@
   border-style: dashed;
   background: transparent;
   color: var(--muted);
+  opacity: 1;
 }

@@ -1,20 +1,20 @@
-/* The letter paper; .body and .demoNote are used for its children. */
+/* The letter paper (DESIGN.md Letter paper); .body and .demoNote are used for its children. */
 .storyPaper {
   background: var(--paper);
   color: var(--paperink);
-  padding: 42px 55px;
+  padding: var(--space-10) var(--space-12) var(--space-8);
   box-shadow: var(--shadow-paper);
-  border-top: 3px solid #c8b98e;
+  /* Brought into view after 再讀一封: keep the envelope line above it in view. */
+  scroll-margin-top: var(--space-10);
 }
 .top {
   display: flex;
   justify-content: space-between;
-  font-size: var(--text-sm);
-  letter-spacing: 0.1em;
-  border-bottom: 1px solid #34424a25;
+  font-size: var(--type-label);
+  border-bottom: 1px solid var(--paper-line);
   padding-bottom: var(--space-4);
   margin-bottom: var(--space-7);
-  color: #5a6460;
+  color: var(--paper-muted);
 }
 /* Focus is moved to the paper after 再讀一封 (/read, /archive). Keyboard
    users get the site's gold ring, drawn outside the paper on the night sky. */
@@ -25,48 +25,39 @@
   outline: 2px solid var(--gold);
   outline-offset: 5px;
 }
-/* The gold ring (base.css) is 1.35:1 on the paper; the ink is 8.6:1. */
+/* The gold ring (base.css) is 1.35:1 on the paper; the ink is 9.5:1. */
 .storyPaper :focus-visible {
   outline-color: var(--paperink);
 }
 .storyPaper h2 {
-  font-size: var(--heading-lg);
+  font-size: var(--type-title);
   margin: var(--space-3) 0 var(--space-6);
   overflow-wrap: anywhere;
 }
+/* Letter (DESIGN.md Typography): 18px, line height 2.05. */
 .body {
   font-family: var(--serif);
   white-space: pre-wrap;
-  font-size: var(--text-2xl);
-  line-height: 2.25;
-  letter-spacing: 0.035em;
+  font-size: var(--type-letter);
+  line-height: 2.05;
+  letter-spacing: 0.02em;
   overflow-wrap: anywhere;
 }
 .end {
   text-align: center;
-  color: #8e988f;
+  color: var(--paper-muted);
   margin-top: 26px;
   letter-spacing: 15px;
 }
 .demoNote {
-  font-size: var(--text-sm);
-  color: #5a6460;
-  border-top: 1px solid #34424a25;
+  font-size: var(--type-label);
+  color: var(--paper-muted);
+  border-top: 1px solid var(--paper-line);
   padding-top: 18px;
   margin: var(--space-5) 0 0;
 }
 @media (max-width: 640px) {
   .storyPaper {
-    padding: 27px 24px;
-  }
-  .storyPaper h2 {
-    font-size: var(--heading-xs);
-  }
-  .body {
-    font-size: var(--text-xl);
-    line-height: 2.15;
-  }
-  .top {
-    letter-spacing: 0.02em;
+    padding: var(--space-7) 22px var(--space-6);
   }
 }
