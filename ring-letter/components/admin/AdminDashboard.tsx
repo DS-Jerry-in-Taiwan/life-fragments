@@ -6,7 +6,6 @@ import * as api from "../../lib/api-client";
 import type { AdminStory, AdminSummary, ModerationAction } from "../../lib/stories";
 import { useAction, useBusyCursor } from "../../lib/use-action";
 import { useConfirm } from "../common/ConfirmDialog";
-import SectionIntro from "../common/SectionIntro";
 import StatusMessage from "../common/StatusMessage";
 import { useShell } from "../shell/ShellContext";
 import BatchBar from "./BatchBar";
@@ -343,32 +342,34 @@ export default function AdminDashboard() {
       <StatusMessage action={action} />
       {admin && (
         <section className={styles.admin}>
-          <SectionIntro eyebrow="管理者專用" title="把關每一封來信">
-            <span className="sentence">只審核原文。</span>
-            <span className="sentence">不同意分享的片段不能公開。</span>
-            <span className="sentence">
-              核准公開的投稿保留到撤回（舊版同意者仍為送出後 30 天）；未公開投稿、回饋與試寫紀錄 30
-              天後清除。
-            </span>
-          </SectionIntro>
+          {/* Operate header (DESIGN.md): the title, the rules in one line, the numbers in one row. */}
+          <header className={styles.head}>
+            <h1>把關每一封來信</h1>
+            <p className={styles.rules}>
+              只審核原文。不同意分享的片段不能公開。核准公開的投稿保留到撤回（舊版同意者仍為送出後
+              30 天）；未公開投稿、回饋與試寫紀錄 30 天後清除。
+            </p>
+          </header>
           <SummaryBar summary={summary} />
-          <p className="quiet">
-            投稿依送出時間由新到舊，每次載入 50 篇；回饋與試寫是事件筆數，不是獨立人數。
-          </p>
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              action.run(async () => {
-                await loadSummary();
-                await stories.reload();
-                setFeedbackKey((k) => k + 1);
-                setEventsKey((k) => k + 1);
-              })
-            }
-          >
-            重新整理
-          </button>
+          <div className={styles.toolbar}>
+            <p className="quiet">
+              投稿依送出時間由新到舊，每次載入 50 篇；回饋與試寫是事件筆數，不是獨立人數。
+            </p>
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() =>
+                action.run(async () => {
+                  await loadSummary();
+                  await stories.reload();
+                  setFeedbackKey((k) => k + 1);
+                  setEventsKey((k) => k + 1);
+                })
+              }
+            >
+              重新整理
+            </button>
+          </div>
           <WritingMetrics metrics={summary?.metrics ?? []} />
           <StoryFilters
             key={query}

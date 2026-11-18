@@ -2,11 +2,6 @@
 .filters {
   margin: var(--space-6) 0;
 }
-/* `button` keeps this above `.chips button:hover` in any file order. */
-.filters button[aria-pressed="true"] {
-  background: var(--gold);
-  color: var(--bg);
-}
 /*
  * One centre line (管理頁 2): every item 48px tall (the fields' min-height,
  * base.css), the checkboxes without .check's bottom margin. row-gap spaces

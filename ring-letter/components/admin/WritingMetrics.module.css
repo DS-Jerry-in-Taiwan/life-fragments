@@ -10,7 +10,7 @@
 .metrics td {
   padding: var(--space-4);
   text-align: left;
-  border-bottom: 1px solid #536077;
+  border-bottom: 1px solid var(--line);
 }
 @media (max-width: 640px) {
   .metrics th,

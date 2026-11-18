@@ -4,22 +4,27 @@
 }
 .item span {
   color: var(--gold);
-  font-size: var(--text-md);
+  font-size: var(--type-label);
 }
 .item small {
   display: block;
   color: var(--muted);
-  font-size: var(--text-sm);
+  font-size: var(--type-label);
 }
 .item p {
-  font-size: var(--text-base);
+  font-size: var(--type-small);
   margin: 7px 0;
   overflow-wrap: anywhere;
 }
-/* A feedback's story title, or a logged story id: goes to its card. */
+/* A feedback's story title, or a logged story id: goes to its card. A 44px
+   target (#61 §3.5.1; was 21.6px), still read as a link in the line. */
 .title {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
   font-size: inherit;
   color: var(--gold);
   text-decoration: underline;
+  text-underline-offset: 4px;
   padding: 0;
 }
