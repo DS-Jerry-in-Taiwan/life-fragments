@@ -1,24 +1,43 @@
+/* Four numbers in one row (DESIGN.md: the Operate header); two by two on a phone. */
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-container);
+  background: var(--surface);
+  overflow: hidden;
 }
 .stats > div {
-  background: #ffffff06;
-  border: 1px solid var(--line);
-  padding: 18px;
-  text-align: center;
-  font-size: var(--text-sm);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: var(--space-3) 18px;
+  font-size: var(--type-small);
   color: var(--muted);
 }
+.stats > div + div {
+  border-left: 1px solid var(--line);
+}
 .stats strong {
-  display: block;
-  font-size: var(--heading-xl);
-  color: var(--gold);
+  font-family: var(--serif);
+  font-size: var(--type-title);
   font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* 7 天內到期 is the one number that asks for attention. */
+.stats > div:last-child strong {
+  color: var(--gold);
 }
 @media (max-width: 640px) {
   .stats {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stats > div:nth-child(3) {
+    border-left: 0;
+  }
+  .stats > div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
   }
 }

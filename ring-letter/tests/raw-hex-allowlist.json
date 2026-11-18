@@ -1,6 +1,4 @@
 {
-  "components/admin/SummaryBar.module.css": 1,
-  "components/admin/WritingMetrics.module.css": 1,
   "components/common/ConfirmDialog.module.css": 4,
   "components/common/StatusMessage.module.css": 5,
   "components/mine/MyStories.module.css": 1,

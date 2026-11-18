@@ -1,24 +1,59 @@
+/* An Operate page in the wide column (DESIGN.md Layout): the work starts in the first screen. */
 .admin {
-  max-width: 850px;
+  max-width: var(--wide);
   margin: auto;
-  padding-bottom: 70px;
+  padding: var(--space-8) 0 70px;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-8);
+}
+/* Title size (DESIGN.md Typography): an Operate page doesn't need a headline. */
+.head h1 {
+  font-size: var(--type-title);
+  line-height: 1.5;
+  letter-spacing: normal;
+  margin: 0;
+}
+.rules {
+  flex: 1 1 28em;
+  max-width: 44em;
+  margin: 0;
+  font-size: var(--type-label);
+  color: var(--muted);
+  line-height: 1.8;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+  margin: var(--space-4) 0 var(--space-2);
+}
+.toolbar :global(.quiet) {
+  margin: 0;
+  flex: 1 1 24em;
 }
 .admin > h2 {
   margin-top: var(--space-10);
-  font-size: var(--heading-sm);
+  font-size: var(--type-title);
 }
 /* StoryCard (#4 §6.1): a pending story that asked to be shared again, and its consent history count. */
 .reshare {
   margin-left: var(--space-2);
 }
 .consentHistory {
-  font-size: var(--text-sm);
+  font-size: var(--type-label);
   color: var(--muted);
   margin: var(--space-1) 0 0;
 }
 /* Also used by StoryList, FeedbackList and EventLog. */
 .emptySmall {
-  font-size: var(--text-md);
+  font-size: var(--type-small);
   color: var(--muted);
 }
 /* StoryCard: the id wraps on narrow screens; the 409 note above the card. */
@@ -27,7 +62,7 @@
 }
 .cardNote {
   color: var(--gold);
-  font-size: var(--text-sm);
+  font-size: var(--type-label);
 }
 /* A section's own filter row (feedback kinds, admins). */
 .sectionFilter {
@@ -49,7 +84,7 @@
 }
 .batchCount,
 .batchNote {
-  font-size: var(--text-sm);
+  font-size: var(--type-label);
   color: var(--muted);
 }
 .batchNote {
