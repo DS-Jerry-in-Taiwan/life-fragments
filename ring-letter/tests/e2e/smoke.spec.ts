@@ -53,7 +53,7 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   const posted = page.waitForRequest(
     (r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/me/stories",
   );
-  await page.getByRole("button", { name: "留下這封信 →" }).click();
+  await page.getByRole("button", { name: "留下這封信", exact: true }).click();
   expect((await posted).headers()["x-turnstile-token"], "投稿帶 Turnstile token").toBe(
     TURNSTILE_TOKEN,
   );
@@ -75,7 +75,7 @@ test("submit → 我的片段 → withdraw", async ({ page }) => {
   expect(turnstile?.executed, "送出時才取 token").toBe(1);
   expect(turnstile?.reset, "用過就 reset").toBeGreaterThanOrEqual(1);
 
-  await page.getByRole("link", { name: "查看我的片段 →" }).click();
+  await page.getByRole("link", { name: "查看我的片段", exact: true }).click();
   const story = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: title }) });
@@ -368,7 +368,7 @@ test("write: one start per chooser click; a second letter after submit works", a
     await page.getByLabel("現在的感覺").fill("平靜");
     await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
     await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
-    await page.getByRole("button", { name: "留下這封信 →" }).click();
+    await page.getByRole("button", { name: "留下這封信", exact: true }).click();
     await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
   };
   await page.getByRole("button", { name: /今天，/ }).click();
@@ -477,7 +477,7 @@ test("write: the unsent letter survives a reload and other pages, under the same
   // Sent: that type's draft is gone; the next letter starts empty, with a new attempt.
   await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
   await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
-  await page.getByRole("button", { name: "留下這封信 →" }).click();
+  await page.getByRole("button", { name: "留下這封信", exact: true }).click();
   await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
   expect((await storage(page)).session["ring-letter:draft:present"]).toBeNull();
   expect((await storage(page)).session["ring-letter:draft:past"]).not.toBeNull();
@@ -495,7 +495,7 @@ test("an open confirm answers no when back/forward changes only the query", asyn
   await page.getByRole("button", { name: /今天，/ }).click();
   await expect(page).toHaveURL(/\/write\?mode=present$/);
   await page.getByLabel("剛剛發生了什麼？").fill("按上一頁也不能清掉。");
-  await page.getByRole("button", { name: "← 重新選擇寫法" }).click();
+  await page.getByRole("button", { name: "重新選擇寫法", exact: true }).click();
   await expect(confirmDialog(page)).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/write$/);
@@ -514,7 +514,7 @@ test("write: 重新選擇寫法 asks first; 取消, Esc and the backdrop keep th
   await write.ready(page);
   const body = page.getByLabel("剛剛發生了什麼？");
   await body.fill("還不想丟掉的草稿。");
-  const back = page.getByRole("button", { name: "← 重新選擇寫法" });
+  const back = page.getByRole("button", { name: "重新選擇寫法", exact: true });
   const dialog = confirmDialog(page);
 
   // The dialog: named by its title, described by the question, 取消 focused.
@@ -1182,9 +1182,9 @@ test("write: a Turnstile refusal after the retry keeps the letter in the form", 
         }))
       : route.continue(),
   );
-  await page.getByRole("button", { name: "留下這封信 →" }).click();
+  await page.getByRole("button", { name: "留下這封信", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("人機驗證沒有通過，請再試一次。");
   expect(posts, "重取 token 重送一次").toBe(2);
   await expect(page.getByLabel("剛剛發生了什麼？")).toHaveValue(text);
-  await expect(page.getByRole("button", { name: "留下這封信 →" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "留下這封信", exact: true })).toBeEnabled();
 });

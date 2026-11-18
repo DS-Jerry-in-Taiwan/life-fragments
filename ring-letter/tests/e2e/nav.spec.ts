@@ -86,8 +86,8 @@ test("nav: 查看我的片段 after sending a letter links to /mine", async ({ p
   await page.getByLabel("現在的感覺").fill("平靜");
   await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
   await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
-  await page.getByRole("button", { name: "留下這封信 →" }).click();
-  await expectLink(page.getByRole("link", { name: "查看我的片段 →" }), "/mine");
+  await page.getByRole("button", { name: "留下這封信", exact: true }).click();
+  await expectLink(page.getByRole("link", { name: "查看我的片段", exact: true }), "/mine");
   await expectCurrent(page, "/write");
 });
 

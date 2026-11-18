@@ -6,7 +6,7 @@ import type { LetterType } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import { useConfirm } from "../common/ConfirmDialog";
 import CrisisLines from "../common/CrisisLines";
-import SectionIntro from "../common/SectionIntro";
+import Arrow from "../common/Arrow";
 import StatusMessage from "../common/StatusMessage";
 import Turnstile, { type TurnstileHandle } from "../common/Turnstile";
 import { useShell } from "../shell/ShellContext";
@@ -215,22 +215,21 @@ export default function WriteFlow() {
     <>
       {screen !== "form" && <StatusMessage action={action} />}
       <section className={styles.writing}>
-        <SectionIntro
-          titleRef={title}
-          eyebrow="寫一封信"
-          title={
-            !saved && !ready
+        <div className={styles.intro}>
+          <h1 ref={title} tabIndex={-1}>
+            {!saved && !ready
               ? "你今天想怎麼寫？"
               : mode === "past"
                 ? "回想一段經歷"
                 : mode === "present"
                   ? "記下此刻"
-                  : "你今天想怎麼寫？"
-          }
-        >
-          <span className="sentence">不必寫得漂亮，也不需要有結論。</span>
-          <span className="sentence">只留下你願意記錄的部分。</span>
-        </SectionIntro>
+                  : "你今天想怎麼寫？"}
+          </h1>
+          <p>
+            <span className="sentence">不必寫得漂亮，也不需要有結論。</span>
+            <span className="sentence">只留下你願意記錄的部分。</span>
+          </p>
+        </div>
         {saved ? (
           <SubmitSuccess headingRef={successTitle} />
         ) : !ready ? (
@@ -273,7 +272,7 @@ export default function WriteFlow() {
                 setMode("");
               }}
             >
-              ← 重新選擇寫法
+              <Arrow back /> 重新選擇寫法
             </button>
             {restored && <p className="quiet">已帶回上次未送出的草稿，只暫存在這個分頁。</p>}
             <label htmlFor="title">給這封信一個名字（選填）</label>
@@ -299,7 +298,13 @@ export default function WriteFlow() {
             <ConsentFields onOpenPrivacy={openPrivacy} />
             <Turnstile action="submit" ref={turnstile} className={styles.turnstile} />
             <button className={`primary ${styles.submit}`} disabled={busy}>
-              {busy ? "正在儲存…" : "留下這封信 →"}
+              {busy ? (
+                "正在儲存…"
+              ) : (
+                <>
+                  留下這封信 <Arrow />
+                </>
+              )}
             </button>
             {error && (
               <div role="alert" ref={formError} className={styles.error}>

@@ -6,8 +6,5 @@
   "components/story/OwnStory.module.css": 1,
   "components/story/StatusPill.module.css": 1,
   "components/story/StoryExtra.module.css": 1,
-  "components/story/StoryMeta.module.css": 1,
-  "components/write/ModeChooser.module.css": 1,
-  "components/write/SubmitSuccess.module.css": 1,
-  "components/write/WriteFlow.module.css": 6
+  "components/story/StoryMeta.module.css": 1
 }

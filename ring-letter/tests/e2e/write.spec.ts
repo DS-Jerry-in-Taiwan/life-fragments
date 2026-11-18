@@ -8,7 +8,7 @@ import { SCREENS } from "./screens";
 // privacy notice as a real modal. The fixture erases what each test sent.
 
 const h1 = (page: Page, name: string) => page.getByRole("heading", { level: 1, name });
-const submitButton = (page: Page) => page.getByRole("button", { name: "留下這封信 →" });
+const submitButton = (page: Page) => page.getByRole("button", { name: "留下這封信", exact: true });
 
 async function open(page: Page, name: "write-past" | "write-present") {
   const screen = SCREENS.find((s) => s.name === name)!;
@@ -144,7 +144,7 @@ test("focus goes to the new screen's heading: chosen, sent, 重新選擇寫法",
   await page.getByRole("button", { name: /^回想一段經歷/ }).click();
   await expect(h1(page, "回想一段經歷")).toBeFocused();
 
-  await page.getByRole("button", { name: "← 重新選擇寫法" }).click();
+  await page.getByRole("button", { name: "重新選擇寫法", exact: true }).click();
   await answer(page, "清除並切換");
   await expect(h1(page, "你今天想怎麼寫？")).toBeFocused();
 

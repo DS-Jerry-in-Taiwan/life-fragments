@@ -118,11 +118,11 @@ test("the main flows fire no CSP violation", async ({ page, context }) => {
   const posted = page.waitForRequest(
     (r) => r.method() === "POST" && new URL(r.url()).pathname === "/api/me/stories",
   );
-  await page.getByRole("button", { name: "留下這封信 →" }).click();
+  await page.getByRole("button", { name: "留下這封信", exact: true }).click();
   expect((await posted).headers()["x-turnstile-token"]).toBe(TURNSTILE_TOKEN);
   await expect(page.getByRole("heading", { name: "你的文字已留下。" })).toBeVisible();
   expect((await turnstileLog(page))?.executed).toBe(1);
-  await page.getByRole("link", { name: "查看我的片段 →" }).click();
+  await page.getByRole("link", { name: "查看我的片段", exact: true }).click();
   await expect(page.getByRole("article")).toHaveCount(1);
 
   // Feedback on the public mailbox, with its own Turnstile.

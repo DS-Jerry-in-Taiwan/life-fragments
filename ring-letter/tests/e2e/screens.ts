@@ -120,7 +120,7 @@ export const SCREENS: Screen[] = [
       await chooser(page);
       await page.getByRole("button", { name: /有一段過去/ }).click();
       await expect(h1(page, "回想一段經歷")).toBeVisible();
-      await page.getByRole("button", { name: "← 重新選擇寫法" }).click();
+      await page.getByRole("button", { name: "重新選擇寫法", exact: true }).click();
     },
     ready: async (page) => {
       const dialog = page.getByRole("dialog", { name: "重新選擇寫法" });

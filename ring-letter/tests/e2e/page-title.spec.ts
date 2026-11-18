@@ -55,6 +55,8 @@ for (const [path] of TITLES) {
     // skip link would pass over them into the footer.
     if (path === "/admin")
       await expect(page.getByRole("button", { name: "重新整理" })).toBeEnabled();
+    // /archive's links (the empty state's) appear once the mailbox has loaded.
+    if (path === "/archive") await expect(page.getByText("正在查看信箱…")).toHaveCount(0);
     expect(await onScreen(page), "平常看不到").toBe(false);
 
     await page.keyboard.press("Tab");

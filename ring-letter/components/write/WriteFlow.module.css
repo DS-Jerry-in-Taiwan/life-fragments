@@ -1,12 +1,31 @@
+/* One 680px column (DESIGN.md Layout). */
 .writing {
-  max-width: 700px;
+  max-width: var(--measure);
   margin: 0 auto;
-  padding-bottom: 80px;
+  padding: var(--space-10) 0 80px;
+}
+.intro {
+  margin-bottom: var(--space-7);
+}
+/* Headline (DESIGN.md Typography); focused from script on a new screen. */
+.intro h1 {
+  font-size: var(--type-headline);
+  line-height: 1.5;
+  letter-spacing: normal;
+  margin-bottom: var(--space-2);
+}
+.intro h1:focus {
+  outline: none;
+}
+.intro p {
+  color: var(--muted);
+  margin: 0;
 }
 .form {
-  padding: 30px;
-  background: #ffffff04;
+  padding: var(--space-6) var(--space-7) var(--space-7);
+  background: var(--surface);
   border: 1px solid var(--line);
+  border-radius: var(--radius-container);
 }
 .form > label {
   margin-top: var(--space-6);
@@ -22,13 +41,13 @@
 .count {
   margin: -14px 0 0;
   text-align: right;
-  font-size: var(--text-sm);
-  color: #99aab4;
+  font-size: var(--type-label);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
   letter-spacing: normal;
 }
 .count[data-over] {
-  color: #e8ada5;
+  color: var(--danger);
 }
 /*
  * The Turnstile box is empty unless a challenge shows; then it keeps clear
@@ -46,21 +65,25 @@
  * appears, and scrolling it into view keeps the button on screen too.
  */
 .error {
-  background: #493b3b;
-  border: 1px solid #9c7771;
-  color: #e2e8df;
+  background: var(--danger-surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-field);
+  color: var(--ink);
   padding: var(--space-3) var(--space-4);
-  font-size: var(--text-md);
+  font-size: var(--type-small);
   line-height: 1.8;
   margin-top: var(--space-3);
   scroll-margin: var(--space-4);
 }
 @media (max-width: 640px) {
+  .writing {
+    padding: var(--space-6) 0 45px;
+  }
+  .intro h1 {
+    font-size: 26px;
+  }
   .form {
     padding: var(--space-5) var(--space-4);
-  }
-  .writing {
-    padding-bottom: 45px;
   }
 }
 /*
@@ -70,6 +93,6 @@
 .care {
   margin-top: var(--space-8);
   color: var(--muted);
-  font-size: var(--text-md);
+  font-size: var(--type-small);
   line-height: 1.9;
 }

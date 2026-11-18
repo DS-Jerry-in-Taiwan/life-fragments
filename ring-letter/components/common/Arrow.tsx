@@ -1,5 +1,5 @@
-/** The drawn → after a primary action (DESIGN.md: no arrow characters as icons). Hidden from assistive tech, so it never changes a control's name. */
-export default function Arrow() {
+/** A drawn arrow beside an action (DESIGN.md: no arrow characters as icons). Hidden from assistive tech, so it never changes a control's name. */
+export default function Arrow({ back = false }: { back?: boolean }) {
   return (
     <svg
       className="arrow"
@@ -14,7 +14,7 @@ export default function Arrow() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M3 8h10M9 4l4 4-4 4" />
+      <path d={back ? "M13 8H3M7 4L3 8l4 4" : "M3 8h10M9 4l4 4-4 4"} />
     </svg>
   );
 }
