@@ -1,24 +1,29 @@
+/* The notice / error banner at the top of a screen. A dark container (The One
+   Bright Surface Rule); an error takes the danger edge and surface, as on /write. */
 .message {
   position: relative;
-  background: #294846;
-  border: 1px solid #748d74;
-  color: #e2e8df;
-  padding: 14px 36px 14px 20px;
-  font-size: var(--text-md);
+  background: var(--night-low);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-container);
+  color: var(--ink);
+  padding: var(--space-3) 52px var(--space-3) var(--space-5);
+  min-height: 48px;
+  font-size: var(--type-small);
+  line-height: 1.8;
   margin: var(--space-5) 0;
 }
 .message.error {
-  background: #493b3b;
-  border-color: #9c7771;
+  background: var(--danger-surface);
+  border-color: var(--danger);
 }
+/* 關閉錯誤: a 44px target in the top-right corner. */
 .message button {
   position: absolute;
-  right: 8px;
-  top: 7px;
-  font-size: 20px;
-}
-@media (max-width: 640px) {
-  .message {
-    font-size: var(--text-sm);
-  }
+  right: 2px;
+  top: 2px;
+  width: var(--target);
+  height: var(--target);
+  display: grid;
+  place-items: center;
+  color: var(--ink);
 }

@@ -61,27 +61,6 @@
   --type-display: 44px;
   --type-brand: 21px;
 
-  /*
-   * v2 sizes, kept while D2–D5 move each page onto the scale above; D6
-   * (#76) removes them. Don't use them in new rules.
-   */
-  --text-sm: 12px;
-  --text-md: 13px;
-  --text-base: 14px;
-  --text-lg: 15px;
-  --text-xl: 16px;
-  --text-2xl: 17px;
-  /* Only for aria-hidden decoration (HeroIllustration). */
-  --text-3xs: 9px;
-  --text-2xs: 10px;
-  --heading-xs: 23px;
-  --heading-sm: 24px;
-  --heading-md: 25px;
-  --heading-lg: 27px;
-  --heading-xl: 30px;
-  /* v2 name for the page background. */
-  --bg: var(--night);
-
   /* Spacing (padding, margin, gap) */
   --space-1: 4px;
   --space-2: 8px;

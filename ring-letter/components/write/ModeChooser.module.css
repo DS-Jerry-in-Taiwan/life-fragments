@@ -33,6 +33,9 @@
   flex: 1;
 }
 .card button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: var(--target);
   color: var(--gold);
   font-weight: 700;
@@ -45,11 +48,13 @@
   position: absolute;
   inset: 0;
 }
+/* Only while a request is in flight: dashed, like any disabled control. */
 .card:has(button:disabled) {
-  opacity: 0.45;
+  border-style: dashed;
+  border-color: var(--control-border);
 }
 .card button:disabled {
-  opacity: 1;
+  color: var(--muted);
 }
 @media (max-width: 640px) {
   .options {

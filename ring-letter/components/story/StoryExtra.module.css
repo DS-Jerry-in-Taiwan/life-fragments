@@ -1,7 +1,11 @@
+/* 現在回頭看: the postscript, under a dashed top edge (DESIGN.md Letter paper). */
 .reflection {
   margin-top: var(--space-7);
-  border-top: 1px solid #bdb4a4;
+  border-top: 1px dashed var(--line);
   padding-top: 14px;
+}
+.onPaper {
+  border-top-color: var(--paper-line);
 }
 .mood {
   margin-top: var(--space-6);

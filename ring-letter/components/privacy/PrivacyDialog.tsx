@@ -1,6 +1,7 @@
 "use client";
 import { useLayoutEffect, useRef } from "react";
 import PrivacyContent from "./PrivacyContent";
+import CloseIcon from "../common/CloseIcon";
 import styles from "./Privacy.module.css";
 
 /**
@@ -34,7 +35,7 @@ export default function PrivacyDialog({ onClose }: { onClose: () => void }) {
     >
       <form method="dialog">
         <button ref={close} className={styles.close} aria-label="關閉說明">
-          ×
+          <CloseIcon size={20} />
         </button>
         <PrivacyContent />
         <button className="primary">我了解了</button>

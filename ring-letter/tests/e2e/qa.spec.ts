@@ -527,8 +527,8 @@ for (const reduce of [true, false]) {
 
 // ---------------------------------------------------------------------------
 // Tap targets not covered by targets.spec.ts: every control in <main>
-// (inline links inside running text excluded, as WCAG 2.5.8 does). 44px is
-// our goal and is reported; 24px (WCAG 2.2 AA 2.5.8) is required.
+// (inline links inside running text excluded, as WCAG 2.5.8 does). Each is
+// at least 44×44px (DESIGN.md Do's; v3 D6 #76), with no exceptions.
 
 type Target = { name: string; width: number; height: number };
 
@@ -602,7 +602,7 @@ for (const [label, viewport] of Object.entries(WIDTHS)) {
         await settle(page);
         const found = await targets(page);
         expect(found.length).toBeGreaterThan(2);
-        const small = found.filter((t) => t.height < 44);
+        const small = found.filter((t) => t.height < 44 || t.width < 44);
         console.log(
           `[targets] ${state.name} ${viewport.width}: ` +
             found.map((t) => `${t.name} ${t.height}`).join(" | "),
@@ -611,10 +611,7 @@ for (const [label, viewport] of Object.entries(WIDTHS)) {
           `[targets] ${state.name} ${viewport.width} UNDER 44: ` +
             (small.map((t) => `${t.name} ${t.width}×${t.height}`).join(" | ") || "none"),
         );
-        // Nothing under 24px (WCAG 2.2 AA 2.5.8's minimum), no exceptions:
-        // 完整資料使用說明 (v3 D5) and the admin's 《…》 title buttons (D4) are
-        // 44px now. D6 (#76) raises this to 44.
-        expect(found.filter((t) => t.height < 24 || t.width < 24)).toEqual([]);
+        expect(found.filter((t) => t.height < 44 || t.width < 44)).toEqual([]);
       });
     }
   });

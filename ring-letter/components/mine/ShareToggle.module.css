@@ -3,7 +3,7 @@
   margin: var(--space-5) 0 var(--space-3);
 }
 .note {
-  font-size: var(--text-sm);
+  font-size: var(--type-small);
   color: var(--muted);
   margin: var(--space-2) 0 0;
 }
@@ -12,7 +12,7 @@
   padding-top: var(--space-4);
 }
 .confirm > p {
-  font-size: var(--text-sm);
+  font-size: var(--type-small);
   color: var(--muted);
   margin: 0 0 var(--space-3);
 }
@@ -27,5 +27,5 @@
   outline: none;
 }
 .error {
-  color: #e8ada5;
+  color: var(--danger);
 }

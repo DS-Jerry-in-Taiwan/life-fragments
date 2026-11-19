@@ -1,16 +1,30 @@
-/* A submission card: 我的片段 (MyStories) and the admin story list. */
+/* A submission card (DESIGN.md Cards): 我的片段 (MyStories) and the admin story list. */
 .ownStory {
   border: 1px solid var(--line);
-  padding: 25px;
-  margin: var(--space-5) 0;
-  background: #ffffff03;
+  border-radius: var(--radius-container);
+  padding: var(--space-6);
+  margin: 0 0 var(--space-5);
+  background: var(--surface);
+}
+.ownStory h2 {
+  font-size: var(--type-title);
+  line-height: 1.5;
+  margin: var(--space-1) 0 var(--space-3);
 }
 .ownStory h2,
 .ownStory h3 {
   overflow-wrap: anywhere;
 }
+/* The letter itself speaks in the serif (The Two Voices Rule). */
+.ownStory :global(.prewrap) {
+  font-family: var(--serif);
+}
+/* 撤回並刪除: after the sharing control, not crowding it. */
+.withdraw {
+  margin-top: var(--space-2);
+}
 @media (max-width: 640px) {
   .ownStory {
-    padding: var(--space-5);
+    padding: var(--space-5) var(--space-4);
   }
 }

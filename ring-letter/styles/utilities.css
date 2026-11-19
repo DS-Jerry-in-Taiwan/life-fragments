@@ -1,8 +1,8 @@
 /*
  * Classes shared across components (#4 §4.6.2), kept global on purpose:
  * buttons (.primary .secondary .text-btn .danger, also used on NavButton's
- * links, with .nav-link), the 尚未開放 tag (.tag-not-open), text (.eyebrow
- * .quiet .sentence .prewrap) and the checkbox row (.check — base.css's
+ * links, with .nav-link), the 尚未開放 tag (.tag-not-open), text (.quiet
+ * .sentence .prewrap) and the checkbox row (.check — base.css's
  * `label:not(.check)` depends on its name). Look and rules: DESIGN.md
  * Components. Components combine them with their own module classes; a module
  * styles them in context with `.local :global(.primary)`.
@@ -26,21 +26,6 @@
   word-spacing: normal;
   white-space: normal;
   cursor: pointer;
-}
-.eyebrow {
-  font-size: var(--text-sm);
-  letter-spacing: 0.17em;
-  color: var(--gold);
-  margin-bottom: var(--space-6);
-}
-.eyebrow > span {
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: var(--radius-round);
-  background: var(--gold);
-  margin-right: 9px;
-  vertical-align: middle;
 }
 .primary,
 .secondary {
@@ -78,14 +63,17 @@
   background: var(--hover);
   border-color: var(--gold);
 }
+/* A secondary action in gold text (DESIGN.md Buttons, Text): 44×44px at least. */
 .text-btn {
-  font-size: var(--text-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--type-small);
   color: var(--gold);
   min-height: var(--target);
+  min-width: var(--target);
   padding: var(--space-3) 0;
-}
-.text-btn span {
-  margin-left: 10px;
 }
 /* Actions that can't be undone; always behind a ConfirmDialog. */
 .danger {
@@ -104,6 +92,22 @@
 .danger:hover {
   background: var(--hover);
 }
+/*
+ * Disabled is a change of shape, not only of opacity (DESIGN.md Buttons):
+ * a dashed edge, no fill, muted text. A button that stays disabled until the
+ * visitor does something points at the line that says what (aria-describedby).
+ */
+.primary:disabled,
+.secondary:disabled,
+.danger:disabled {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--control-border);
+  color: var(--muted);
+}
+.text-btn:disabled {
+  color: var(--muted);
+}
 /* An entry that isn't open yet, named on the entry itself (#51). Dashed
    means "can't be used yet" (DESIGN.md Shapes). */
 .tag-not-open {
@@ -116,7 +120,7 @@
   white-space: nowrap;
 }
 .quiet {
-  font-size: var(--text-sm);
+  font-size: var(--type-small);
   color: var(--muted);
   margin-top: var(--space-5);
   line-height: 1.9;
@@ -129,7 +133,7 @@
 }
 .prewrap {
   white-space: pre-wrap;
-  font-size: var(--text-base);
+  font-size: var(--type-body);
   line-height: 2;
   overflow-wrap: anywhere;
 }
@@ -141,7 +145,7 @@
   min-height: var(--target);
   padding: 10px 0;
   color: var(--ink);
-  font-size: var(--text-sm);
+  font-size: var(--type-small);
   line-height: 1.9;
   margin-bottom: var(--space-2);
   overflow-wrap: anywhere;
@@ -153,10 +157,4 @@
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-}
-@media (max-width: 640px) {
-  .eyebrow {
-    margin-bottom: var(--space-5);
-    letter-spacing: 0.1em;
-  }
 }

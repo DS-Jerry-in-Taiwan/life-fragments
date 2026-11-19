@@ -109,7 +109,7 @@ const hex = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
  */
 const DARKEST_CARD_GLOW = hex("#1d3541");
 
-test("撤回: the result is in view and focused, 正在處理… moves nothing; era, .danger, ☾", async ({
+test("撤回: the result is in view and focused, 正在處理… moves nothing; era, .danger, crescent", async ({
   page,
   context,
 }) => {
@@ -163,14 +163,14 @@ test("撤回: the result is in view and focused, 正在處理… moves nothing; 
   await expect(card(page, second)).toHaveCount(0);
   await expect(card(page, first)).toBeVisible();
 
-  // Withdraw the last one: the empty state, its ☾ hidden from assistive tech.
+  // Withdraw the last one: the empty state, its drawn crescent (not a ☾
+  // character, v3 D6) hidden from assistive tech.
   await card(page, first).getByRole("button", { name: "撤回並刪除" }).click();
   await answer(page, "確定刪除");
   await expect(page.getByRole("heading", { name: "還沒有留下的片段" })).toBeVisible();
-  await expect(page.getByRole("main").getByText("☾", { exact: true })).toHaveAttribute(
-    "aria-hidden",
-    "true",
-  );
+  const empty = page.getByRole("heading", { name: "還沒有留下的片段" }).locator("..");
+  await expect(empty.locator('span[aria-hidden="true"]')).toHaveText("");
+  await expect(empty).not.toContainText("☾");
   await expect.poll(() => focusedText(page)).toContain("已刪除這段文字。");
 });
 

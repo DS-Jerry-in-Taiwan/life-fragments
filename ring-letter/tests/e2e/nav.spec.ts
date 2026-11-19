@@ -73,7 +73,7 @@ test("nav: the links inside the pages have their addresses", async ({ page }) =>
   await expectLink(page.getByRole("link", { name: "留下我的片段" }), "/write");
 
   await open(page, "/mine");
-  await expectLink(page.getByRole("link", { name: "留下此刻 →" }), "/write");
+  await expectLink(page.getByRole("link", { name: "留下此刻", exact: true }), "/write");
 });
 
 test("nav: 查看我的片段 after sending a letter links to /mine", async ({ page }) => {

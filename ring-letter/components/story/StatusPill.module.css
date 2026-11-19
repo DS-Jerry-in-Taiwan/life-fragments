@@ -1,9 +1,11 @@
+/* A status, not a control: Label size, ink on a hairline (not gold, The Moonlight Rule). */
 .pill {
   display: inline-block;
-  font-size: var(--text-sm);
-  color: var(--gold);
-  border: 1px solid #dcc99b44;
-  padding: 3px 10px;
+  font-size: var(--type-label);
+  line-height: 1.6;
+  color: var(--ink);
+  border: 1px solid var(--control-border);
+  padding: 1px var(--space-3);
   margin-bottom: var(--space-3);
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
 }
