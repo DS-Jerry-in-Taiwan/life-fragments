@@ -106,7 +106,7 @@ export default function ArchiveReader() {
               <StoryMeta story={current} onPaper />
               <h2>{current.title}</h2>
               <div className={paper.body}>{current.body}</div>
-              <StoryExtra story={current} />
+              <StoryExtra story={current} onPaper />
             </StoryPaper>
             <div className={styles.actions}>
               {more && (

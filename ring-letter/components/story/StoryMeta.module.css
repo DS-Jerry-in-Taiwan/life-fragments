@@ -1,8 +1,7 @@
 .era {
-  font-size: var(--text-sm);
-  /* At least 4.5:1 on its background (#4 V5-c1 我的片段 1): 5.88:1 on the
-     dark cards (4.84:1 at the brightest sky glow). */
-  color: #9da097;
+  font-size: var(--type-label);
+  /* ≥ 4.5:1 on the dark cards (#4 V5-c1 我的片段 1; DESIGN.md muted). */
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
 /* On the archive's letter paper: 5.8:1 (DESIGN.md paper-muted). */

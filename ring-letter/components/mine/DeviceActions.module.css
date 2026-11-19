@@ -1,0 +1,17 @@
+/* Below the list, set apart by a divider: what applies to this browser as a whole. */
+.device {
+  margin-top: var(--space-12);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--line);
+}
+.device p {
+  font-size: var(--type-small);
+  line-height: 1.9;
+  color: var(--muted);
+  margin: 0 0 var(--space-4);
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

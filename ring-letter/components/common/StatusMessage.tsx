@@ -1,4 +1,5 @@
 import type { Action } from "../../lib/use-action";
+import CloseIcon from "./CloseIcon";
 import styles from "./StatusMessage.module.css";
 
 /** The error / notice banner at the top of a screen. */
@@ -10,7 +11,7 @@ export default function StatusMessage({ action }: { action: Action }) {
         <div role="alert" className={`${styles.message} ${styles.error}`}>
           {error}
           <button onClick={() => setError("")} aria-label="關閉錯誤">
-            ×
+            <CloseIcon />
           </button>
         </div>
       )}

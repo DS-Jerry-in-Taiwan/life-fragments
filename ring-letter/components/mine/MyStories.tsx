@@ -5,7 +5,7 @@ import { CONTACT_EMAIL, CONTACT_MAILTO } from "../../lib/contact";
 import type { Story } from "../../lib/stories";
 import { useAction } from "../../lib/use-action";
 import { useConfirm } from "../common/ConfirmDialog";
-import SectionIntro from "../common/SectionIntro";
+import Arrow from "../common/Arrow";
 import StatusMessage from "../common/StatusMessage";
 import StatusPill from "../story/StatusPill";
 import StoryExtra from "../story/StoryExtra";
@@ -13,8 +13,7 @@ import StoryMeta from "../story/StoryMeta";
 import own from "../story/OwnStory.module.css";
 import NavButton from "../shell/NavButton";
 import { clearDraft } from "../write/useDraft";
-import EraseAll from "./EraseAll";
-import Logout from "./Logout";
+import DeviceActions from "./DeviceActions";
 import ShareToggle, { type ShareConsent } from "./ShareToggle";
 import styles from "./MyStories.module.css";
 
@@ -144,14 +143,17 @@ export default function MyStories() {
         <StatusMessage action={action} />
       </div>
       <section className={styles.collection}>
-        <SectionIntro eyebrow="只屬於這個瀏覽器的信匣" title="我的片段">
-          <span className="sentence">投稿存在伺服器；此瀏覽器的 Cookie 是你的存取憑證。</span>
-          <span className="sentence">每次回來都會再記得你一年。</span>
-          <span className="sentence">
-            清除 Cookie、換裝置或登出後，無法在這裡找回，可寫信到{" "}
-            <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a> 請管理者代刪。
-          </span>
-        </SectionIntro>
+        <div className={styles.intro}>
+          <h1>我的片段</h1>
+          <p>
+            <span className="sentence">投稿存在伺服器；此瀏覽器的 Cookie 是你的存取憑證。</span>
+            <span className="sentence">每次回來都會再記得你一年。</span>
+            <span className="sentence">
+              清除 Cookie、換裝置或登出後，無法在這裡找回，可寫信到{" "}
+              <a href={CONTACT_MAILTO}>{CONTACT_EMAIL}</a> 請管理者代刪。
+            </span>
+          </p>
+        </div>
         {/* Always present (a live region announces changes, not insertions),
             and out of the flow: 正在處理… mustn't push the list down. */}
         <div className={styles.busyRow}>
@@ -161,11 +163,11 @@ export default function MyStories() {
         </div>
         {loaded && !mine.length && (
           <div className={styles.empty}>
-            <span aria-hidden="true">☾</span>
+            <span className={styles.moon} aria-hidden="true" />
             <h2>還沒有留下的片段</h2>
             <p>有些話，可以從今天開始保存。</p>
             <NavButton to="/write" className="secondary">
-              留下此刻 →
+              留下此刻 <Arrow />
             </NavButton>
           </div>
         )}
@@ -186,13 +188,16 @@ export default function MyStories() {
               onShare={share}
               onStop={stopSharing}
             />
-            <button className="danger" disabled={busy} onClick={() => withdraw(s.id)}>
+            <button
+              className={`danger ${own.withdraw}`}
+              disabled={busy}
+              onClick={() => withdraw(s.id)}
+            >
               撤回並刪除
             </button>
           </article>
         ))}
-        <Logout busy={busy} onLogout={logout} />
-        <EraseAll busy={busy} onErase={erase} />
+        <DeviceActions busy={busy} onLogout={logout} onErase={erase} />
       </section>
     </>
   );

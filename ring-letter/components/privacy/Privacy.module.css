@@ -33,11 +33,15 @@
   background: var(--backdrop);
   backdrop-filter: blur(7px);
 }
+/* 關閉說明: a 44px target in the corner, a drawn ✕ (DESIGN.md: no character icons). */
 .close {
   position: absolute;
-  top: 7px;
-  right: 16px;
-  font-size: 28px;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: var(--target);
+  height: var(--target);
+  display: grid;
+  place-items: center;
 }
 .modal :global(.primary) {
   margin-top: 15px;

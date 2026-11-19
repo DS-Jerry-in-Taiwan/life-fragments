@@ -15,7 +15,7 @@ const KIND_NAME: Record<FeedbackKind, string> = {
   resonate: "有共鳴",
   neutral: "無特別感覺",
   comment: "文字回饋",
-  report: "⚑ 問題回報",
+  report: "問題回報",
 };
 
 const KINDS: FeedbackKind[] = ["report", "comment", "more", "resonate", "neutral"];
@@ -108,11 +108,13 @@ export default function FeedbackList({
               <button className={styles.title} onClick={() => onOpenStory(f.story)}>
                 《{f.storyTitle}》
               </button>
+            ) : // V5 removed the 3 demo stories; their feedback ("demo-…" ids)
+            // stays until it expires within 30 days and isn't reader demand
+            // for real stories.
+            f.story.startsWith("demo-") ? (
+              "已移除的示範故事"
             ) : (
-              // V5 removed the 3 demo stories; their feedback ("demo-…" ids)
-              // stays until it expires within 30 days and isn't reader demand
-              // for real stories.
-              f.story.startsWith("demo-") ? "已移除的示範故事" : "文章已不在系統中"
+              "文章已不在系統中"
             )}{" "}
             · {taipeiTime(f.created)}
           </small>

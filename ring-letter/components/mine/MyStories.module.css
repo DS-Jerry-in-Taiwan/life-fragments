@@ -1,47 +1,67 @@
+/* One 680px column (DESIGN.md Layout). */
 .collection {
-  max-width: 700px;
+  max-width: var(--measure);
   margin: 0 auto;
-  padding-bottom: 80px;
+  padding: var(--space-10) 0 80px;
 }
 .result:focus {
   outline: none;
 }
-/* 正在處理… sits in SectionIntro's bottom padding, taking no space itself. */
+.intro h1 {
+  font-size: var(--type-headline);
+  line-height: 1.5;
+  letter-spacing: normal;
+  margin-bottom: var(--space-2);
+}
+.intro p {
+  color: var(--muted);
+  margin: 0;
+}
+/* 正在處理… sits in the gap under the intro, taking no space itself. */
 .busyRow {
   position: relative;
-  height: 0;
+  height: var(--space-8);
 }
 .busy {
   position: absolute;
-  bottom: 0;
+  bottom: var(--space-1);
   left: 0;
   right: 0;
   margin: 0;
-  text-align: center;
-  font-size: var(--text-sm);
+  font-size: var(--type-label);
   line-height: 20px;
   color: var(--muted);
 }
+/* No stories yet: a container (DESIGN.md Cards) with a drawn crescent. */
 .empty {
-  padding: 50px 25px;
-  text-align: center;
+  padding: var(--space-10) var(--space-6);
   border: 1px solid var(--line);
-  background: #ffffff03;
+  border-radius: var(--radius-container);
+  background: var(--surface);
 }
-.empty > span {
-  font-size: 50px;
-  color: var(--gold);
+.moon {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-round);
+  box-shadow: inset -10px 3px 0 0 var(--gold);
+  transform: rotate(-24deg);
 }
 .empty h2 {
-  font-size: var(--heading-md);
-  margin: 15px 0;
+  font-size: var(--type-title);
+  line-height: 1.5;
+  margin: var(--space-5) 0 var(--space-2);
 }
 .empty p {
   color: var(--muted);
-  font-size: var(--text-base);
+  font-size: var(--type-small);
+  margin: 0 0 var(--space-5);
 }
 @media (max-width: 640px) {
   .collection {
-    padding-bottom: 45px;
+    padding: var(--space-8) 0 var(--space-12);
+  }
+  .empty {
+    padding: var(--space-8) var(--space-5);
   }
 }

@@ -5,24 +5,25 @@
   max-height: 85vh;
   padding: 0;
   overflow-y: auto;
-  background: #1b303d;
+  background: var(--night-low);
   color: var(--ink);
-  border: 1px solid #63736f;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-container);
 }
 .dialog::backdrop {
-  background: #06131be6;
+  background: var(--backdrop);
   backdrop-filter: blur(7px);
 }
 .box {
   padding: var(--space-8) var(--space-8) var(--space-6);
 }
 .box h2 {
-  font-size: var(--heading-xs);
+  font-size: var(--type-title);
   margin-bottom: var(--space-3);
 }
 .box p {
-  font-size: var(--text-md);
-  color: #c1ccd0;
+  font-size: var(--type-small);
+  color: var(--ink);
   line-height: 2;
   white-space: pre-line;
   overflow-wrap: anywhere;

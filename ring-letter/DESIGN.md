@@ -8,6 +8,7 @@ colors:
   ink: "#e8e5dc"
   muted: "#a8b5bc"
   gold: "#dcc99b"
+  gold-hover: "#e7d7ae"
   on-gold: "#1b2a33"
   paper: "#efe9db"
   paperink: "#2f3b41"
@@ -19,6 +20,8 @@ colors:
   danger: "#f2b8a8"
   danger-surface: "#3a2a2a"
   line: "#ffffff17"
+  surface: "#ffffff05"
+  hover: "#ffffff0a"
   backdrop: "#06131be6"
   paper-line: "#2f3b4126"
 typography:
@@ -87,8 +90,13 @@ components:
     height: "48px"
   button-danger:
     textColor: "{colors.danger}"
+    typography: "{typography.body-small}"
     rounded: "{rounded.pill}"
-    padding: "0 18px"
+    padding: "0 20px"
+    height: "44px"
+  button-text:
+    textColor: "{colors.gold}"
+    typography: "{typography.body-small}"
     height: "44px"
   chip:
     textColor: "{colors.muted}"
@@ -103,8 +111,9 @@ components:
   input:
     backgroundColor: "{colors.field}"
     textColor: "{colors.ink}"
+    typography: "{typography.body}"
     rounded: "{rounded.field}"
-    padding: "12px 14px"
+    padding: "13px 15px"
     height: "48px"
   letter-paper:
     backgroundColor: "{colors.paper}"
@@ -120,7 +129,7 @@ components:
 
 # Design System: Ring letter
 
-> 方向 D「夜空精修」（v3，#61）。D1（#71）已把 token、字體、共用元件（按鈕、chips、尚未開放標籤、勾選列）與外框（夜空、頁首、頁尾、焦點、選取色）換成這份規格；各頁的版面由 D2–D5 逐頁搬過來，舊的字級 token（`--text-*`、`--heading-*`）在 D6 移除。可操作的 prototype：https://claude.ai/artifact/CGEcTzN71uWR6Et4Czr2Un 。產品脈絡（誰在用、語氣、不做的事）在同目錄的 `PRODUCT.md`，這裡只談視覺。
+> 方向 D「夜空精修」（v3，#61）。D1（#71）已把 token、字體、共用元件（按鈕、chips、尚未開放標籤、勾選列）與外框（夜空、頁首、頁尾、焦點、選取色）換成這份規格；各頁的版面由 D2–D5 逐頁搬過來；D6（#76）移除了舊的字級 token（`--text-*`、`--heading-*`、`--bg`），並逐項把這份文件與程式對齊。可操作的 prototype：https://claude.ai/artifact/CGEcTzN71uWR6Et4Czr2Un 。產品脈絡（誰在用、語氣、不做的事）在同目錄的 `PRODUCT.md`，這裡只談視覺。
 
 ## Overview
 
@@ -133,6 +142,7 @@ components:
 不做的視覺：行銷頁的大型動效、計數器、浮在畫面上的固定按鈕、標題上方的小標（eyebrow）、軌道線與星芒等裝飾、漸層文字、玻璃霧化。
 
 **Key Characteristics:**
+
 - 深色三段夜空＋一張淺色信紙，信紙是唯一的亮面。
 - 金色用在五種地方，不多不少（見 The Moonlight Rule）。
 - 明體寫信、黑體做介面；一欄 680px，文字靠左。
@@ -144,11 +154,13 @@ components:
 一套深色：夜空三段漸層、米白的字、一張暖白信紙，加上一抹金色。
 
 ### Primary
+
 - **月光金** (gold)：主按鈕底色、焦點框、導覽目前頁底線、首頁標題第二行、月亮。在三段夜空上 8.3–10.8:1。
 - **金上墨** (on-gold)：金色按鈕上的字（9.0:1）。
 
 ### Neutral
-- **夜空頂、夜空、夜空底** (night-top → night → night-low)：頁面背景由上到下的漸層；`night` 也是目前 `--bg` 的值。右上角疊一層很淡的金色月光暈，六顆 1–1.5px 的細星。
+
+- **夜空頂、夜空、夜空底** (night-top → night → night-low)：頁面背景由上到下的漸層。右上角疊一層很淡的金色月光暈，六顆 1–1.5px 的細星。
 - **月下白** (ink)：主要文字，在夜空上 10.8–14.0:1。
 - **霧灰** (muted)：次要文字、說明、未選的 chips 字，在夜空上 6.4–8.4:1。
 - **信紙** (paper) 與 **信紙墨** (paperink)：信紙底與上面的字（9.5:1）。
@@ -159,14 +171,16 @@ components:
 - **細線** (line) 與 **信紙細線** (paper-line)：分隔線，只做裝飾，不用來標示可點的東西。
 - **夜幕** (backdrop)：對話框（隱私說明、確認框）背後的遮罩，加 7px 模糊；對話框本身用夜空底 (night-low) 與控制項邊線。
 - **警示** (danger)：只用在不可復原的動作，例如永久刪除（7.9–10.3:1）。
-- **警示底** (danger-surface)：寫信頁送出錯誤的底色，配警示色邊框；上面的月下白字 10.8:1。
+- **警示底** (danger-surface)：錯誤訊息的底色（寫信頁送出錯誤、頁首的錯誤通知），配警示色邊框；上面的月下白字 10.8:1。
+- **卡片底** (surface) 與 **滑過底** (hover)：卡片、容器的極淡白底；ghost 與 danger 按鈕滑過時的底。
 
 ### Named Rules
-**The Moonlight Rule.** 金色只用在五個地方：主按鈕、焦點框、導覽目前頁底線、首頁標題第二行、月亮。其他東西想變顯眼，用大小與位置，不用金色。
+
+**The Moonlight Rule.** 金色是夜裡唯一的光，只用在這些地方：主按鈕、焦點框與滑過時的邊線、導覽目前頁底線、首頁標題第二行、月亮與月牙、文字連結與文字按鈕（例如「完整資料使用說明」「重新選擇寫法」）、少數小節標題（隱私說明的小標、首頁「怎麼運作」的三步）、管理頁唯一需要注意的提示（「7 天內到期」的數字、409 註記）。狀態標籤、卡片、內文都不用金色；其他東西想變顯眼，用大小與位置。
 
 **The One Bright Surface Rule.** 畫面上只有信紙是亮的。卡片、輸入欄、對話框都是深色。
 
-**The No Raw Hex Rule.** 元件 CSS 不寫色碼，一律用 token。新顏色先加進 `styles/tokens.css` 並在這裡寫明用途與對比值。
+**The No Raw Hex Rule.** `styles/tokens.css` 以外的 CSS 不寫顏色值（`#hex`、`rgb()`、`hsl()`、`white` 等具名色；`transparent`、`currentColor` 可以），一律用 token，沒有例外清單（`tests/no-raw-hex.mjs`）。新顏色先加進 `styles/tokens.css` 並在這裡寫明用途與對比值。
 
 ## Typography
 
@@ -176,8 +190,9 @@ components:
 **Character:** 明體是信的聲音：標題、信文、品牌字。黑體是網站的聲音：導覽、說明、表單、按鈕。兩者不混用在同一個角色裡。
 
 ### Hierarchy
+
 - **Display**（400，44px，手機 30px，行高 1.55）：只有首頁標題。
-- **Headline**（400，32px，手機 26px，行高 1.5）：每頁的頁面標題。
+- **Headline**（400，32px，手機也是 32px，行高 1.5）：每頁的頁面標題。
 - **Title**（400，24px，行高 1.5）：區段標題。
 - **Letter**（400，18px，行高 2.05）：信文。一欄 680px，約每行 32 字；段距 1.15em。
 - **Body**（400，16px，行高 1.85）：介面內文、按鈕、輸入欄。
@@ -187,6 +202,7 @@ components:
 例外只有一個：**品牌字「Ring letter」**（明體 21px）。它是標誌，不是內文級數，不在 4＋3 級裡，也不給其他元素用。導覽連結桌機用 Body 16px，手機用 Body small 14px，以便四個連結在 320px 寬也排得下。
 
 ### Named Rules
+
 **The Two Voices Rule.** 信的字用明體，網站的字用黑體。按鈕、表單、說明不用明體。
 
 **The Balanced Heading Rule.** 標題用 `text-wrap: balance`，段落用 `text-wrap: pretty`，避免一行只剩一兩個字。
@@ -210,70 +226,85 @@ components:
 整體是平的，只有信紙浮起來。
 
 ### Shadow Vocabulary
+
 - **信紙**（`box-shadow: 0 2px 6px #0003, 0 28px 64px #0007`）：信紙與首頁的信紙插圖。近的一層給邊緣，遠的一層給「放在夜裡」的距離。
-- 其他元件沒有陰影。卡片與對話框用 `line` 細線和深色底區分。
+- 其他元件沒有陰影。卡片用 `line` 細線和卡片底區分；對話框用夜空底與控制項邊線。
 
 **The Only Paper Floats Rule.** 陰影只給信紙。
 
 ## Shapes
 
-- **膠囊**（999px）：按鈕、chips。
+- **膠囊**（999px）：按鈕、chips、狀態標籤。
 - **欄位**（6px）：輸入欄、下拉選單。
-- **容器**（8px）：同意框、回饋框、管理頁卡片、摘要列。
-- **標籤**（4px，虛線邊）：「尚未開放」。虛線只用來表示「還不能用」：未開放的入口、勾同意前的回饋 chips。
+- **容器**（8px）：同意框、回饋框、卡片（我的片段、管理頁）、摘要列、狀態訊息、對話框。
+- **標籤**（4px，虛線邊）：「尚未開放」。虛線只用來表示「還不能用」：未開放的入口、停用的按鈕與 chips。唯一的例外是信的附記（「現在回頭看」）上緣的虛線。
 - **信紙**：直角，不加圓角，像真的紙。
 
 ## Components
 
 ### Buttons
+
 - **Shape:** 膠囊（999px），高 48px；管理頁的列內按鈕高 44px。
 - **Primary:** 月光金底、金上墨字，左右 24px；需要方向時加一個 16px 的繪製箭頭圖示（不用 →、↗ 字元）。一個畫面最多一個主按鈕。
 - **箭頭圖示與按鈕名稱：** 圖示是 `aria-hidden` 的 SVG，所以按鈕的無障礙名稱不含箭頭。例如現在的「留下這封信 →」會變成「留下這封信」，「先讀一封 →」會變成「先讀一封」。哪個 PR 把字元換成圖示，就要在 PR 內文列出名稱變了的按鈕，並在同一個 PR 更新 e2e 的斷言（`getByRole("button", { name: … })` 等）。
 - **Ghost:** 透明底、月下白字、控制項邊線。
-- **Danger:** 透明底、警示色字與邊框，只給不可復原的動作，而且一定經過確認框。
+- **Danger:** 透明底、警示色字與邊框，Body small 14px、高 44px，只給不可復原的動作，而且一定經過確認框。
+- **Text:** 月光金字、沒有框，Body small 14px，至少 44×44px。給次要的動作（「重新選擇寫法」「取消」「回報這篇有問題」）。
+- **Disabled:** 邊線改虛線、拿掉底色、字改霧灰（文字按鈕的字變霧灰），不靠透明度。要等訪客做了什麼才會啟用的按鈕，旁邊一行說明怎麼啟用並以 `aria-describedby` 指向它（例如回饋框的「勾選上面的同意後…」）；只在送出中暫時停用的不另加說明，頁面上已有「正在處理…」或「正在儲存…」。
 - **Hover / Focus:** 背景或邊框顏色 0.2 秒過渡。焦點是 2px 月光金外框、間距 3px。
 
 ### Chips
+
 - **Style:** 44px 膠囊，透明底、控制項邊線、霧灰字。
 - **State:** 按下時月下白實心、夜空字，並帶 `aria-pressed="true"`。停用時邊線改虛線，旁邊一行文字說明怎麼啟用（例如「勾選上面的同意後，就可以選一個」），不只靠變淡。
 - 手機上一排放不下時，整排橫向捲動，右緣淡出，提示還有更多。
 
 ### Cards / Containers
+
 - **Corner Style:** 8px。
 - **Background:** 夜空上用極淡的白（約 2%）或透明，以 `line` 細線圍起。
 - **Shadow Strategy:** 沒有陰影（見 Elevation）。
 - **Internal Padding:** 16–24px。
+- **我的片段卡片**（與管理頁共用 `OwnStory`）：狀態標籤 → 信封一行 → 標題（Title 24px）→ 正文（明體 16px）→ 分享切換 → 撤回。狀態標籤是 13px 膠囊、月下白字、控制項邊線，不是按鈕。
+- **狀態訊息**（頁首的通知與錯誤）：8px 容器、至少 48px 高；通知用夜空底＋控制項邊線，錯誤用警示底＋警示色邊框，關閉鈕是 44px 的繪製 ✕。
 
 ### Inputs / Fields
+
 - **Style:** 輸入欄底、控制項邊線、6px 圓角、至少 48px 高；多行輸入至少 180px。
 - **Focus:** 2px 月光金外框。
 - **Error:** 錯誤訊息用 `role="alert"`，放在送出按鈕下方；欄位本身不變紅。
 - **字數**：Label 字級、等寬數字，靠右。
 
 ### Checkbox rows
-- 整列可點、至少 44px 高；20px 勾選框、`accent-color` 月光金。
+
+- 整列可點、至少 44px 高；20px 勾選框、`accent-color` 月光金；文字 Body small 14px、月下白。
 - 同意文字逐字照 `components/write/ConsentFields.tsx`，不摺疊、不縮小。寫信頁三項同意放在一個標題為「分享與資料」的容器裡。
 
 ### Navigation
+
 - 品牌字（明體 21px，唯一的字級例外，見 Typography）加一個月牙。主導覽四個連結，Body 16px（手機 Body small 14px）、霧灰，至少 44px 高。
 - 目前頁：月下白字＋2px 月光金底線，並帶 `aria-current="page"`。膠囊形狀留給 chips，導覽不用。
 - 頁首第一個 Tab 停點是「跳到主要內容」。
 
 ### Letter paper（signature）
+
 - 信紙底、信紙墨字、Letter 字級；內距桌機 40/48px、手機 28/22px；手機上保留左右邊緣，不滿版。
 - 上方是夜空上的「信封一行」：來源（範例信或真人投稿）、年份（範例信加「範例設定」）、情境，用 Label 字級。
 - 信紙內依序：當時情境（Body small、信紙淡墨，下方細線）→ 正文 → 附記（虛線上緣）→「有回應到我」。按下後變成墨色實心並加 ✓，下方出現原有的說明「這個選擇只留在這次頁面中，尚未送出或儲存」（`role="status"`）；按下前不加新文案。
 - 換信時信紙淡入並落下 6px：0.6 秒，`cubic-bezier(.16,1,.3,1)`。換信後焦點移到信紙。
 
 ### Not-open tag
+
 - 13px、虛線 4px 框、跟著所在位置的文字色。緊跟在入口名稱後面，例如「留下回音｜尚未開放」。未開放的入口是文字，不是按鈕。
 
 ### Help lines
+
 - 讀一封信、寫一封信、隱私說明的頁底：一行說明加三個專線連結（安心專線 1925、生命線 1995、張老師 1980），每個連結至少 44px 高。
 
 ## Do's and Don'ts
 
 ### Do:
+
 - **Do** 讓所有可點目標至少 44px（`qa.spec` 不留例外）。
 - **Do** 用 token 寫每一個顏色，並在本文件寫明新顏色的對比值。內文 ≥ 4.5:1，控制項邊框與焦點框 ≥ 3:1。
 - **Do** 把下一步放在內容之後（The Read First Rule）。
@@ -281,6 +312,7 @@ components:
 - **Do** 字體自託管，依 unicode-range 分片；除了 Turnstile，不連任何外部資源。
 
 ### Don't:
+
 - **Don't** 新增第三種動效。只有換信與 0.2 秒的顏色過渡。
 - **Don't** 在標題上方放小標（eyebrow）。
 - **Don't** 用 `position: fixed` 或 `sticky` 把行動按鈕固定在畫面上。

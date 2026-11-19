@@ -48,7 +48,6 @@ button {
   cursor: pointer;
 }
 button:disabled {
-  opacity: 0.45;
   cursor: not-allowed;
 }
 /* Only while a request is in flight (lib/use-action.ts sets data-busy). */
@@ -103,7 +102,7 @@ p {
 /* Form fields. `.check` (utilities.css) is the checkbox row, styled separately. */
 label:not(.check) {
   display: block;
-  font-size: var(--text-md);
+  font-size: var(--type-label);
   margin-bottom: var(--space-2);
   color: var(--ink);
 }
@@ -118,7 +117,7 @@ select {
   border-radius: var(--radius-field);
   padding: 13px 15px;
   min-height: 48px;
-  font-size: var(--text-lg);
+  font-size: var(--type-body);
   margin-bottom: 22px;
 }
 /* A select is one line: 48px like the fields, whatever the font's line box

@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { LetterType } from "../../lib/stories";
+import Arrow from "../common/Arrow";
 import styles from "./ModeChooser.module.css";
 
 /**
@@ -36,7 +37,7 @@ function ModeCard({
         onClick={() => onChoose(mode)}
         aria-labelledby={`${id}-action ${id}-title`}
       >
-        <span id={`${id}-action`}>{action}</span> <span aria-hidden="true">→</span>
+        <span id={`${id}-action`}>{action}</span> <Arrow />
       </button>
     </div>
   );
