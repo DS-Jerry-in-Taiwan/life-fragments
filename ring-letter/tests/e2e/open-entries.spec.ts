@@ -62,7 +62,7 @@ test("not open: the care note no longer points at the unopened form", async ({ p
 test("submit: 留下這封信 → (not ↗)", async ({ page, context }) => {
   await page.goto("/write?mode=present");
   await hydrated(page);
-  await expect(page.getByRole("button", { name: "留下這封信 →" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "留下這封信", exact: true })).toBeVisible();
   expect(await page.locator("body").innerText()).not.toContain("↗");
   // Opening the form started a writing attempt; leave no data behind.
   await eraseSession(context);

@@ -68,7 +68,7 @@ test.describe("200% zoom (640 × 400 at 2×)", () => {
     await page.getByLabel("現在的感覺").fill("平靜");
     await page.getByRole("checkbox", { name: /我已滿 18 歲，內容是我的真實經歷/ }).check();
     await page.getByRole("checkbox", { name: /我了解團隊可閱讀投稿/ }).check();
-    const send = page.getByRole("button", { name: "留下這封信 →" });
+    const send = page.getByRole("button", { name: "留下這封信", exact: true });
     // Centred: scrollIntoViewIfNeeded stops at a fractional edge (1.85 line heights).
     await send.evaluate((el) => el.scrollIntoView({ block: "center" }));
     await expect(send).toBeInViewport({ ratio: 1 });
@@ -611,13 +611,10 @@ for (const [label, viewport] of Object.entries(WIDTHS)) {
           `[targets] ${state.name} ${viewport.width} UNDER 44: ` +
             (small.map((t) => `${t.name} ${t.width}×${t.height}`).join(" | ") || "none"),
         );
-        // Under 24px (WCAG 2.2 AA 2.5.8's minimum) only these two link-styled
-        // buttons, which pass 2.5.8 by its spacing exception (axe's
-        // target-size rule, a11y.spec.ts, checks that); reported in #39.
-        const UNDER_24 = /^button (完整資料使用說明|《.*》)$/;
-        expect(
-          found.filter((t) => (t.height < 24 || t.width < 24) && !UNDER_24.test(t.name)),
-        ).toEqual([]);
+        // Nothing under 24px (WCAG 2.2 AA 2.5.8's minimum), no exceptions:
+        // 完整資料使用說明 (v3 D5) and the admin's 《…》 title buttons (D4) are
+        // 44px now. D6 (#76) raises this to 44.
+        expect(found.filter((t) => t.height < 24 || t.width < 24)).toEqual([]);
       });
     }
   });

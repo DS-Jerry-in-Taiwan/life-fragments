@@ -35,7 +35,10 @@ export function PrivacyCheckbox() {
 
 export default function ConsentFields({ onOpenPrivacy }: { onOpenPrivacy: () => void }) {
   return (
-    <div className={styles.consent}>
+    // DESIGN.md (D-11 A): the consent, gathered in one box under its own
+    // heading, never folded away. The wording is CONSENT_VERSION's.
+    <fieldset className={styles.consent}>
+      <legend>分享與資料</legend>
       <ShareCheckbox optional />
       <p>
         <span className="sentence">未勾選時不會公開，管理團隊仍可閱讀。</span>
@@ -48,6 +51,6 @@ export default function ConsentFields({ onOpenPrivacy }: { onOpenPrivacy: () => 
       <button type="button" className={styles.inlineLink} onClick={onOpenPrivacy}>
         完整資料使用說明
       </button>
-    </div>
+    </fieldset>
   );
 }

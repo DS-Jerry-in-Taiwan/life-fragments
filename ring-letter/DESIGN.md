@@ -17,6 +17,7 @@ colors:
   field: "#0b1820"
   placeholder: "#93a1a8"
   danger: "#f2b8a8"
+  danger-surface: "#3a2a2a"
   line: "#ffffff17"
   backdrop: "#06131be6"
   paper-line: "#2f3b4126"
@@ -158,6 +159,7 @@ components:
 - **細線** (line) 與 **信紙細線** (paper-line)：分隔線，只做裝飾，不用來標示可點的東西。
 - **夜幕** (backdrop)：對話框（隱私說明、確認框）背後的遮罩，加 7px 模糊；對話框本身用夜空底 (night-low) 與控制項邊線。
 - **警示** (danger)：只用在不可復原的動作，例如永久刪除（7.9–10.3:1）。
+- **警示底** (danger-surface)：寫信頁送出錯誤的底色，配警示色邊框；上面的月下白字 10.8:1。
 
 ### Named Rules
 **The Moonlight Rule.** 金色只用在五個地方：主按鈕、焦點框、導覽目前頁底線、首頁標題第二行、月亮。其他東西想變顯眼，用大小與位置，不用金色。

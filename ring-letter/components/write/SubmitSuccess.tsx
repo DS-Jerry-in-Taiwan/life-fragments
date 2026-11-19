@@ -1,3 +1,4 @@
+import Arrow from "../common/Arrow";
 import NavButton from "../shell/NavButton";
 import styles from "./SubmitSuccess.module.css";
 
@@ -9,7 +10,7 @@ export default function SubmitSuccess({
 }) {
   return (
     <div className={styles.success}>
-      <span>✦</span>
+      <span className={styles.moon} aria-hidden="true" />
       <h2 ref={headingRef} tabIndex={-1}>
         你的文字已留下。
       </h2>
@@ -18,7 +19,7 @@ export default function SubmitSuccess({
       </p>
       <p>這台裝置會記得你一年，共用裝置請記得到「我的片段」登出。</p>
       <NavButton to="/mine" className="primary">
-        查看我的片段 →
+        查看我的片段 <Arrow />
       </NavButton>
     </div>
   );

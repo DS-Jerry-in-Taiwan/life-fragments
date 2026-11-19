@@ -1,19 +1,39 @@
+/* The 分享與資料 box (DESIGN.md Checkbox rows): every consent in one place, unfolded. */
 .consent {
-  border-top: 1px solid var(--line);
-  padding-top: 22px;
+  margin: var(--space-6) 0 0;
+  padding: var(--space-2) var(--space-6) var(--space-4);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-container);
+  min-width: 0;
 }
+.consent legend {
+  padding: 0 var(--space-2);
+  margin-left: calc(var(--space-2) * -1);
+  font-size: var(--type-body);
+  color: var(--ink);
+}
+/* The note under the share box: 13px (write.spec), lined up with the label text. */
 .consent > p {
-  font-size: var(--text-md);
+  font-size: var(--type-label);
   color: var(--muted);
-  margin-left: 26px;
+  margin: 0 0 var(--space-3) 32px;
+  line-height: 1.8;
 }
+/* A 44px target (#61 §3.5.1; was 23.6px), still read as a link. */
 .inlineLink {
-  font-size: var(--text-sm);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  font-size: var(--type-small);
   color: var(--gold);
   text-decoration: underline;
+  text-underline-offset: 4px;
 }
 @media (max-width: 640px) {
-  .consent :global(.check) {
-    font-size: var(--text-sm);
+  .consent {
+    padding: var(--space-1) var(--space-4) var(--space-3);
+  }
+  .consent > p {
+    margin-left: 0;
   }
 }
