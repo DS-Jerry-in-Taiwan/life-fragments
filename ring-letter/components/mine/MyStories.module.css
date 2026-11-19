@@ -61,6 +61,10 @@
   .collection {
     padding: var(--space-8) 0 var(--space-12);
   }
+  /* Headline on phones (DESIGN.md Typography), as /read, /archive and /write. */
+  .intro h1 {
+    font-size: 26px;
+  }
   .empty {
     padding: var(--space-8) var(--space-5);
   }

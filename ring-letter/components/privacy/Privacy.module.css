@@ -66,6 +66,12 @@
   letter-spacing: normal;
   line-height: 1.6;
 }
+/* Headline on phones (DESIGN.md Typography), as the other pages. */
+@media (max-width: 640px) {
+  .page h1 {
+    font-size: 26px;
+  }
+}
 .modal a {
   color: var(--gold);
 }
